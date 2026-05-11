@@ -1,0 +1,112 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # PR runs share a group keyed on the PR ref so a force-push cancels the
+  # stale older run. push:main runs are keyed by SHA so back-to-back
+  # squash-merges don't cancel earlier post-merge canary runs — the
+  # invariant "main is always known-green" requires every commit on main
+  # to keep its CI record.
+  group: ci-${{ github.ref }}-${{ github.event_name == 'push' && github.sha || 'pr' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  backend-checks:
+    # Pin to the current major rather than `ubuntu-latest` so a GitHub
+    # auto-bump to a future major doesn't silently shift the runner image.
+    # Dependabot's github-actions ecosystem will surface major bumps via PR.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          # CI only verifies (never pushes). Strip the persisted GITHUB_TOKEN
+          # from the cloned repo's .git/config to remove unused write surface.
+          persist-credentials: false
+
+      - uses: ./.github/actions/read-python-version
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b  # v8.1.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+          # Authenticated GitHub API requests pull uv interpreter downloads
+          # under the 5000/hr per-token rate limit instead of the shared
+          # 60/hr unauthenticated pool. macOS runners share an outbound IP
+          # pool that frequently exhausts the unauthenticated bucket; same
+          # rationale applies to ubuntu when it lands on a hot IP.
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: uv sync --frozen --dev
+
+      - name: Lockfile freshness check
+        run: uv lock --check
+
+      - name: Lint
+        run: uv run ruff check src tests
+
+      - name: Format check
+        run: uv run ruff format --check src tests
+
+      - name: Type check
+        run: uv run mypy src tests
+
+      - name: Tests
+        run: uv run pytest -q
+
+      - name: Dependency CVE scan
+        # Strict mode: any advisory on any pinned dep fails CI. Escape
+        # hatches if a real CVE blocks merge: (a) `--ignore-vuln <GHSA-id>`
+        # with a comment and time-bound, or (b) bump the dep's minimum
+        # version in pyproject.toml to the fixed release.
+        run: uv run pip-audit --strict
+
+      - name: Secret scan
+        # Symmetric with the pre-commit detect-secrets hook so a Dependabot-
+        # bypass push (e.g., the lockfile-sync workflow's automated commit)
+        # cannot land a leaked secret on main without surfacing.
+        run: |
+          set -euo pipefail
+          git ls-files | grep -vF '.secrets.baseline' | \
+            xargs uv run detect-secrets-hook --baseline .secrets.baseline
+
+  darwin-checks:
+    # macOS arm64 is the production target (Mac Mini M4). This job verifies
+    # wheel resolution + import succeed there before merge.
+    runs-on: macos-15
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/read-python-version
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b  # v8.1.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: uv sync --frozen --dev
+
+      - name: Smoke tests (import + entrypoint)
+        # Smoke-only — catches arm64 wheel resolution failures for docling,
+        # rapidocr-onnxruntime, modelscope, and any future native-extension
+        # dep before it bites in production.
+        run: uv run pytest -q tests/test_smoke.py
