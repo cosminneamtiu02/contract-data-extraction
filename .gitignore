@@ -29,11 +29,24 @@ dist/
 
 # Editor / OS
 .DS_Store
+Thumbs.db
 .idea/
-.vscode/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
 *.swp
 *.swo
 
 # Local environment
 .env
-.env.local
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# Additional tooling caches (preempt phase 2+)
+.import_linter_cache/
+
+# Claude Code per-machine state (transcripts, worktrees, etc.)
+.claude/
