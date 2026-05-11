@@ -36,6 +36,8 @@ dev = [
     "types-pyyaml",
     "types-jsonschema",
     "pre-commit>=4.0",
+    "pip-audit>=2.7",
+    "detect-secrets>=1.5",
 ]
 
 [tool.uv]
