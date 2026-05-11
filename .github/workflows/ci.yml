@@ -71,7 +71,10 @@ jobs:
         # hatches if a real CVE blocks merge: (a) `--ignore-vuln <GHSA-id>`
         # with a comment and time-bound, or (b) bump the dep's minimum
         # version in pyproject.toml to the fixed release.
-        run: uv run pip-audit --strict
+        # --skip-editable excludes the local project package itself
+        # (`extraction-service`, installed by uv in editable mode) which
+        # is not on PyPI and not the audit target.
+        run: uv run pip-audit --strict --skip-editable
 
       - name: Secret scan
         # Symmetric with the pre-commit detect-secrets hook so a Dependabot-
