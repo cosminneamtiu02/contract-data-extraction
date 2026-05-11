@@ -1,0 +1,185 @@
+# Regenerate uv.lock on Dependabot PRs.
+#
+# WHY: Dependabot's uv support has a known parity bug with its pnpm
+# equivalent: it bumps pyproject.toml but does not regenerate uv.lock.
+# `uv sync --dev` papers over the gap at runtime, but the committed
+# lockfile drifts. CI's `uv lock --check` step would then fail every
+# Dependabot PR. This workflow detects the drift, runs `uv lock`, and
+# pushes the fix back to the PR branch.
+#
+# SETUP (one-time, after this lands on main):
+#   1. Create a fine-grained PAT scoped to this repo with:
+#         Contents:        Read and write
+#         Pull requests:   Read and write
+#   2. gh secret set DEPENDABOT_LOCKFILE_SYNC_PAT --app dependabot --body "<PAT>"
+#      (--app dependabot is REQUIRED: Dependabot-triggered workflows only
+#       read secrets from the Dependabot store.)
+#   3. gh variable set DEPENDABOT_LOCKFILE_SYNC_ENABLED --body "true"
+#
+# Until step 3, the workflow runs on every PR but no-ops cleanly.
+#
+# WHY A PAT (not GITHUB_TOKEN): pushes authenticated by GITHUB_TOKEN do
+# NOT trigger new workflow runs (anti-recursion protection). Without a
+# PAT, the lockfile-fix push would advance the PR head but no CI would
+# fire, leaving required status checks attached to the old, broken
+# commit. A PAT looks like a normal user and re-triggers CI normally.
+
+name: Dependabot lockfile sync
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  # The `action` suffix segregates `opened` from `synchronize` so an
+  # unrelated sync doesn't cancel the regenerator that fired on initial
+  # open.
+  group: dependabot-lockfile-sync-${{ github.event.pull_request.number }}-${{ github.event.action }}
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    if: >
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      github.event.pull_request.draft == false &&
+      vars.DEPENDABOT_LOCKFILE_SYNC_ENABLED == 'true'
+    steps:
+      - name: Verify PAT is configured
+        env:
+          PAT: ${{ secrets.DEPENDABOT_LOCKFILE_SYNC_PAT }}
+        run: |
+          set -euo pipefail
+          if [ -z "$PAT" ]; then
+            echo "::error::DEPENDABOT_LOCKFILE_SYNC_PAT secret is not set, but DEPENDABOT_LOCKFILE_SYNC_ENABLED variable is 'true'. Either create a fine-grained PAT (Contents:RW, Pull requests:RW) and save it as DEPENDABOT_LOCKFILE_SYNC_PAT in the Dependabot secret store, or disarm with: gh variable set DEPENDABOT_LOCKFILE_SYNC_ENABLED --body 'false'"
+            exit 1
+          fi
+
+      - name: Checkout PR branch
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          # Shallow fetch sized for typical Dependabot rebase chains. A
+          # fail-safe further down surfaces a clear "bump fetch-depth"
+          # error if a PR's ancestry runs deeper.
+          fetch-depth: 50
+          token: ${{ secrets.DEPENDABOT_LOCKFILE_SYNC_PAT }}
+
+      - uses: ./.github/actions/read-python-version
+
+      - name: Guard against self-triggered loops
+        id: loop_guard
+        run: |
+          set -euo pipefail
+          LAST_AUTHOR=$(git log -1 --format='%ae' HEAD)
+          LAST_SUBJECT=$(git log -1 --format='%s' HEAD)
+          echo "Last commit author email: $LAST_AUTHOR"
+          echo "Last commit subject: $LAST_SUBJECT"
+          # Two independent guards: the user-id check is the fast path,
+          # the commit-subject check is the durable fallback.
+          if echo "$LAST_AUTHOR" | grep -qF "41898282+github-actions"; then
+            echo "Last commit is from github-actions[bot]; skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          elif echo "$LAST_SUBJECT" | grep -qF "chore(deps): regenerate lockfile after dependabot bump"; then
+            echo "Last commit subject matches this workflow's own message; skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Detect if pyproject.toml changed
+        id: changed
+        if: steps.loop_guard.outputs.skip != 'true'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          echo "Diffing $BASE_SHA..$HEAD_SHA"
+
+          if ! git rev-parse --verify "$BASE_SHA" >/dev/null 2>&1; then
+            echo "::error::base SHA $BASE_SHA not present in fetched history; bump fetch-depth on the checkout step."
+            exit 1
+          fi
+          if ! git rev-parse --verify "$HEAD_SHA" >/dev/null 2>&1; then
+            echo "::error::head SHA $HEAD_SHA not present in fetched history; bump fetch-depth on the checkout step."
+            exit 1
+          fi
+
+          CHANGED=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          echo "Changed files:"
+          echo "$CHANGED"
+
+          NEEDS_UV=false
+          if echo "$CHANGED" | grep -qE '^pyproject\.toml$'; then
+            NEEDS_UV=true
+          fi
+
+          echo "needs_uv=$NEEDS_UV" >> "$GITHUB_OUTPUT"
+
+          if [ "$NEEDS_UV" = "false" ]; then
+            echo "pyproject.toml not changed; nothing to regenerate."
+          fi
+
+      - name: Set up uv
+        if: steps.loop_guard.outputs.skip != 'true' && steps.changed.outputs.needs_uv == 'true'
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b  # v8.1.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+          python-version: ${{ env.PYTHON_VERSION }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Regenerate uv.lock
+        if: steps.loop_guard.outputs.skip != 'true' && steps.changed.outputs.needs_uv == 'true'
+        run: uv lock
+
+      - name: Commit and push lockfile update
+        if: steps.loop_guard.outputs.skip != 'true'
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          # Pin C locale so the non-fast-forward discriminator below lands
+          # the English error message regardless of runner-image LANG.
+          LANG: C
+          LC_ALL: C
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if [ -f uv.lock ]; then
+            git add uv.lock
+          fi
+
+          if git diff --cached --quiet; then
+            echo "No lockfile changes to commit."
+            exit 0
+          fi
+
+          echo "Lockfile changes:"
+          git diff --cached --stat
+
+          git commit \
+            -m "chore(deps): regenerate lockfile after dependabot bump" \
+            -m "Automated follow-up commit from .github/workflows/dependabot-lockfile-sync.yml."
+
+          # `--force-with-lease=<ref>:<sha>` bounds the push to the same
+          # head this run started from. If Dependabot rebases the PR
+          # mid-execution, the lease check fails and the push is rejected.
+          push_status=0
+          push_output=$(git push --force-with-lease="$HEAD_REF:$HEAD_SHA" 2>&1) || push_status=$?
+          if [ "$push_status" != 0 ]; then
+            if echo "$push_output" | grep -qE "non-fast-forward|stale info"; then
+              echo "Concurrent push or upstream rebase detected; another lockfile-sync run will reconcile."
+              exit 0
+            fi
+            echo "$push_output"
+            exit "$push_status"
+          fi
+          echo "$push_output"
