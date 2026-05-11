@@ -41,7 +41,7 @@ PR opens against main only after the rebase. Per user's PR-based phase integrati
   CODEOWNERS                                # 1 line: *  @cosminneamtiu02
   dependabot.yml                            # pip + github-actions + pre-commit ecosystems
   actions/
-    read-python-version/action.yml          # composite — reads .python-version → $GITHUB_ENV
+    read-python-version/action.yml          # composite — reads .python-version → step output (python-version)
   workflows/
     ci.yml                                  # backend-checks (ubuntu-24.04) + darwin-checks (macos-15)
     codeql.yml                              # matrix: language ∈ {python, actions}
@@ -193,7 +193,7 @@ Steps:
 1. **Verify PAT.** Read `DEPENDABOT_LOCKFILE_SYNC_PAT` from env; if empty, emit `::error::` with remediation instructions and exit 1. Without this, a missing PAT silently degrades to "the workflow runs but never pushes."
 2. **Checkout PR branch** with `ref: ${{ github.event.pull_request.head.ref }}`, `fetch-depth: 50` (enough for typical Dependabot rebase chains; fail-safe checks for missing BASE/HEAD SHAs further down), `token: ${{ secrets.DEPENDABOT_LOCKFILE_SYNC_PAT }}`.
 3. **Composite read-python-version** (same as CI).
-4. **Loop guard.** Inspect `git log -1 HEAD`. Skip the rest of the run if last commit author email matches `41898282+github-actions` OR last commit subject matches `chore(deps): regenerate lockfiles after dependabot bump`. Two independent guards: the user-id check is the fast path; the commit-subject check is the durable fallback. Either match short-circuits — prevents recursion when our own push fires the next `synchronize` event.
+4. **Loop guard.** Inspect `git log -1 HEAD`. Skip the rest of the run if last commit author email matches `41898282+github-actions` OR last commit subject matches `chore(deps): regenerate lockfile after dependabot bump`. Two independent guards: the user-id check is the fast path; the commit-subject check is the durable fallback. Either match short-circuits — prevents recursion when our own push fires the next `synchronize` event.
 5. **Detect manifest change.** `git diff --name-only $BASE_SHA $HEAD_SHA` looking for `pyproject.toml`. Fail-safe: if either SHA is missing from history (fetch-depth too shallow on a long-history PR), emit `::error::` with a "bump fetch-depth" message rather than silently no-op'ing.
 6. **Set up uv** (only if manifest changed; same setup-uv action + version pin as CI).
 7. **Regenerate lockfile.** `uv lock` at repo root.
@@ -494,3 +494,16 @@ The same panel review surfaced several additional issues that landed on the `cho
 - `.gitattributes` `uv.lock merge=union` reduces lockfile conflict noise
 - `check-toml` pre-commit hook added
 - MIT `LICENSE` added; declared in pyproject `license` + `license-files`
+
+### 17.5. Pass-2 panel re-run on post-#3 main (`chore/panel-review-fixes-pass-2`)
+
+A second pass of the 20-agent panel against `main` after PR #3 merged surfaced one substantive convergent finding and several doc/code cleanups. Items landed on the `chore/panel-review-fixes-pass-2` branch:
+
+- **Dependabot `update-types` consistency.** PR #3 applied `update-types: [patch, minor]` only to pip groups. Pass-2 lenses 01, 10, 12, 20 independently flagged that `github-actions-stack` and `pre-commit-tools` groups were left exposed to the same major-bump auto-merge gap. Filter now applied to all three ecosystems.
+- **`hypothesis` Dependabot grouping.** Was ungrouped (no `update-types` guard at all); now in the `pytest` group.
+- **Spec/plan doc accuracy.** Stale `$GITHUB_ENV` references in spec §3 inventory comment, plan Task 6.2 code block, plan Task 8.1/8.2/11.1 call-sites, and the plan file-structure header — all updated to match the actual `$GITHUB_OUTPUT` implementation. `docs/plan.md §5.1` pyproject sample updated to include `license` / `license-files`, `warn_unreachable`, `pip-audit`, `detect-secrets`, and the `PT` ruff family.
+- **§4.4 typo.** Loop-guard description said `"chore(deps): regenerate lockfiles after dependabot bump"` (plural); implementation uses singular `lockfile`. Spec aligned to singular.
+- **`__all__: list[str] = []` removed from `__init__.py`.** PR #3 added it on Pass-1 Lens 06's recommendation; Pass-2 Lens 07 flagged it as premature — an empty `__all__` silently masks symbols added later unless someone updates the list. Docstring now documents the deliberate omission until real public exports exist.
+- **`PT` (flake8-pytest-style) ruff rule family added.** Cheap to add against the current 2-test suite; would have produced a noisy retroactive diff once tests grow.
+- **`test_smoke.py` tautology comments.** Module docstring now records that the assertions are intentionally tautological at this phase, preventing re-litigation on future review cycles.
+- **`permissions: {}` on `dependabot-lockfile-sync.yml` sync job.** Defense-in-depth: this job authenticates pushes via the PAT, not GITHUB_TOKEN; the explicit empty block makes that intent explicit and prevents inheritance by future steps.

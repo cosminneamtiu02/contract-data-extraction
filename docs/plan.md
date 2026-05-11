@@ -570,6 +570,8 @@ build-backend = "hatchling.build"
 name = "extraction-service"
 version = "0.1.0"
 description = "Local HTTP service for German legal contract extraction"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.115",
@@ -600,6 +602,8 @@ dev = [
     "types-pyyaml",
     "types-jsonschema",
     "pre-commit>=4.0",
+    "pip-audit>=2.7",
+    "detect-secrets>=1.5",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -610,7 +614,7 @@ line-length = 100
 target-version = "py313"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP", "ASYNC", "PIE", "SIM", "RET", "ARG", "PTH", "TID", "T20", "RUF", "C4", "FURB"]
+select = ["E", "F", "I", "B", "UP", "ASYNC", "PIE", "SIM", "RET", "ARG", "PTH", "TID", "T20", "RUF", "C4", "FURB", "PT"]
 ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
@@ -622,6 +626,7 @@ quote-style = "double"
 [tool.mypy]
 python_version = "3.13"
 strict = true
+warn_unreachable = true
 mypy_path = "src"
 plugins = ["pydantic.mypy"]
 

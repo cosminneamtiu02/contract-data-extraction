@@ -1,4 +1,10 @@
-"""Smoke test for the extraction_service package layout."""
+"""Smoke tests for the extraction_service package layout.
+
+These assertions are intentionally tautological at this phase — they verify
+only that the package installs and that the entry point is callable. Real
+behavior-asserting tests land alongside the production code starting in
+Phase 1 (see docs/plan.md §6.3).
+"""
 
 
 def test_extraction_service_is_importable() -> None:

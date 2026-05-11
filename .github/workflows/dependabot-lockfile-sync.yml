@@ -45,6 +45,11 @@ jobs:
   sync:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    # Explicit empty permissions block: this job authenticates pushes via the
+    # DEPENDABOT_LOCKFILE_SYNC_PAT (a fine-grained PAT), not the workflow's
+    # GITHUB_TOKEN. Setting `permissions: {}` here makes that intent explicit
+    # and guards against a future step quietly relying on inherited scopes.
+    permissions: {}
     if: >
       github.event.pull_request.user.login == 'dependabot[bot]' &&
       github.event.pull_request.draft == false &&

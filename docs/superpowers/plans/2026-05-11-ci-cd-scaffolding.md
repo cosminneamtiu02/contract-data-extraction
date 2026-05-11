@@ -19,7 +19,7 @@
   CODEOWNERS                                  # 1 line: *  @cosminneamtiu02
   dependabot.yml                              # pip + github-actions + pre-commit ecosystems
   actions/
-    read-python-version/action.yml            # composite — reads .python-version → $GITHUB_ENV
+    read-python-version/action.yml            # composite — reads .python-version → step output (python-version)
   workflows/
     ci.yml                                    # backend-checks (ubuntu-24.04) + darwin-checks (macos-15)
     codeql.yml                                # matrix: language ∈ {python, actions}
@@ -269,26 +269,35 @@ Create `.github/actions/read-python-version/action.yml`:
 
 ```yaml
 name: Read Python version from .python-version
-description: |
-  Reads the project's pinned Python interpreter version from `.python-version`
-  at the repo root and writes it to `$GITHUB_ENV` as `PYTHON_VERSION` for
-  subsequent steps. `set -euo pipefail` + an empty-string check turns a
-  missing `.python-version` into a loud `::error::` annotation rather than a
-  silent unpinned interpreter. `working-directory: .` is REQUIRED because a
-  calling job may set a job-level `defaults.run.working-directory` to a
-  subdirectory; `.python-version` only exists at the repo root.
+description: >
+  Reads the project's pinned Python interpreter version from .python-version
+  at the repo root and emits it as the python-version step output.
+  Callers should give this step an id (e.g. id: pyver) and reference the value
+  through the step's outputs.python-version. set -euo pipefail plus an
+  empty-string check turns a missing or empty .python-version into a loud
+  error annotation rather than a silent unpinned interpreter.
+  working-directory:. is REQUIRED because a calling job may set a job-level
+  defaults.run.working-directory to a subdirectory; .python-version only
+  exists at the repo root. Action descriptions are parsed for template
+  expressions, so the literal $-curly expression syntax is elided here.
+
+outputs:
+  python-version:
+    description: The Python interpreter version read from .python-version.
+    value: ${{ steps.read.outputs.python-version }}
 
 runs:
   using: composite
   steps:
     - name: Read .python-version
+      id: read
       working-directory: .
       shell: bash
       run: |
         set -euo pipefail
         v=$(tr -d '[:space:]' < .python-version)
         [ -n "$v" ] || { echo "::error::.python-version is empty or missing"; exit 1; }
-        echo "PYTHON_VERSION=$v" >> "$GITHUB_ENV"
+        echo "python-version=$v" >> "$GITHUB_OUTPUT"
 ```
 
 - [ ] **Step 6.3: Pre-commit + commit**
@@ -468,7 +477,8 @@ jobs:
           # from the cloned repo's .git/config to remove unused write surface.
           persist-credentials: false
 
-      - uses: ./.github/actions/read-python-version
+      - id: pyver
+        uses: ./.github/actions/read-python-version
 
       - name: Install uv
         uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b  # v8.1.0
@@ -481,7 +491,7 @@ jobs:
           # pool that frequently exhausts the unauthenticated bucket; same
           # rationale applies to ubuntu when it lands on a hot IP.
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ steps.pyver.outputs.python-version }}
 
       - name: Install dependencies
         run: uv sync --frozen --dev
@@ -527,7 +537,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: ./.github/actions/read-python-version
+      - id: pyver
+        uses: ./.github/actions/read-python-version
 
       - name: Install uv
         uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b  # v8.1.0
@@ -535,7 +546,7 @@ jobs:
           enable-cache: true
           cache-dependency-glob: uv.lock
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ steps.pyver.outputs.python-version }}
 
       - name: Install dependencies
         run: uv sync --frozen --dev
@@ -787,7 +798,8 @@ jobs:
           fetch-depth: 50
           token: ${{ secrets.DEPENDABOT_LOCKFILE_SYNC_PAT }}
 
-      - uses: ./.github/actions/read-python-version
+      - id: pyver
+        uses: ./.github/actions/read-python-version
 
       - name: Guard against self-triggered loops
         id: loop_guard
@@ -849,7 +861,7 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: uv.lock
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ steps.pyver.outputs.python-version }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Regenerate uv.lock
