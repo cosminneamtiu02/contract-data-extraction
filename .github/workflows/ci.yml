@@ -68,14 +68,21 @@ jobs:
         run: uv run pytest -q
 
       - name: Dependency CVE scan
-        # Strict mode: any advisory on any pinned dep fails CI. Escape
-        # hatches if a real CVE blocks merge: (a) `--ignore-vuln <GHSA-id>`
-        # with a comment and time-bound, or (b) bump the dep's minimum
-        # version in pyproject.toml to the fixed release.
+        # Default pip-audit behavior fails CI on any CVE found in the
+        # audited deps — exactly the "loud signal on any advisory" gate
+        # this step is here to provide. We do NOT pass --strict because
+        # that flag ALSO fails on unauditable packages, which trips on
+        # the local editable 'extraction-service' package even with
+        # --skip-editable in some pip-audit versions.
+        #
         # --skip-editable excludes the local project package itself
-        # (`extraction-service`, installed by uv in editable mode) which
-        # is not on PyPI and not the audit target.
-        run: uv run pip-audit --strict --skip-editable
+        # (installed by uv in editable mode, not on PyPI, not the audit
+        # target).
+        #
+        # Escape hatches if a real CVE blocks merge: (a) `--ignore-vuln
+        # <GHSA-id>` with a comment and time-bound, or (b) bump the
+        # dep's minimum version in pyproject.toml to the fixed release.
+        run: uv run pip-audit --skip-editable
 
       - name: Secret scan
         # Symmetric with the pre-commit detect-secrets hook so a Dependabot-
