@@ -455,7 +455,7 @@ Phase 0.5 is config-only — no application code to unit-test. Verification is o
 - Coverage gate in CI (re-enable `--cov` once domain code lands).
 - `import-linter` architecture contracts (depends on domain layout, lands with Phase 1 or Phase 2).
 - `automerge.md` operational doc (only if inline rationale becomes unwieldy).
-- `CLAUDE.md` (user-deferred; revisit when collaboration patterns crystallize).
+- ~~`CLAUDE.md` (user-deferred; revisit when collaboration patterns crystallize).~~ **Resolved** in §17.6.
 - E2E test job in CI (the locked plan §6.8 marks E2E as manual-only; honor that).
 - `TEMPLATE_FRICTION.md`-style upstream-bug tracker (no template forks here).
 
@@ -507,3 +507,18 @@ A second pass of the 20-agent panel against `main` after PR #3 merged surfaced o
 - **`PT` (flake8-pytest-style) ruff rule family added.** Cheap to add against the current 2-test suite; would have produced a noisy retroactive diff once tests grow.
 - **`test_smoke.py` tautology comments.** Module docstring now records that the assertions are intentionally tautological at this phase, preventing re-litigation on future review cycles.
 - **`permissions: {}` on `dependabot-lockfile-sync.yml` sync job.** Defense-in-depth: this job authenticates pushes via the PAT, not GITHUB_TOKEN; the explicit empty block makes that intent explicit and prevents inheritance by future steps.
+
+### 17.6. `CLAUDE.md` — operating manual for Claude Code
+
+The original `§16` deferral ("CLAUDE.md — user-deferred; revisit when collaboration patterns crystallize") is now resolved. After two panel-review rounds (PRs #3 and #4), the project has a stable, opinionated code-review methodology — the 20-lens parallel panel — plus a set of triage rules and verification conventions that future sessions (and future contributors) should not have to re-derive. [`CLAUDE.md`](../../../CLAUDE.md) at repo root codifies:
+
+- Project context (one paragraph, pointers to deeper docs)
+- The 20-lens panel: roster, dispatch mechanics, per-lens prompt template, multi-pass review framing
+- Synthesizer rules: demote-aggressively, promote-convergence, inter-lens-disagreement-resolution, reverse-prior-fixes-when-justified
+- Triage rules: **cosmetic-always-applies**, narrow defer bucket (only "needs later-phase code to exist" qualifies), explicit skip cases
+- Implementation flow: branch-from-main → fix → verify → conventional-commit groups → PR → no local merge
+- Verification gate: exact local commands that must pass before commit, including wheel-build inspection when package metadata changes
+- Project-state guardrails: README is user-restricted, deviation log goes in spec §17, default branch is `main`
+- When NOT to use the panel (trivial PRs → single-agent review; cloud-billed deep reviews → `/ultrareview`)
+
+`CLAUDE.md` is loaded automatically by Claude Code at session start. Other AI assistants with similar conventions (`AGENTS.md`, `GEMINI.md`) can read the same file; this project does not maintain separate copies.
