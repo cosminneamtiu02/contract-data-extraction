@@ -1,0 +1,52 @@
+# Auto-merge Dependabot PRs once all required status checks pass.
+#
+# Kill switch:
+#   gh variable set DEPENDABOT_AUTOMERGE_ENABLED --body "true"   # arm
+#   gh variable set DEPENDABOT_AUTOMERGE_ENABLED --body "false"  # disarm
+#
+# `gh pr merge --auto --squash` is only safe when the main branch ruleset
+# has required status checks. Without them, --auto has nothing to wait for
+# and merges immediately, even if CI is red. Required checks (set on the
+# ruleset, NOT here): backend-checks, darwin-checks, CodeQL / Analyze
+# (python), CodeQL / Analyze (actions).
+
+name: Dependabot auto-merge
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  # A new synchronize event supersedes the pending merge-intent attempt
+  # from the previous event.
+  group: dependabot-automerge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  automerge:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      # Job-level scopes minted only when the if: evaluates true. gh pr
+      # merge --auto calls the enablePullRequestAutoMerge GraphQL mutation
+      # which requires BOTH contents:write AND pull-requests:write.
+      contents: write
+      pull-requests: write
+    # Check the PR author from the event payload (stays dependabot[bot]
+    # for the PR's lifetime). github.actor flips to whoever triggered the
+    # current event — e.g., a human clicking "Update branch" — which would
+    # cause an incorrect skip.
+    if: >
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      github.event.pull_request.draft == false &&
+      vars.DEPENDABOT_AUTOMERGE_ENABLED == 'true'
+    steps:
+      - name: Enable auto-merge
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
