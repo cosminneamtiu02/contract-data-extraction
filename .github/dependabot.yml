@@ -49,6 +49,7 @@ updates:
         patterns:
           - "pytest"
           - "pytest-*"
+          - "hypothesis"
       dev-tools:
         update-types: ["patch", "minor"]
         patterns:
@@ -87,6 +88,7 @@ updates:
       - dependencies
     groups:
       github-actions-stack:
+        update-types: ["patch", "minor"]
         patterns:
           - "actions/*"
           - "astral-sh/*"
@@ -106,5 +108,6 @@ updates:
       - dependencies
     groups:
       pre-commit-tools:
+        update-types: ["patch", "minor"]
         patterns:
           - "*"
