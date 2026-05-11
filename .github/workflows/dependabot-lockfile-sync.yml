@@ -23,6 +23,20 @@
 # PAT, the lockfile-fix push would advance the PR head but no CI would
 # fire, leaving required status checks attached to the old, broken
 # commit. A PAT looks like a normal user and re-triggers CI normally.
+#
+# IDE NOTE — placeholder Actions-store secret:
+#   The VSCode GitHub Actions extension queries only the Actions secret
+#   store, not the Dependabot store, so `secrets.DEPENDABOT_LOCKFILE_SYNC_PAT`
+#   shows a permanent "Context access might be invalid" warning on every
+#   reference (lines 60, 76) unless a same-named secret also exists in the
+#   Actions store. As a workaround we seed a same-named placeholder secret
+#   in the Actions store. That value is NEVER read at runtime: this
+#   workflow only runs on Dependabot-triggered pull_request events, where
+#   secrets resolve exclusively from the Dependabot store. The Actions-store
+#   secret exists purely as an IDE-validation hint. See spec §17.7 and
+#   upstream issue github/vscode-github-actions#108. If the placeholder is
+#   ever read at runtime, authentication will fail loudly — that failure
+#   mode is intentional.
 
 name: Dependabot lockfile sync
 

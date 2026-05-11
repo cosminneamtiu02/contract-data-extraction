@@ -522,3 +522,13 @@ The original `§16` deferral ("CLAUDE.md — user-deferred; revisit when collabo
 - When NOT to use the panel (trivial PRs → single-agent review; cloud-billed deep reviews → `/ultrareview`)
 
 `CLAUDE.md` is loaded automatically by Claude Code at session start. Other AI assistants with similar conventions (`AGENTS.md`, `GEMINI.md`) can read the same file; this project does not maintain separate copies.
+
+### 17.7. IDE warning silenced via placeholder Actions-store secret
+
+The VSCode GitHub Actions extension (`github.vscode-github-actions`) raises a permanent "Context access might be invalid: DEPENDABOT_LOCKFILE_SYNC_PAT" diagnostic on both references in [`.github/workflows/dependabot-lockfile-sync.yml`](../../../.github/workflows/dependabot-lockfile-sync.yml) (lines 60, 76). The diagnostic is correct in the narrow sense that the secret is not in the **Actions** secret store — it lives in the **Dependabot** secret store, which is the only store visible to `pull_request` workflows triggered by `dependabot[bot]`. The extension does not query the Dependabot store and offers no inline-suppression mechanism (upstream: [github/vscode-github-actions#108](https://github.com/github/vscode-github-actions/issues/108) and duplicates).
+
+Accepted workaround: seed a same-named placeholder secret in the Actions store. The placeholder value is non-functional (any push attempting to use it would fail authentication loudly — an intentional failure mode that would surface store-routing bugs immediately rather than masking them). At runtime the workflow continues to read the real PAT from the Dependabot store; the Actions-store value is never read.
+
+- Operational step (one-time): `gh secret set DEPENDABOT_LOCKFILE_SYNC_PAT --body "<placeholder>"` (Actions store, no `--app dependabot` flag).
+- Workflow header documents the duplication so a future maintainer doesn't mistake the Actions-store entry for a live secret or remove it as redundant.
+- Rotation discipline: when the real Dependabot-store PAT is rotated, the Actions-store placeholder does NOT need rotation — it carries no live credential value.
