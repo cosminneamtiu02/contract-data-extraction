@@ -1,21 +1,31 @@
 name: Read Python version from .python-version
 description: |
   Reads the project's pinned Python interpreter version from .python-version
-  at the repo root and writes it to $GITHUB_ENV as PYTHON_VERSION for
-  subsequent steps. set -euo pipefail plus an empty-string check turns a
-  missing .python-version into a loud ::error:: annotation rather than a
-  silent unpinned interpreter. working-directory:. is REQUIRED because a
-  calling job may set a job-level defaults.run.working-directory to a
-  subdirectory; .python-version only exists at the repo root.
+  at the repo root and emits it as the `python-version` step output.
+  set -euo pipefail plus an empty-string check turns a missing or empty
+  .python-version into a loud ::error:: annotation rather than a silent
+  unpinned interpreter. working-directory:. is REQUIRED because a calling
+  job may set a job-level defaults.run.working-directory to a subdirectory;
+  .python-version only exists at the repo root.
+
+  Reference at callsite as: ${{ steps.<id>.outputs.python-version }}.
+  Step outputs (not $GITHUB_ENV) so the GitHub Actions IDE extension can
+  statically validate the reference.
+
+outputs:
+  python-version:
+    description: The Python interpreter version read from .python-version.
+    value: ${{ steps.read.outputs.python-version }}
 
 runs:
   using: composite
   steps:
     - name: Read .python-version
+      id: read
       working-directory: .
       shell: bash
       run: |
         set -euo pipefail
         v=$(tr -d '[:space:]' < .python-version)
         [ -n "$v" ] || { echo "::error::.python-version is empty or missing"; exit 1; }
-        echo "PYTHON_VERSION=$v" >> "$GITHUB_ENV"
+        echo "python-version=$v" >> "$GITHUB_OUTPUT"

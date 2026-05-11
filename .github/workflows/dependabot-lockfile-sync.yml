@@ -70,7 +70,8 @@ jobs:
           fetch-depth: 50
           token: ${{ secrets.DEPENDABOT_LOCKFILE_SYNC_PAT }}
 
-      - uses: ./.github/actions/read-python-version
+      - id: pyver
+        uses: ./.github/actions/read-python-version
 
       - name: Guard against self-triggered loops
         id: loop_guard
@@ -132,7 +133,7 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: uv.lock
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ steps.pyver.outputs.python-version }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Regenerate uv.lock
