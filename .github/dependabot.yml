@@ -5,11 +5,15 @@
 #   - fastapi-stack: fastapi + starlette + uvicorn + standard transitives
 #   - pydantic:      pydantic + pydantic-settings (lockstep releases)
 #   - pytest:        pytest + plugins (aligned releases)
-#   - dev-tools:     ruff + mypy + pip-audit + detect-secrets + types-* + hatchling + pyyaml
-#   - runtime-singletons: structlog + httpx + ollama + jsonschema
+#   - dev-tools:     ruff + mypy + pip-audit + detect-secrets + types-* + hatchling
+#   - runtime-singletons: structlog + httpx + ollama + jsonschema + pyyaml
 #   - ml-stack:      docling + rapidocr-onnxruntime + modelscope (heavy transitive trees)
 #
-# update-types filters intentionally omitted so MAJOR bumps stay grouped.
+# `update-types: [patch, minor]` on every pip group: a green-CI MAJOR bump
+# would otherwise be eligible for the auto-merge workflow without human
+# review. Major bumps now arrive as a separate, ungrouped PR per package
+# that requires explicit review (Dependabot opens them outside the
+# `update-types` filter set).
 
 version: 2
 updates:
@@ -27,6 +31,7 @@ updates:
       - dependencies
     groups:
       fastapi-stack:
+        update-types: ["patch", "minor"]
         patterns:
           - "fastapi"
           - "starlette"
@@ -35,14 +40,17 @@ updates:
           - "uvloop"
           - "watchfiles"
       pydantic:
+        update-types: ["patch", "minor"]
         patterns:
           - "pydantic"
           - "pydantic-settings"
       pytest:
+        update-types: ["patch", "minor"]
         patterns:
           - "pytest"
           - "pytest-*"
       dev-tools:
+        update-types: ["patch", "minor"]
         patterns:
           - "ruff"
           - "mypy"
@@ -50,14 +58,16 @@ updates:
           - "detect-secrets"
           - "types-*"
           - "hatchling"
-          - "pyyaml"
       runtime-singletons:
+        update-types: ["patch", "minor"]
         patterns:
           - "structlog"
           - "httpx"
           - "ollama"
           - "jsonschema"
+          - "pyyaml"
       ml-stack:
+        update-types: ["patch", "minor"]
         patterns:
           - "docling"
           - "rapidocr-onnxruntime"
