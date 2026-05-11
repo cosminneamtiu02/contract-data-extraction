@@ -1,0 +1,14 @@
+# Normalize line endings
+* text=auto eol=lf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.onnx binary
+
+# Lock files (collapse in PR diffs; tracked but not human-reviewed)
+uv.lock linguist-generated=true -diff
