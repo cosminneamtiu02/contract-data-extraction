@@ -14,7 +14,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: codeql-${{ github.ref }}-${{ github.event_name == 'push' && github.sha || 'pr' }}
+  # Distinct suffix per event_name so a Monday 06:00 UTC scheduled scan and a
+  # concurrent PR scan don't collapse into the same group and cancel each
+  # other (the short-circuit `github.event_name == 'push' && github.sha || 'pr'`
+  # otherwise routes `schedule` into the `pr` bucket).
+  group: codeql-${{ github.ref }}-${{ github.event_name == 'push' && github.sha || github.event_name == 'schedule' && 'scheduled' || 'pr' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -38,13 +42,13 @@ jobs:
           persist-credentials: false
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
+        uses: github/codeql-action/init@68bde559dea0fdcac2102bfdf6230c5f70eb485e  # v4
         with:
           languages: ${{ matrix.language }}
           # Default query suite ("security"). No paths-ignore on day one;
           # revisit if signal-to-noise becomes problematic.
 
       - name: Perform CodeQL analysis
-        uses: github/codeql-action/analyze@v4
+        uses: github/codeql-action/analyze@68bde559dea0fdcac2102bfdf6230c5f70eb485e  # v4
         with:
           category: "/language:${{ matrix.language }}"

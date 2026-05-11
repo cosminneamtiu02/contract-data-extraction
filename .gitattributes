@@ -10,5 +10,8 @@
 *.pdf binary
 *.onnx binary
 
-# Lock files (collapse in PR diffs; tracked but not human-reviewed)
-uv.lock linguist-generated=true -diff
+# Lock files (collapse in PR diffs; tracked but not human-reviewed).
+# `merge=union` reduces merge conflicts when two PRs add different deps —
+# git takes the union of both sides instead of marking conflicts. The
+# resulting file is then re-canonicalized by the lockfile-sync workflow.
+uv.lock linguist-generated=true -diff merge=union

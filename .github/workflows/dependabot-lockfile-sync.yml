@@ -141,7 +141,12 @@ jobs:
         run: uv lock
 
       - name: Commit and push lockfile update
-        if: steps.loop_guard.outputs.skip != 'true'
+        # Symmetric with the preceding regen steps so we only run git plumbing
+        # when there's a chance of an actual lockfile diff. The `git diff
+        # --cached --quiet` check below still guards an empty commit, but the
+        # tighter `if:` prevents a future-added side-effect from running on
+        # non-pyproject PRs.
+        if: steps.loop_guard.outputs.skip != 'true' && steps.changed.outputs.needs_uv == 'true'
         env:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           HEAD_REF: ${{ github.event.pull_request.head.ref }}

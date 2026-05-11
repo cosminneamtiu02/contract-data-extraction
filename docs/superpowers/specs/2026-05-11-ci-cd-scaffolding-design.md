@@ -3,7 +3,7 @@
 **Date:** 2026-05-11
 **Branch:** `phase-0.5-ci-cd`
 **Worktree:** `.worktrees/phase-0.5-ci-cd/`
-**Predecessor:** `phase-0-scaffolding` (awaiting PR; this branch is based off `master` and will need a rebase onto the merged main before its own PR opens)
+**Predecessor:** `phase-0-scaffolding` (historical note: this design doc was written before Phase 0 merged. Phase 0 has since merged via PR #1; the rebase noted in §2 below was performed before PR #2 opened.)
 **Scope:** Bring the GitHub-side gates online (CI, CodeQL, Dependabot auto-merge, Dependabot lockfile sync), add the supporting Dependabot config, CODEOWNERS, secret-scanning baseline, editor/git-attribute housekeeping, and expand `.gitignore` + `.pre-commit-config.yaml`. No application code changes. No CLAUDE.md.
 
 ## 1. Goal and non-goals
@@ -79,15 +79,15 @@ cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 Steps, in order:
 1. `actions/checkout@<sha>` with `persist-credentials: false` — CI only verifies, never pushes, so we strip the persisted token from `.git/config`.
-2. `./.github/actions/read-python-version` — composite action; writes `PYTHON_VERSION` to `$GITHUB_ENV`.
-3. `astral-sh/setup-uv@<sha>` with `enable-cache: true`, `cache-dependency-glob: uv.lock`, `github-token: ${{ secrets.GITHUB_TOKEN }}` (authenticated rate limit), `python-version: ${{ env.PYTHON_VERSION }}`.
+2. `./.github/actions/read-python-version` — composite action with `id: pyver`; emits `python-version` as a **step output** (see §5 for the API contract; the implementation uses `$GITHUB_OUTPUT` instead of the originally-specified `$GITHUB_ENV` — accepted deviation, see §17.1).
+3. `astral-sh/setup-uv@<sha>` with `enable-cache: true`, `cache-dependency-glob: uv.lock`, `github-token: ${{ secrets.GITHUB_TOKEN }}` (authenticated rate limit), `python-version: ${{ steps.pyver.outputs.python-version }}`.
 4. `uv sync --frozen --dev` — installs everything pinned in `uv.lock` plus the `dev` dependency group.
 5. **Lockfile freshness:** `uv lock --check` — fails if `pyproject.toml` drifted from `uv.lock`. Symmetric with the `dependabot-lockfile-sync` workflow's role.
 6. **Lint:** `uv run ruff check src tests`.
 7. **Format check:** `uv run ruff format --check src tests`.
 8. **Type check:** `uv run mypy src tests` (strict mode pinned in `pyproject.toml`).
 9. **Tests:** `uv run pytest -q`. **No `--cov` flag** — coverage gate deferred until later phases.
-10. **CVE scan:** `uv run pip-audit --strict`. Strict mode: any advisory on any pinned dep fails CI. Acceptable noise cost for correct posture; bump or pin around it.
+10. **CVE scan:** `uv run pip-audit --skip-editable`. Default pip-audit fails CI on any CVE. **Accepted deviation from the original plan's `--strict`** (see §17.2): `--strict` also fails on unauditable packages, which trips on the local editable `extraction-service` package even with `--skip-editable` in some pip-audit versions. The default behavior still surfaces all CVEs; only the unauditable-package edge case is relaxed.
 11. **Secret scan:** run `detect-secrets-hook --baseline .secrets.baseline <files>` against `git ls-files` minus the baseline itself. Symmetric with the pre-commit hook so a Dependabot-bypass commit (e.g., the lockfile-sync workflow's automated push) can't sneak a leaked secret onto main. Exact bash form is an implementation detail — anchor regex for the baseline-exclusion is the only subtle part, and `grep -F` is the safe primitive.
 
 **Job `darwin-checks` on `macos-15` (timeout: 10 min).** macOS arm64 is the production target (Mac Mini M4); this job verifies wheel resolution + import succeed there before merge. The example's example-folder darwin job validates a launchd plist via `plutil`; this project has no plist yet, so the smoke-install variant is the right shape.
@@ -211,7 +211,9 @@ The `--app dependabot` flag is what targets the Dependabot store; Dependabot-tri
 
 ## 5. Composite action: `.github/actions/read-python-version/action.yml`
 
-Reads `.python-version` (single-line `3.13`) at repo root, writes `PYTHON_VERSION` to `$GITHUB_ENV` for subsequent steps. Composite-action wrapping keeps the read logic (with `set -euo pipefail` and an explicit empty-string check) in one place; the three callsites (`ci.yml::backend-checks`, `ci.yml::darwin-checks`, `dependabot-lockfile-sync.yml::sync`) each reduce to a single `uses:` line.
+Reads `.python-version` (single-line `3.13`) at repo root and emits `python-version` as a **step output**. Callers give the step an `id` (e.g., `id: pyver`) and reference `${{ steps.pyver.outputs.python-version }}`. Composite-action wrapping keeps the read logic (with `set -euo pipefail` and an explicit empty-string check) in one place; the three callsites (`ci.yml::backend-checks`, `ci.yml::darwin-checks`, `dependabot-lockfile-sync.yml::sync`) each reduce to a single `uses:` line.
+
+> **API change from original plan (§17.1):** the original spec specified `$GITHUB_ENV` (writing `PYTHON_VERSION` as an env var). The implementation uses `$GITHUB_OUTPUT` instead. Step outputs are scoped to the calling job and the step they came from, whereas env vars persist for every subsequent step and could shadow a pre-existing `PYTHON_VERSION`. Accepted as a strict improvement.
 
 `working-directory: .` is required because a calling job may set a job-level `defaults.run.working-directory` to a subdirectory in the future; `.python-version` lives at repo root.
 
@@ -305,6 +307,8 @@ Thumbs.db
 `.claude/` is added explicitly. `.idea/`, `.venv/`, `__pycache__/`, etc. stay from the existing file.
 
 ## 9. `.pre-commit-config.yaml` additions
+
+> **Phase boundary note (§17.3):** the canonical owner of `.pre-commit-config.yaml` is Phase 0.6 (per `docs/plan.md §6.2 task 0.6`). Phase 0.5 deliberately extends that file with the `detect-secrets` and `pre-commit-hooks` blocks below because the symmetric secret-scan gate (local + CI) is part of Phase 0.5's CI/CD scope, not Phase 0.6's local DX scope. The file's full shape after Phase 0.5 is the union of Phase 0.6's initial three local hooks and Phase 0.5's two remote-repo blocks. This is a deliberate, acknowledged overlap, not scope creep.
 
 Existing hooks (local `ruff check` / `ruff format --check` / `mypy`) stay as-is. Append two remote-repo blocks:
 
@@ -454,3 +458,39 @@ Phase 0.5 is config-only — no application code to unit-test. Verification is o
 - `CLAUDE.md` (user-deferred; revisit when collaboration patterns crystallize).
 - E2E test job in CI (the locked plan §6.8 marks E2E as manual-only; honor that).
 - `TEMPLATE_FRICTION.md`-style upstream-bug tracker (no template forks here).
+
+## 17. Accepted deviations recorded post-implementation
+
+These were identified by a 20-agent panel code review after Phase 0.5 merged. They are deliberate departures from this spec, accepted rather than reverted.
+
+### 17.1. Composite action API: `$GITHUB_OUTPUT` instead of `$GITHUB_ENV`
+
+The spec (§5) specified writing `PYTHON_VERSION` to `$GITHUB_ENV`. The implementation emits a step output `python-version` via `$GITHUB_OUTPUT`. Step outputs are scoped to the emitting step and the job that consumes them; env vars persist for every subsequent step and could shadow a pre-existing `PYTHON_VERSION`. The implementation is a strict improvement; the spec text in §4.1 and §5 has been updated to match.
+
+### 17.2. CI pip-audit: `--skip-editable` instead of `--strict`
+
+The spec (§4.1 step 10) specified `--strict`. The implementation uses `--skip-editable` without `--strict`. `--strict` also fails on unauditable packages; the local editable `extraction-service` package is unauditable by definition. Testing confirms `--strict --skip-editable` still fails on the editable package in current pip-audit versions. The default pip-audit behavior still surfaces all CVEs against pinned deps — only the unauditable-package edge case is relaxed. The strict CVE gate the spec required is preserved in substance.
+
+### 17.3. Phase 0.5 extending Phase 0.6's `.pre-commit-config.yaml`
+
+The locked plan (`docs/plan.md §6.2 task 0.6`) designates `.pre-commit-config.yaml` as Phase 0.6's artifact. Phase 0.5 additionally added the `detect-secrets` and `pre-commit-hooks` blocks (see §9) to provide symmetric local-and-CI secret-scan coverage. The overlap is deliberate: secret-scan tooling spans both phases' scopes (local DX + CI gates). Future readers tracing the file's history will see contributions from both phases — this note makes the boundary explicit.
+
+### 17.4. Post-review hardening (separate branch)
+
+The same panel review surfaced several additional issues that landed on the `chore/panel-review-fixes` branch as a follow-up:
+
+- CodeQL action pinned to commit SHA (was mutable `@v4` tag)
+- CodeQL `concurrency:` group disambiguated for `schedule` events
+- Dependabot pip groups gated with `update-types: [patch, minor]` so major bumps require explicit human review (auto-merge guard)
+- `dependabot-lockfile-sync.yml` commit step `if:` tightened to require `needs_uv == 'true'`
+- `[tool.uv] dev-dependencies = []` removed (deprecated, produced warnings on every `uv` invocation)
+- `ruff>=0.9` (was `>=0.7`; 0.9+ has complete Python 3.13 grammar coverage)
+- ruff `C4` + `FURB` rule families added
+- mypy `warn_unreachable = true` added
+- `pyyaml` reclassified from `dev-tools` to `runtime-singletons` Dependabot group (it is a runtime dep)
+- `__all__` declared in `src/extraction_service/__init__.py`; package docstring added
+- `src/extraction_service/py.typed` marker added (PEP 561)
+- `__main__.py` carries an anchor TODO referencing Phase 5 wiring
+- `.gitattributes` `uv.lock merge=union` reduces lockfile conflict noise
+- `check-toml` pre-commit hook added
+- MIT `LICENSE` added; declared in pyproject `license` + `license-files`
