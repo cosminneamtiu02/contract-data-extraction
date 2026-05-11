@@ -596,14 +596,11 @@ dev = [
     "pytest-cov>=6.0",
     "hypothesis>=6.115",
     "mypy>=1.13",
-    "ruff>=0.7",
+    "ruff>=0.9",
     "types-pyyaml",
     "types-jsonschema",
     "pre-commit>=4.0",
 ]
-
-[tool.uv]
-dev-dependencies = []  # use dependency-groups above
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/extraction_service"]
@@ -613,7 +610,7 @@ line-length = 100
 target-version = "py313"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP", "ASYNC", "PIE", "SIM", "RET", "ARG", "PTH", "TID", "T20", "RUF"]
+select = ["E", "F", "I", "B", "UP", "ASYNC", "PIE", "SIM", "RET", "ARG", "PTH", "TID", "T20", "RUF", "C4", "FURB"]
 ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
