@@ -1,0 +1,100 @@
+# Dependabot configuration for the contract-data-extraction project.
+#
+# Scope: pip (single workspace at /), github-actions, pre-commit.
+# Groups batch interlocking package updates into atomic PRs:
+#   - fastapi-stack: fastapi + starlette + uvicorn + standard transitives
+#   - pydantic:      pydantic + pydantic-settings (lockstep releases)
+#   - pytest:        pytest + plugins (aligned releases)
+#   - dev-tools:     ruff + mypy + pip-audit + detect-secrets + types-* + hatchling + pyyaml
+#   - runtime-singletons: structlog + httpx + ollama + jsonschema
+#   - ml-stack:      docling + rapidocr-onnxruntime + modelscope (heavy transitive trees)
+#
+# update-types filters intentionally omitted so MAJOR bumps stay grouped.
+
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /
+    target-branch: main
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    rebase-strategy: auto
+    commit-message:
+      prefix: "chore(deps)"
+      include: scope
+    labels:
+      - dependencies
+    groups:
+      fastapi-stack:
+        patterns:
+          - "fastapi"
+          - "starlette"
+          - "uvicorn*"
+          - "httptools"
+          - "uvloop"
+          - "watchfiles"
+      pydantic:
+        patterns:
+          - "pydantic"
+          - "pydantic-settings"
+      pytest:
+        patterns:
+          - "pytest"
+          - "pytest-*"
+      dev-tools:
+        patterns:
+          - "ruff"
+          - "mypy"
+          - "pip-audit"
+          - "detect-secrets"
+          - "types-*"
+          - "hatchling"
+          - "pyyaml"
+      runtime-singletons:
+        patterns:
+          - "structlog"
+          - "httpx"
+          - "ollama"
+          - "jsonschema"
+      ml-stack:
+        patterns:
+          - "docling"
+          - "rapidocr-onnxruntime"
+          - "modelscope"
+
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: main
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    rebase-strategy: auto
+    commit-message:
+      prefix: "chore(deps)"
+      include: scope
+    labels:
+      - dependencies
+    groups:
+      github-actions-stack:
+        patterns:
+          - "actions/*"
+          - "astral-sh/*"
+          - "github/codeql-action/*"
+
+  - package-ecosystem: pre-commit
+    directory: /
+    target-branch: main
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 1
+    rebase-strategy: auto
+    commit-message:
+      prefix: "chore(deps)"
+      include: scope
+    labels:
+      - dependencies
+    groups:
+      pre-commit-tools:
+        patterns:
+          - "*"

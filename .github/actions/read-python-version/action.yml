@@ -1,0 +1,30 @@
+name: Read Python version from .python-version
+description: >
+  Reads the project's pinned Python interpreter version from .python-version
+  at the repo root and emits it as the python-version step output.
+  Callers should give this step an id (e.g. id: pyver) and reference the value
+  through the step's outputs.python-version. set -euo pipefail plus an
+  empty-string check turns a missing or empty .python-version into a loud
+  error annotation rather than a silent unpinned interpreter.
+  working-directory:. is REQUIRED because a calling job may set a job-level
+  defaults.run.working-directory to a subdirectory; .python-version only
+  exists at the repo root. Action descriptions are parsed for template
+  expressions, so the literal $-curly expression syntax is elided here.
+
+outputs:
+  python-version:
+    description: The Python interpreter version read from .python-version.
+    value: ${{ steps.read.outputs.python-version }}
+
+runs:
+  using: composite
+  steps:
+    - name: Read .python-version
+      id: read
+      working-directory: .
+      shell: bash
+      run: |
+        set -euo pipefail
+        v=$(tr -d '[:space:]' < .python-version)
+        [ -n "$v" ] || { echo "::error::.python-version is empty or missing"; exit 1; }
+        echo "python-version=$v" >> "$GITHUB_OUTPUT"
