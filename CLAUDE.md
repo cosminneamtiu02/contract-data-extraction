@@ -8,38 +8,150 @@ Local single-process HTTP service that ingests scanned German legal contracts, O
 
 Read [docs/plan.md](docs/plan.md) for the full architecture and phase-by-phase plan. Phase progress lives in commits and in [docs/superpowers/specs/](docs/superpowers/specs/).
 
-## Phase development methodology — go-to strategy
+## Phase development methodology — go-to strategy (Superpowers flow)
 
-**When the user asks for phase work** — phrases like "start phase 1", "implement Phase N", "begin phase X", "let's do phase Y", "next phase", or "what's next" when the answer is the next phase per the plan — use the flow below. It applies to every phase in [docs/plan.md §6](docs/plan.md) (Phases 1 → 6; Phase 0 and Phase 0.5 are already shipped on `main`).
+**When the user asks for phase work** — phrases like "start phase 1", "implement Phase N", "begin phase X", "let's do phase Y", "next phase", or "what's next" when the answer is the next phase per the plan — use the full **Superpowers flow** below. It applies to every phase in [docs/plan.md §6](docs/plan.md) (Phases 1 → 6; Phase 0 / Phase 0.5 / Phase 1 are already shipped or in-review on `main`).
+
+The flow has four signature mechanics — TDD, worktree isolation, parallel subagent dispatch, PR creation as user handoff. Use all four; do not down-shift to a serial-in-main-conversation simplification unless the phase has only 1–2 independent tasks (see [When NOT to use](#when-not-to-use-this-methodology)).
 
 ### Why this flow
 
 - **The plan IS the spec.** Each phase in [docs/plan.md §6](docs/plan.md) has a numbered task table listing files, RED tests, and GREEN implementations. Re-brainstorming isn't needed.
-- **TDD is rigid for production code.** Invoke `superpowers:test-driven-development` and follow it: no production code without a failing test first. The plan's task table already lists each task's RED test — execute as written.
-- **The PR is the running workspace.** Open it as `--draft` right after the first task's commit, then push subsequent task commits to the same branch. CI fires on every push, so each task gets a fresh `backend-checks` / `darwin-checks` / CodeQL pass before the next one starts. The user can review commits as they arrive instead of waiting for an end-of-phase dump. Mark "ready for review" only when the whole phase is in. **Never merge locally** — see [memory/feedback_pr_workflow.md](../../.claude/projects/-Users-cosminneamtiu-Work-contract-data-extraction/memory/feedback_pr_workflow.md).
+- **TDD is rigid for production code.** Every task — main-conversation or subagent — follows `superpowers:test-driven-development`: no production code without a failing test first. The plan's RED test column is the contract.
+- **Per-phase git worktree isolates the work.** `./.worktrees/phase-N-<slug>/` is the phase's checkout; the main directory stays on `main` so you can answer review comments on an earlier phase's PR without `git stash` dancing. `.worktrees/` is already in `.gitignore`.
+- **Parallel subagent dispatch is the wall-clock multiplier.** Independent tasks fire in a single message via multiple `Agent` calls; layer dependencies sequentially. With 6+ independent tasks (as Phase 1 had) this saves ~25 minutes per phase.
+- **PR creation is the handoff point.** I run the full local verification gate, push the worktree branch, and open the PR via `gh pr create`. From there the **user** drives every downstream decision: review-comment triage, follow-up commits, marking the PR ready, the actual merge. **Never** `gh pr ready` or `gh pr merge` without explicit instruction. Never merge locally. See [memory/feedback_pr_workflow.md](../../.claude/projects/-Users-cosminneamtiu-Work-contract-data-extraction/memory/feedback_pr_workflow.md).
 
 ### The flow
 
 1. **Identify the phase.** Read its section in [docs/plan.md](docs/plan.md) — §6.3 Phase 1, §6.4 Phase 2, …, §6.8 Phase 6. The task table is the spec.
 
-2. **Sync `main`, cut the branch.** `git checkout main && git pull --ff-only origin main`. Branch name matches the plan's worktree name: `phase-1-domain`, `phase-2-ocr`, `phase-3-llm`, `phase-4-pipeline`, `phase-5-http`, `phase-6-hardening`.
+2. **Sync `main`, cut the worktree.**
+   ```bash
+   git fetch origin
+   git worktree add -b phase-N-<slug> .worktrees/phase-N-<slug> origin/main
+   cd .worktrees/phase-N-<slug>
+   ```
+   The branch name matches the plan: `phase-1-domain`, `phase-2-ocr`, `phase-3-llm`, `phase-4-pipeline`, `phase-5-http`, `phase-6-hardening`. All subsequent commands run from inside the worktree directory.
 
-3. **Track tasks with TodoWrite.** One todo per task in the plan table, plus a final todo "Run full local verification gate, then mark PR ready for review."
+3. **Build the task dependency graph.** For each task in the plan table, list:
+   - The files it touches (e.g., `src/.../stage.py`, `tests/unit/test_domain_stage.py`).
+   - Which earlier tasks it imports from (e.g., 1.3 imports `StageState` from 1.2, so 1.3 depends on 1.2).
+   - Whether it shares any file with another task in the layer (those can't run in parallel — same-file writes race).
 
-4. **Invoke `superpowers:test-driven-development` and follow it per task:**
-   - **RED:** write the failing test(s). Split the plan's compact "X and Y and Z" spec into one-behavior-per-test functions.
-   - **Verify RED:** `uv run pytest tests/unit/<file> -v`. Failure must be "feature missing" (e.g., `ModuleNotFoundError`), not a typo.
-   - **GREEN:** minimum code to pass. No future-task anticipation.
-   - **Verify GREEN:** new tests pass AND the whole suite stays green.
-   - **Full local verification gate** (see [§ Verification gate](#verification-gate-all-must-pass-before-commit) below). Strict-mypy or ruff complaints → restructure the test or code; do not sprinkle `# type: ignore` unless it's genuinely the right tool.
-   - **Commit:** `feat(N.M): <subject>` with HEREDOC body + `Co-Authored-By` footer. **One task = one commit.**
-   - **Push to origin.** Each task's push lands on the open PR; CI runs immediately.
+   Group into **layers** where every task in a layer is independent of every other task in that layer:
+   - **Layer A** = tasks with no plan-internal dependencies AND no file overlap with other Layer A tasks.
+   - **Layer B+** = each layer adds tasks whose dependencies have all landed in earlier layers.
 
-5. **After the first task's commit, open the draft PR.** `git push -u origin phase-N-<slug>`, then `gh pr create --draft --title "feat(phase-N): <phase title>" --body "<task checklist + CI checklist>"`. The PR body lists all 9 (or N) tasks with `- [x]` for the one just landed and `- [ ]` for the rest. Update the checklist as subsequent tasks land — the running PR is the user-visible scoreboard.
+   Example from Phase 1: Layer A = {1.1, 1.2, 1.5, 1.6, 1.7, 1.8, 1.9}; Layer B = {1.3} (touches `stage.py` which 1.2 created); Layer C = {1.4} (imports `StageRecord` from 1.3).
 
-6. **Subsequent tasks** follow step 4's RED→GREEN→commit→push loop. Each push triggers CI on the PR; verify the four required checks (`backend-checks`, `darwin-checks`, both CodeQL jobs) stay green before starting the next task. If CI goes red on a task, fix that task before adding more commits.
+4. **Track tasks with TodoWrite.** One todo per task, plus terminal todos "Run final local verification gate" and "Open PR via gh pr create (HANDOFF — stop after PR is open)."
 
-7. **At phase end:** re-run the full local verification gate one more time. Mark the PR ready: `gh pr ready <PR#>`. User merges via the GitHub UI.
+5. **For each layer, dispatch:**
+
+   **Layer with ≥2 independent tasks** — single assistant message with one `Agent` tool call per task, all running concurrently:
+   - `subagent_type: general-purpose` for every task.
+   - `model: sonnet` unless the task is genuinely Opus-class (rare for a plan-spec'd implementation task).
+   - **No `run_in_background`** — wait for all agents in the layer to return before proceeding. The serial gate runs after the layer.
+   - Prompt template — see [§ Subagent dispatch template](#subagent-dispatch-template) below.
+
+   **Layer with 1 task** — main conversation implements it directly under TDD.
+
+6. **After each layer, run the full local verification gate** from the worktree (see [§ Verification gate](#verification-gate-all-must-pass-before-commit) below). Catches cross-task regressions immediately so layer N+1 doesn't build on rot. If anything is red, fix in the main conversation before dispatching the next layer.
+
+7. **Repeat steps 5–6** for every remaining layer.
+
+8. **Final verification gate.** One more pass of every command in [§ Verification gate](#verification-gate-all-must-pass-before-commit) on the assembled branch.
+
+9. **Push the worktree branch.** `git push -u origin phase-N-<slug>` from inside the worktree.
+
+10. **Open the PR.** `gh pr create --title "feat(phase-N): <phase title>" --body "<standard body>"` with the [standard PR body sections](#conventional-commits--pr-conventions): Summary, What's in this PR (per commit), What's NOT in this PR (rationale), Test plan (local fully checked, CI unchecked — the four required jobs run automatically). **Open it as a ready-for-review PR, not draft** — the work is complete.
+
+11. **STOP. Handoff to user.** Report:
+    - PR URL.
+    - Commit list (one line per task).
+    - Local verification summary.
+    - Open todos: any item you didn't finish, any deviation from the plan, any spec deviation log entry to draft.
+
+    Do not do any of the following without explicit user instruction: `gh pr ready` toggling, follow-up commits, panel review dispatch, addressing CI failures (unless the user asks), responding to PR review comments. **The user drives the post-PR-open phase entirely.**
+
+### Subagent dispatch template
+
+Each `Agent` call for a Layer-A independent task takes a prompt of this shape. Substitute `{N.M}`, `{TASK_DESCRIPTION}`, `{FILES_OWNED}`, `{FILES_FORBIDDEN}`, `{PLAN_SECTION}`, `{WORKTREE_PATH}`:
+
+```
+You are implementing Task {N.M} for the contract-data-extraction project's Phase N.
+
+**Worktree:** {WORKTREE_PATH} — `cd` here first and verify `git rev-parse --abbrev-ref HEAD` returns the phase branch. ALL commands run from inside this worktree.
+
+**Plan reference:** {PLAN_SECTION} of docs/plan.md.
+
+**Your task:** {TASK_DESCRIPTION}
+
+**Files you OWN (read + write):**
+{FILES_OWNED}
+
+**Files you must NOT touch** (other agents own them this layer; commits to them will race):
+{FILES_FORBIDDEN}
+
+**Workflow — rigid TDD per superpowers:test-driven-development:**
+1. Write the failing test(s) first in the test file you own. Split the plan's compact "X and Y and Z" spec into one-behavior-per-test functions.
+2. `unset VIRTUAL_ENV && uv run pytest <your-test-file> -v` — confirm the failure mode is "feature missing" (e.g., ModuleNotFoundError), not a typo in the test.
+3. Write the minimum implementation in the source file you own. No future-task anticipation.
+4. Re-run pytest on your test file. All new tests must pass.
+5. Run the full local verification gate from the worktree:
+   ```
+   unset VIRTUAL_ENV
+   uv run ruff check src tests
+   uv run ruff format --check src tests
+   uv run mypy src tests
+   uv run pytest -q
+   ```
+   Strict-mypy or ruff complaints → restructure the test or code. Do NOT sprinkle `# type: ignore` without a one-line rationale comment on the same line.
+6. `git add <your owned files only>` and commit: `feat({N.M}): <subject>` via HEREDOC body explaining WHY, with `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>` footer. One task = one commit. Do NOT push (the main conversation pushes the whole branch at phase end).
+
+**Project conventions (binding — these override the plan text where they conflict):**
+- `frozen=True` Pydantic models for value objects.
+- `StrEnum` (Python 3.11+) over `(str, Enum)` for string-valued enums.
+- `dict[str, Any]` only at IO boundaries. Every other domain field is concretely typed.
+- Test names describe behavior, not implementation (`test_contract_job_is_frozen` ✓; `test_contract_job_pydantic_config` ✗).
+- One assertion target per test — split tests if the plan compactly lists "asserts X, Y, Z."
+
+**Return:** brief report (≤200 words) — what you implemented, the commit SHA you produced, and any deviation from the plan text with a one-line rationale. If you couldn't complete the task, report the blocker and DO NOT commit partial work.
+```
+
+### Cross-layer reconciliation
+
+Between layers (after step 5, before step 6's gate):
+
+- **No-op in the simple case.** If every agent committed only to files in its `FILES_OWNED` list, the branch is consistent — just run the gate.
+- **If an agent reports a deviation** that affects another's task (e.g., renames a symbol another task imports), revise the next layer's dispatch prompts to match the new name. Do not silently let a later task assume the old name.
+- **If two agents accidentally touched the same file** (broken file-partitioning): rare with a well-built dependency graph. Inspect with `git diff` per commit; rebase/squash to resolve before the next layer. This is a planning mistake — note it in the spec deviation log so the next phase improves the partition.
+
+### Project-wide best practices to apply uniformly
+
+These survive across phases and override the plan text where they conflict with older wording:
+
+- **`frozen=True` Pydantic models** for value objects ([docs/plan.md §4.11](docs/plan.md)). Nested mutables (e.g., a `dict[str, Any]` metadata field) are *not* deep-frozen — note that in the docstring.
+- **`StrEnum` (Python 3.11+) over `class X(str, Enum)`** for string-typed enums. Cleaner `str()` and f-string output for structlog and JSON, identical Pydantic serialization. The plan text predates `StrEnum`; treat its `(str, Enum)` as shorthand.
+- **`dict[str, Any]` only at IO boundaries** (e.g., `ContractJob.metadata`, JSON Schema loader output). Every other domain field is concretely typed.
+- **No `# type: ignore` without a one-line rationale comment** on the same line. Restructure first; ignore only when there's no clean alternative.
+- **Test names describe behavior, not implementation.** `test_contract_job_is_frozen` ✓ ; `test_contract_job_pydantic_config` ✗.
+- **One assertion target per test** — split tests when the plan compactly lists "asserts X, Y, Z."
+
+### Spec deviations
+
+- **Minor deviations** (e.g., `StrEnum` over `(str, Enum)`): note in the commit message body and in the PR body's "Spec deviations" section. No spec doc needed.
+- **Material deviations** (changing a phase's exit criteria, skipping a task, swapping a library): create or append to a phase spec deviation log under [docs/superpowers/specs/](docs/superpowers/specs/). Phase 0.5 uses `2026-05-11-ci-cd-scaffolding-design.md §17`; later phases get their own files when needed.
+
+### When NOT to use this methodology
+
+- **Phases with only 1–2 independent tasks** — parallel-subagent overhead exceeds the coordination cost. Fall back to serial-in-main-conversation TDD inside the worktree.
+- **One-off fixes outside a phase** — direct branch (no worktree, no subagents), no TDD ceremony for trivial doc/config changes.
+- **Panel-review-fix branches** — those follow the [Code review methodology](#code-review-methodology--go-to-strategy) flow (`chore/panel-review-fixes` naming, atomic per-concern commits, no subagent dispatch for the fixes themselves).
+- **Phase 0, Phase 0.5, Phase 1** — already shipped or merged.
+
+For everything matching "implement phase N" where N ≥ 2 — default to this full Superpowers flow.
 
 ### Project-wide best practices to apply uniformly
 
