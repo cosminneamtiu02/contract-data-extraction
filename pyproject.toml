@@ -101,6 +101,16 @@ plugins = ["pydantic.mypy"]
 module = ["docling.*", "rapidocr.*", "modelscope.*"]
 ignore_missing_imports = true
 
+[tool.pydantic-mypy]
+# Defense-in-depth: every domain/config model already uses
+# `model_config = ConfigDict(extra="forbid")` at runtime. `init_forbid_extra`
+# applies the same restriction at constructor call sites statically, so
+# `ContractJob(unknown_kwarg=42)` fails mypy in addition to runtime
+# ValidationError. `warn_required_dynamic_aliases` catches alias names that
+# can't be resolved statically (forward-looking for Phase 5 HTTP models).
+init_forbid_extra = true
+warn_required_dynamic_aliases = true
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 # pytest-asyncio 1.x emits DeprecationWarning when an async fixture is created
