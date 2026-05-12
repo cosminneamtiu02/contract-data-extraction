@@ -330,3 +330,129 @@ comment" — convergence is the signal the filter cannot override.
 If a follow-up pass is desired ("rerun the review"), it would target the
 current branch HEAD (now `d080a40`) and use the loop-mode rules from
 CLAUDE.md.
+
+---
+
+## §17.9 — `asyncio.to_thread` substitution (plan §6.4 task 2.8 wording)
+
+**Plan text:** Task 2.8 GREEN column reads "wrap `.convert()` call in
+`asyncio.wait_for` (Docling is sync; run via `loop.run_in_executor`)". Plan
+§5 architecture note ("Synchronous library calls run via `loop.run_in_executor`")
+restates the same phrase.
+
+**Deviation:** `extract()` uses `asyncio.to_thread(self._converter.convert,
+stream)` instead of `loop.run_in_executor(None, self._converter.convert,
+stream)`. The `asyncio.wait_for` timeout wrap around it is unchanged.
+
+**Why:** `asyncio.to_thread` is the modern Python 3.9+ idiom for offloading
+a sync call to the default thread pool — it is exactly `loop.run_in_executor(None, fn, *args)` with less boilerplate, the same thread-pool semantics, the
+same cancellation behavior (the underlying thread keeps running until the
+sync call returns naturally; asyncio cancels the awaiter, not the thread).
+There is no observable behavior difference. Lens 08 of the cycle-1
+post-merge panel surfaced the verbose form as an idiom regression relative
+to the test file's own `asyncio.to_thread` usage (`test_docling_engine.py`
+already uses `to_thread` for its sync `read_bytes` call), creating an
+in-codebase inconsistency the project's senior-dev filter would normally
+reject. Commit `a4b66b3` applied the substitution. This §17.9 entry
+documents the plan-vs-implementation phrasing gap that was not recorded at
+the time of the commit — closing the audit-trail gap Lens 01 of the
+cycle-1 panel-loop review identified.
+
+Plan §6.4 task 2.8 (and §5) keep their original `loop.run_in_executor`
+phrasing intact (not retroactively rewritten per the deviation-log
+convention); future readers reconciling the plan against the code find this
+§17.9 entry naming the substitution.
+
+---
+
+## §17.10 — Cycle-1 of post-merge panel-loop review
+
+**Pass type:** Loop mode, cycle 1 (HEAD=7c9b1c2, BASE=origin/main=e160593).
+Triggered by user request "review only work resulting from phase 2 ... apply
+on current branch and loop until convergence." 20 lenses dispatched in
+parallel with clean prompts (no carryover from §17.8 — cycle independence).
+19 of 20 returned proper reports; 1 (Lens 02 Commit-message coverage)
+bailed citing a perceived Bash-access issue and was re-dispatched.
+
+**Verdicts (cycle 1):** 7 Yes; 12 With fixes; 0 No (one lens pending at
+synthesis time).
+
+**Hallucinated findings filtered out (4 lenses claiming "main has X, this
+branch is missing X" where direct `git show origin/main:...` verification
+showed main does not have X either):**
+
+- Lens 08: claimed main has `G` (flake8-logging-format) ruff rule. Main's
+  ruff `select` ends at `"ANN"` — verified, G absent.
+- Lens 11: claimed main has `--tb=short` in ci.yml `Tests` step. Main's
+  step runs `uv run pytest -q` — verified, no `--tb=short`.
+- Lens 12: claimed main raised floors to `docling>=2.93`, `fastapi>=0.136`,
+  `uvicorn[standard]>=0.46`, `modelscope>=1.36`, `httpx>=0.28`. Verified
+  main has exactly the same floors as phase-2-ocr (`docling>=2.20`,
+  `fastapi>=0.115`, `uvicorn>=0.32`, `modelscope>=1.20`, `httpx>=0.27`).
+- Lens 18: claimed main has `exclude: '^\\.secrets\\.baseline$'` on the
+  detect-secrets hook. Verified main's hook has no exclude directive.
+
+The probable source of the hallucinations is that some agents read the
+wrong branch when verifying (the user has a separate
+`chore/panel-review-fixes-2026-05-13` branch in the main checkout that
+DOES carry those upgrades). The synthesizer's senior-dev filter caught
+all four false positives via direct `git show origin/main` verification
+before applying any change.
+
+**Fixes applied this cycle (5 Objective items after filter):**
+
+1. (this entry) §17.9 added for `asyncio.to_thread` audit trail — Lens 01
+   Important.
+2. `extract()` now appends `result.errors` detail to the OcrError message
+   when Docling returns a non-SUCCESS `ConversionStatus`, using
+   `getattr(result, "errors", None)` to stay robust across Docling version
+   changes — Lens 05 Important (operator debuggability in production).
+3. Removed the unused session-scoped `ocr_samples_dir` fixture from
+   `tests/ocr/conftest.py`; the `_resolve_samples_dir` helper remains the
+   canonical resolution path, used by `pytest_generate_tests` directly —
+   Lens 14 Important (dead code).
+4. ci.yml `Tests` step now invokes `pytest -q -m "not slow" --cov
+   --cov-fail-under=80`, activating the coverage gate. Phase 0.5 §17.2
+   deferred this to "when non-stub coverage exists" — Phase 2 ships the
+   non-stub OCR layer so the deferral condition is met — Lens 15
+   Important.
+5. `docs/plan.md` §6.4 task table cells for tasks 2.4 / 2.5 / 2.6 now
+   carry inline `(deviation §17.1 / §17.2 / §17.3)` parentheticals
+   pointing readers at this spec file when the original wording mentioned
+   committed sample PDFs — Lens 17 Important (doc sync after divergence).
+
+**Deferred or filtered to drop:**
+
+- Lens 03 Minor (Phase 1 forward-coupling of LlmConfig/RetryConfig) —
+  pre-existing accepted deviation from plan task 1.7; not a Phase 2
+  regression.
+- Lens 04 Minor (Protocol from typing vs collections.abc) — ceremonial
+  cosmetic; senior-dev filter drop.
+- Lens 06 Minors (WORD_RECALL_THRESHOLD placement / build_ocr_engine
+  re-export hint / `_resolve_samples_dir` duplication note) — style
+  observations; filter.
+- Lens 07 Minor (`_ENGINE_NAME` single-use vs `OcrConfig.engine`) —
+  borderline; synthesizer KEEPS the named constant (documentation
+  anchor + Phase 3+ Literal-broadening guardrail).
+- Lens 09 Minors (factory.py TYPE_CHECKING asymmetry / word_recall in
+  conftest style) — style observations; filter.
+- Lens 10 Important (test-fixture env-var path containment) — lens
+  self-deferred as "developer-machine-only, requires env var compromise";
+  filter (defensive against impossible state in scope).
+- Lens 13 Importants/Minors (smoke-mode permissiveness in slow OCR test;
+  test of Pydantic field accessors) — accepted architectural deferral to
+  `scripts/validate_ocr.py` Phase 6 gate; senior-dev filter
+  "testing third-party library behavior" drop on the Pydantic-accessor
+  tests.
+- Lens 16 Important (`isolated_env` + `ocr_samples_dir` coupling) —
+  obsolete after Fix 3 above removed `ocr_samples_dir` entirely.
+- Lens 17 Minor (§17.8 HEAD SHA stale) — historical record, intentionally
+  not retroactively rewritten per the deviation-log convention.
+- Lens 19 Minor (vscode carve-out comment regression) — style
+  observation; filter.
+- Lens 20 Minor (comment drift on `-m "not slow"`) — verified false
+  positive (the ci.yml comment is accurate).
+
+**Loop status:** cycle 1 applied 5 fixes (plus this §17.9/§17.10 audit
+entry). Cycle 2 will fire fresh against the new branch HEAD per the
+cycle-independence rule.
