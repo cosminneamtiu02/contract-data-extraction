@@ -650,7 +650,7 @@ requires-dist = [
     { name = "pydantic-settings", specifier = ">=2.6" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "rapidocr-onnxruntime", specifier = ">=1.4" },
-    { name = "structlog", specifier = ">=24.4" },
+    { name = "structlog", specifier = ">=25.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
 ]
 
