@@ -19,6 +19,7 @@ in ``errors.py`` (Task 1.5).
 
 from datetime import UTC, datetime
 from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, computed_field
 
@@ -42,7 +43,14 @@ class StageError(BaseModel):
 
 
 class StageRecord(BaseModel):
-    """Timing + state for a single pipeline stage. Frozen; use transition methods."""
+    """Timing + state for a single pipeline stage. Frozen; use transition methods.
+
+    The ``extracted`` field is the data-parsing payload: when the LLM stage
+    completes successfully in Phase 4, the worker writes the validated JSON
+    object here (docs/plan.md §3.2 — orchestrator polls and reads
+    ``data_parsing.extracted`` when ``overall_status == "done"``). It is
+    ``None`` on every other stage and before completion.
+    """
 
     model_config = ConfigDict(frozen=True)
 
@@ -50,6 +58,7 @@ class StageRecord(BaseModel):
     started_at: datetime | None = None
     completed_at: datetime | None = None
     error: StageError | None = None
+    extracted: dict[str, Any] | None = None
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -66,11 +75,17 @@ class StageRecord(BaseModel):
             }
         )
 
-    def complete(self, now: datetime | None = None) -> "StageRecord":
+    def complete(
+        self,
+        now: datetime | None = None,
+        *,
+        extracted: dict[str, Any] | None = None,
+    ) -> "StageRecord":
         return self.model_copy(
             update={
                 "state": StageState.DONE,
                 "completed_at": now if now is not None else datetime.now(UTC),
+                "extracted": extracted,
             }
         )
 

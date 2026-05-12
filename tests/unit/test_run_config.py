@@ -151,3 +151,53 @@ def test_load_run_config_raises_when_file_does_not_exist(tmp_path: Path) -> None
 
     with pytest.raises(FileNotFoundError):
         load_run_config(missing)
+
+
+def test_load_yaml_rejects_retry_on_code_that_is_not_a_known_error_code(
+    tmp_path: Path,
+) -> None:
+    """retry_on entries must mirror ExtractionError.code values; typos raise at boot."""
+    cfg = _write_yaml(
+        tmp_path,
+        """\
+        llm:
+          prompt_template_path: /tmp/prompt.txt
+        retry:
+          retry_on:
+            - llm_faild
+        paths:
+          domain_model_path: /tmp/schema.json
+        """,
+    )
+
+    with pytest.raises(ValidationError):
+        load_run_config(cfg)
+
+
+def test_load_yaml_accepts_all_documented_retry_codes(tmp_path: Path) -> None:
+    cfg = _write_yaml(
+        tmp_path,
+        """\
+        llm:
+          prompt_template_path: /tmp/prompt.txt
+        retry:
+          retry_on:
+            - ocr_engine_failed
+            - ocr_empty_output
+            - llm_failed
+            - context_overflow
+            - schema_invalid
+        paths:
+          domain_model_path: /tmp/schema.json
+        """,
+    )
+
+    run_config = load_run_config(cfg)
+
+    assert run_config.retry.retry_on == [
+        "ocr_engine_failed",
+        "ocr_empty_output",
+        "llm_failed",
+        "context_overflow",
+        "schema_invalid",
+    ]

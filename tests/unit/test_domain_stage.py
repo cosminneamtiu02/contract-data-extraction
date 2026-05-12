@@ -122,3 +122,23 @@ def test_stage_record_is_frozen() -> None:
 
     with pytest.raises(ValidationError):
         record.state = StageState.DONE  # type: ignore[misc]
+
+
+def test_stage_record_complete_accepts_extracted_payload() -> None:
+    # data_parsing stage's Phase 4 worker writes the validated JSON here
+    # (docs/plan.md §3.2). Default for non-LLM stages: None.
+    record = StageRecord().start(now=T0)
+
+    finished = record.complete(
+        now=T0 + timedelta(milliseconds=10),
+        extracted={"contract_number": "C-001", "amount_eur": 1000},
+    )
+
+    assert finished.state == StageState.DONE
+    assert finished.extracted == {"contract_number": "C-001", "amount_eur": 1000}
+
+
+def test_stage_record_complete_defaults_extracted_to_none() -> None:
+    record = StageRecord().start(now=T0).complete(now=T0 + timedelta(milliseconds=10))
+
+    assert record.extracted is None

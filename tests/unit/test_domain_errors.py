@@ -23,6 +23,12 @@ def test_base_extraction_error_inherits_from_exception() -> None:
     assert issubclass(ExtractionError, Exception)
 
 
+def test_base_extraction_error_has_sentinel_code() -> None:
+    # A caller that catches the base class must always be able to read .code
+    # to populate a StageError description (docs/plan.md §3.3).
+    assert ExtractionError.code == "extraction_error"
+
+
 @pytest.mark.parametrize(
     ("cls", "expected_code"),
     [

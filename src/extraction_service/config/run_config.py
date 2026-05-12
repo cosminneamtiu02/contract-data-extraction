@@ -17,6 +17,19 @@ from typing import Literal
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, PositiveInt
 
+# Mirrors ExtractionError.code class attributes in extraction_service.domain.errors.
+# Kept as a separate Literal here (rather than importing from errors.py) to avoid
+# a config -> domain dependency and to surface config typos at boot via Pydantic.
+RetryOnCode = Literal[
+    "ocr_engine_failed",
+    "ocr_empty_output",
+    "llm_failed",
+    "context_overflow",
+    "schema_invalid",
+]
+
+_DEFAULT_RETRY_ON: list[RetryOnCode] = ["llm_failed", "schema_invalid"]
+
 
 class OcrConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -36,7 +49,7 @@ class LlmConfig(BaseModel):
 class RetryConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    retry_on: list[str] = Field(default_factory=lambda: ["llm_failed", "schema_invalid"])
+    retry_on: list[RetryOnCode] = Field(default_factory=lambda: list(_DEFAULT_RETRY_ON))
 
 
 class PathsConfig(BaseModel):

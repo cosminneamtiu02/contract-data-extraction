@@ -14,9 +14,14 @@ from typing import ClassVar
 
 
 class ExtractionError(Exception):
-    """Base for all extraction-service domain errors."""
+    """Base for all extraction-service domain errors.
 
-    code: ClassVar[str]
+    Carries a sentinel ``code`` so that a catch-all ``except ExtractionError as e``
+    in Phase 4 worker code can always read ``e.code`` to populate the StageError
+    description even if a future subclass forgets to override.
+    """
+
+    code: ClassVar[str] = "extraction_error"
 
 
 class OcrError(ExtractionError):
