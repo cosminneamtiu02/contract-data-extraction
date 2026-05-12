@@ -617,3 +617,67 @@ Recorded after a third 20-lens panel against `phase-1-domain` at the post-`10a91
 **Item routed to user decision then applied per user direction:**
 
 - **Renamed `src/extraction_service/logging.py` → `src/extraction_service/log_config.py`** (Lens 06 Minor). The original module name shadowed the stdlib `logging` module from inside the `extraction_service` package — any sibling module that wrote `import logging` would have resolved to the project file, not the stdlib. The synthesizer initially routed this to user-decision (no actual shadowing today; senior-dev judgment was "defer to Phase 5"). User opted to pre-empt: "for user decision: fix". The rename touched the source file, the test file (`tests/unit/test_logging.py` → `tests/unit/test_log_config.py` for naming symmetry), the test-file import statement, `tests/conftest.py`'s docstring reference, and three plan.md sections (§5 source tree, §5 tests/unit tree, §6.3 Task 1.9 file path). The new name matches the project's existing `_config` naming convention (`run_config.py`, `domain_model.py`).
+
+### 17.10. Phase 1 panel fourth pass (loop-mode start)
+
+Recorded after the 20-lens panel was re-run against `phase-1-domain` at `9eb7ddf` on 2026-05-12 in **loop mode** — the user's standing direction from this point forward: each subsequent review iteration self-decides the user-decision tier per the senior-dev judgment filter codified in CLAUDE.md and continues until a pass produces zero commits. Commits `c433158..` on the same branch land the pass-4 fixes.
+
+**Applied per senior-dev filter:**
+
+- **Three-lens convergence (strongest signal of the pass)**: `src/extraction_service/domain/__init__.py:8` still referenced `logging.py` after the pass-3 rename. Lens 01 + Lens 09 + Lens 17 all flagged it independently. The pass-3 rename commit (`86b0bf8`) propagated the new name through `tests/conftest.py`, the test file itself, and three `docs/plan.md` sections, but missed the domain-package orientation docstring. Fixed in commit `c433158`.
+
+- **`docs/plan.md §6.3 Task 1.9` RED-test column updated**: the pre-rename function-name predictions (`test_logging_emits_json_in_production_mode`, `test_logging_pretty_in_dev`) never existed in the live test file (`tests/unit/test_log_config.py` uses `test_configure_logging_*` names). Updated to live names so a phase-implementor agent following the task table doesn't hunt for non-existent tests.
+
+- **`encoding="utf-8"` pinned on `path.open()` in `config/run_config.py` and `config/domain_model.py`** (Lens 10). Extends the pattern established in `Settings.env_file_encoding` (commit `0e0c04b`, §17.9) to the other two filesystem-boundary readers. For a German-contract service, locale-dependent decoding of non-ASCII field names is a real failure mode, not preemption.
+
+- **Documentation hardening in `config/run_config.py`, `domain/stage.py`, `domain/errors.py`** (3× Lens 05). `_DEFAULT_RETRY_ON` now carries an inline rationale for omitting `context_overflow` (deterministic on input_size × context_window — retrying without changing one of those reproduces the failure). `stage.py` module docstring states explicitly that transition methods are unguarded against invalid orderings because Phase 4 workers own the sequencing under their lock. `errors.py` docstring corrected: Phase 3 retry policy keys off the `code`-string membership in `RetryConfig.retry_on`, NOT `isinstance(e, LlmError)` — the previous wording would have misled Phase 3 implementors.
+
+- **Test hardening** (Lens 13): split `test_contract_job_raises_when_required_field_missing` into three tests (per project's "one assertion target per test" rule); added `test_overall_status_is_failed_when_intake_failed` to close a derivation-coverage gap. 86 → 89 tests.
+
+- **Pytest infrastructure** (Lens 14, Lens 16):
+  - `addopts` extended with `--import-mode=importlib` (pytest 9.0.3 doesn't accept `import_mode` as an ini key). With `tests/__init__.py` files present, the default `prepend` mode can cause dual-import + silent fixture-identity bugs when a test file is invoked directly. `importlib` mode imports each module once under a stable name.
+  - `filterwarnings` extended with `error::pytest.PytestUnraisableExceptionWarning`. Mirrors the existing `error::DeprecationWarning` rigor; forward-looking for Phase 2-4 worker async-task leakage.
+  - `tests/conftest.py` `isolated_env` switched from a static 10-name `_EXTRACTION_ENV_VARS` tuple to a dynamic `os.environ` prefix scan over `EXTRACTION_`. A future Phase 5+ Settings field auto-extends the clear set with no conftest maintenance.
+
+- **Automation hygiene** (Lens 11, Lens 12, Lens 19, Lens 20):
+  - `.github/dependabot.yml` header comment summary line for `dev-tools` group appended with `pre-commit` (was stale after §17.9's pre-commit addition).
+  - `.github/dependabot.yml` `github-actions-stack` patterns gained a `"*"` catch-all so future actions from new namespaces (docker/*, hashicorp/*, etc.) cannot arrive as ungrouped PRs bypassing the major-bump filter.
+  - `.github/workflows/dependabot-lockfile-sync.yml` line 79 error message synced to the corrected SETUP block (Pull requests scope no longer mentioned; the workflow never calls the PRs API).
+  - `.github/workflows/dependabot-lockfile-sync.yml` setup-uv `github-token` comment rewritten to teach the correct `permissions: {}` semantics: the block grants zero scopes; the secret is still injected as a string for use as an authenticated-identity rate-limit anchor, not for API writes.
+  - `.gitignore` `.vscode/` carve-out comment corrected — the files don't exist yet; the rules are forward-looking stubs, not records of existing shared artifacts.
+
+**Items the senior-dev filter dropped from the panel's recommendations:**
+
+- **`assert_never` re-add in `log_config.py`** (Lens 07). The pass-3 removal (commit `ad1755d`) is in `§17.9`; Lens 07 in pass-4 recommended adding it back on the "untyped caller could raise UnboundLocalError" hypothetical. The codified senior-dev filter's first explicit drop category is exactly this: exhaustiveness guards on closed Literals where the type system already enforces correctness. The "untyped caller" failure mode requires a `cast(Any, ...)` bypass or external code; the project is mypy-strict throughout with no untyped internal callers, and no such bypass exists. Re-versioning a prior-pass decision requires new evidence, not a different stylistic vote.
+
+- **`StageError` rename to `StageFailure`** (Lens 06 Important). The plan deliberately names the data structure `StageError` (§3.2 references "stage.error"; §6.3 Task 1.3 spec lists the field as `error`). Phase 4 worker code does not yet exist, so the predicted confusion at call sites is hypothetical. Blast radius: ≥5 files plus plan + spec edits. Cost-benefit is upside-down today; revisit if Phase 4 actually demonstrates the confusion.
+
+- **`pydantic.mypy` plugin compatibility check** (Lens 04 Important). Lens correctly observed that the plugin is environment-sensitive on mypy 2.1.0 compiled binaries — but ALSO confirmed the plugin IS working in the project's locked environment (`frozen-model attribute-assignment detection is confirmed`). The proposed gate (`python -c "import pydantic.mypy"`) would FAIL on the project's own lockfile per the lens's own diagnosis, so adding the gate would break CI. The plugin works; the failure mode is hypothetical for unsupported environments.
+
+- **`# type: ignore[prop-decorator]` rationale-comment deduplication** (Lens 04 Minor). Lens suggested moving the rationale to a module-level docstring with shorter inline pointers. The project rule is "one-line rationale on the same line", which the current form satisfies. Indirection through "see module docstring" trades local readability for non-local context — the wrong direction.
+
+- **`darwin-checks` running only the smoke test** (Lens 15 Minor). The current scope is an intentional triage call (arm64 wheel-resolution coverage only); the workflow comment signals awareness; broadening to unit tests would add no signal at Phase 1's pure-Python scope.
+
+- **Pre-commit external repos pinned by tag, not SHA** (Lens 18 Minor). Pre-commit community convention is tag-based pinning (managed by `pre-commit autoupdate`); the project's CI SHA-pinning convention applies to GitHub Actions, where mutability semantics differ. Mixing the two pinning styles is appropriate.
+
+- **`ruff-check` / `ruff-format` pre-commit hooks staged-files-only** (Lens 18 Minor). Standard pre-commit DX vs. full-tree CI tradeoff; CI catches anything the staged scope misses.
+
+- **`ruff>=0.9` floor inline comment** (Lens 08 Minor). The lockfile pins 0.15.x; the floor is wide because all selected rule families are stable by 0.9. An inline comment would be cargo cult.
+
+- **`_now_or_default` helper extraction** (Lens 08 Minor). Four occurrences of `x if x is not None else datetime.now(UTC)` is not enough to justify an abstraction.
+
+- **`log_level` / `log_cli` pytest settings** (Lens 14 Minor). Matches defaults; adding settings that mirror defaults is config inflation.
+
+- **`PathsConfig` single-field-wrapper consolidation** (Lens 07 Minor). The lens itself acknowledged the sub-model is fine because operators write `paths:` as a YAML section and Phase 3 will add more path-typed fields under that key.
+
+- **Empty-YAML / invalid-transition / env-var-precedence tests** (Lens 13 Minor x2). Speculative tests for absence-of-behavior the plan does not claim — over-specification.
+
+- **Commit-message stylistic re-versioning on historical commits** (Lens 02 Minor). Immutable history on shared branch.
+
+- **README install instruction drift** (implied by multiple lenses, never raised). README is user-restricted by project convention.
+
+**Loop mode operating posture (new this pass):**
+
+- The user-decision tier is now self-decided in loop mode. No user ask between panel iterations.
+- The loop terminates when a pass produces zero commits.
+- Per-pass commits cluster the lens-derived findings by concern: docs fixes, config hardenings, test improvements, automation hygiene, and a `§17.N` deviation log each iteration.
