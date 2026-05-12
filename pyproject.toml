@@ -83,11 +83,9 @@ target-version = "py313"
 # PL violations in src/; two test-style false positives (PLR2004 magic numbers
 # in assertions set up inline; PLC0415 non-top-level imports in smoke tests
 # where the import IS the behavior under test) suppressed via per-file-ignores.
-# ANN added 2026-05-12 per cycle-2 review (Lens 04): flake8-annotations enforces
-# annotation completeness at lint time, complementing mypy strict at type-check
-# time. Zero current violations in src/ or tests/. Defense-in-depth for later
-# phases where annotation drift could otherwise slip past mypy --no-strict-optional
-# pockets.
+# ANN added 2026-05-12 per cycle-2 review (Lens 04): flake8-annotations catches
+# annotation gaps at lint time, complementing mypy's strict pass with faster
+# developer feedback. Zero current violations. Defense-in-depth for later phases.
 select = ["E", "F", "I", "B", "UP", "ASYNC", "PIE", "SIM", "RET", "ARG", "PTH", "TID", "T20", "RUF", "C4", "FURB", "PT", "EM", "TRY", "TCH", "N", "S", "BLE", "PL", "ANN"]
 ignore = ["E501"]
 
