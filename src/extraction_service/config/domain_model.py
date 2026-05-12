@@ -27,8 +27,11 @@ def load_domain_model(path: Path) -> dict[str, Any]:
     - ``FileNotFoundError``: ``path`` does not exist on disk.
     - ``json.JSONDecodeError``: file contents are not valid JSON.
     - ``jsonschema.exceptions.SchemaError``: JSON is structurally valid
-      but does not conform to JSON Schema (e.g., a non-dict top-level
-      value, or a malformed ``$schema``/``type`` declaration).
+      but does not conform to JSON Schema (e.g., an array or integer at
+      the top level, or a malformed ``$schema``/``type`` declaration).
+      Note: Draft 2020-12 also accepts boolean schemas (``true``/``false``)
+      at the top level, so those values pass meta-validation rather than
+      raising.
     """
     # Pin UTF-8 explicitly: a server running a non-UTF-8 locale would silently
     # mis-decode non-ASCII characters in JSON string values (German field
