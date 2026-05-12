@@ -133,3 +133,54 @@ def test_contract_record_allows_stage_reassignment() -> None:
 
     assert record.ocr.state == StageState.IN_PROGRESS
     assert record.ocr.started_at == T0
+
+
+# --- JSON round-trip ---------------------------------------------------------
+
+
+def test_contract_record_round_trips_through_model_dump_json_when_all_done() -> None:
+    # Exercises overall_status, current_stage, AND nested StageRecord.duration_ms
+    # computed_fields through serialization. Required because the Phase 5 HTTP
+    # response shape returns this exact model to the orchestrator.
+    from datetime import timedelta
+
+    record = ContractRecord(
+        intake=StageRecord(state=StageState.DONE, started_at=T0, completed_at=T0),
+        ocr=StageRecord(
+            state=StageState.DONE,
+            started_at=T0,
+            completed_at=T0 + timedelta(milliseconds=2000),
+        ),
+        data_parsing=StageRecord(
+            state=StageState.DONE,
+            started_at=T0 + timedelta(milliseconds=2000),
+            completed_at=T0 + timedelta(milliseconds=22000),
+            extracted={"contract_number": "C-001"},
+        ),
+    )
+
+    payload = record.model_dump_json()
+    restored = ContractRecord.model_validate_json(payload)
+
+    assert restored == record
+    assert restored.overall_status == "done"
+    assert restored.current_stage is None
+    assert restored.ocr.duration_ms == 2000
+    assert restored.data_parsing.extracted == {"contract_number": "C-001"}
+
+
+def test_contract_record_round_trips_through_model_dump_json_when_failed() -> None:
+    err = StageError(code="schema_invalid", description="missing field")
+    record = ContractRecord(
+        intake=StageRecord(state=StageState.DONE),
+        ocr=StageRecord(state=StageState.DONE),
+        data_parsing=StageRecord(state=StageState.FAILED, error=err),
+    )
+
+    payload = record.model_dump_json()
+    restored = ContractRecord.model_validate_json(payload)
+
+    assert restored == record
+    assert restored.overall_status == "failed"
+    assert restored.current_stage == "data_parsing"
+    assert restored.data_parsing.error == err

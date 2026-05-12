@@ -61,10 +61,12 @@ def test_configure_logging_dev_emits_human_readable_not_json() -> None:
 
 
 def test_configure_logging_carries_contextvars_into_log_events() -> None:
+    # The autouse ``_reset_structlog_state`` fixture in conftest.py guarantees
+    # contextvars are clear at test entry and exit, so this test can bind
+    # without try/finally cleanup.
     buf = io.StringIO()
     configure_logging("production", stream=buf)
 
-    structlog.contextvars.clear_contextvars()
     structlog.contextvars.bind_contextvars(contract_id="ctx-xyz", stage="ocr")
 
     log = structlog.get_logger()
@@ -73,5 +75,3 @@ def test_configure_logging_carries_contextvars_into_log_events() -> None:
     payload = json.loads(buf.getvalue().strip())
     assert payload["contract_id"] == "ctx-xyz"
     assert payload["stage"] == "ocr"
-
-    structlog.contextvars.clear_contextvars()

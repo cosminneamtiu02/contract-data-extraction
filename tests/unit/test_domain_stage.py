@@ -142,3 +142,34 @@ def test_stage_record_complete_defaults_extracted_to_none() -> None:
     record = StageRecord().start(now=T0).complete(now=T0 + timedelta(milliseconds=10))
 
     assert record.extracted is None
+
+
+def test_stage_record_round_trips_through_model_dump_json_when_done() -> None:
+    # The duration_ms computed_field must survive serialization so the
+    # HTTP response in Phase 5 can read it directly.
+    original = (
+        StageRecord()
+        .start(now=T0)
+        .complete(
+            now=T0 + timedelta(milliseconds=250),
+            extracted={"key": "value"},
+        )
+    )
+
+    payload = original.model_dump_json()
+    restored = StageRecord.model_validate_json(payload)
+
+    assert restored == original
+    assert restored.duration_ms == 250
+    assert restored.extracted == {"key": "value"}
+
+
+def test_stage_record_round_trips_through_model_dump_json_when_pending() -> None:
+    original = StageRecord()
+
+    payload = original.model_dump_json()
+    restored = StageRecord.model_validate_json(payload)
+
+    assert restored == original
+    assert restored.duration_ms is None
+    assert restored.extracted is None
