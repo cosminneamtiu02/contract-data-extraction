@@ -111,8 +111,11 @@ testpaths = ["tests"]
 # them under the filesystem path when a file is run directly with
 # `pytest path/to/test.py`. The dual-import causes silent fixture-identity bugs.
 # `importlib` mode imports each test module once under a stable name. Passed via
-# addopts because pytest 9.0.x doesn't accept `import_mode` as an ini option
-# (pytest 9.1+ added it; narrowed from "9.x" to avoid misleading future readers).
+# addopts because the pytest ini key is `importmode` (no underscore, added in
+# pytest 8.1) — distinct from the CLI flag `--import-mode` and the API parameter
+# `import_mode`. However, pytest 9.0.3 (pinned in this project) fires
+# "Unknown config option: importmode" for that ini key, so the CLI-flag route
+# through addopts is the correct spelling for this locked version.
 addopts = [
     "--strict-markers",
     "--strict-config",
