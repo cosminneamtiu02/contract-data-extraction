@@ -1,0 +1,135 @@
+"""Unit tests for ContractRecord (Task 1.4).
+
+ContractRecord is the mutable container that the result store keeps for each
+contract_id. Workers reassign individual stage fields (each StageRecord is
+itself frozen) under the asyncio.Lock described in docs/plan.md §3.5.
+
+Both ``overall_status`` and ``current_stage`` are derived from the three stage
+states per the transition table in §3.3 — never stored, never written by
+callers. ``ContractRecord.fresh(now)`` is the canonical factory for a record
+created by the HTTP intake handler.
+"""
+
+from datetime import UTC, datetime
+
+from extraction_service.domain.record import ContractRecord
+from extraction_service.domain.stage import StageError, StageRecord, StageState
+
+T0 = datetime(2026, 5, 12, 12, 0, 0, tzinfo=UTC)
+
+
+# --- fresh-record factory ----------------------------------------------------
+
+
+def test_fresh_contract_record_marks_intake_done_with_timestamps() -> None:
+    record = ContractRecord.fresh(now=T0)
+
+    assert record.intake.state == StageState.DONE
+    assert record.intake.started_at == T0
+    assert record.intake.completed_at == T0
+
+
+def test_fresh_contract_record_leaves_ocr_and_parsing_pending() -> None:
+    record = ContractRecord.fresh(now=T0)
+
+    assert record.ocr.state == StageState.PENDING
+    assert record.data_parsing.state == StageState.PENDING
+
+
+def test_fresh_contract_record_overall_status_is_in_progress() -> None:
+    record = ContractRecord.fresh(now=T0)
+
+    assert record.overall_status == "in_progress"
+
+
+# --- overall_status derivation ----------------------------------------------
+
+
+def test_overall_status_is_done_only_when_all_three_stages_done() -> None:
+    done = StageRecord(state=StageState.DONE)
+    record = ContractRecord(intake=done, ocr=done, data_parsing=done)
+
+    assert record.overall_status == "done"
+
+
+def test_overall_status_is_failed_when_ocr_failed() -> None:
+    err = StageError(code="ocr_engine_failed", description="x")
+    record = ContractRecord(
+        intake=StageRecord(state=StageState.DONE),
+        ocr=StageRecord(state=StageState.FAILED, error=err),
+        data_parsing=StageRecord(),
+    )
+
+    assert record.overall_status == "failed"
+
+
+def test_overall_status_is_failed_when_parsing_failed_even_after_ocr_done() -> None:
+    err = StageError(code="schema_invalid", description="missing field")
+    record = ContractRecord(
+        intake=StageRecord(state=StageState.DONE),
+        ocr=StageRecord(state=StageState.DONE),
+        data_parsing=StageRecord(state=StageState.FAILED, error=err),
+    )
+
+    assert record.overall_status == "failed"
+
+
+# --- current_stage derivation -----------------------------------------------
+
+
+def test_current_stage_is_ocr_when_intake_done_and_ocr_pending() -> None:
+    record = ContractRecord.fresh(now=T0)
+
+    assert record.current_stage == "ocr"
+
+
+def test_current_stage_is_ocr_when_ocr_in_progress() -> None:
+    record = ContractRecord(
+        intake=StageRecord(state=StageState.DONE),
+        ocr=StageRecord(state=StageState.IN_PROGRESS, started_at=T0),
+        data_parsing=StageRecord(),
+    )
+
+    assert record.current_stage == "ocr"
+
+
+def test_current_stage_is_data_parsing_when_ocr_done() -> None:
+    record = ContractRecord(
+        intake=StageRecord(state=StageState.DONE),
+        ocr=StageRecord(state=StageState.DONE),
+        data_parsing=StageRecord(state=StageState.IN_PROGRESS, started_at=T0),
+    )
+
+    assert record.current_stage == "data_parsing"
+
+
+def test_current_stage_points_to_failure_point_when_a_stage_failed() -> None:
+    err = StageError(code="ocr_engine_failed", description="x")
+    record = ContractRecord(
+        intake=StageRecord(state=StageState.DONE),
+        ocr=StageRecord(state=StageState.FAILED, error=err),
+        data_parsing=StageRecord(),
+    )
+
+    assert record.current_stage == "ocr"
+
+
+def test_current_stage_is_none_when_all_stages_done() -> None:
+    done = StageRecord(state=StageState.DONE)
+    record = ContractRecord(intake=done, ocr=done, data_parsing=done)
+
+    assert record.current_stage is None
+
+
+# --- mutability lock --------------------------------------------------------
+
+
+def test_contract_record_allows_stage_reassignment() -> None:
+    """ContractRecord is mutable so workers can do ``record.ocr = new_record``
+    inside the asyncio.Lock-guarded update of §3.5."""
+    record = ContractRecord.fresh(now=T0)
+
+    record.ocr = record.ocr.start(now=T0)
+
+    assert record.ocr.state == StageState.IN_PROGRESS
+    assert record.ocr.started_at == T0
