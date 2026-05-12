@@ -114,6 +114,7 @@ quote-style = "double"
 python_version = "3.13"
 strict = true
 warn_unreachable = true  # not implied by strict; catches branches mypy can prove dead
+explicit_package_bases = true  # not implied by strict; pairs with mypy_path="src" to make package-root resolution explicit and prevent stdlib-shadow ambiguity in later phases
 mypy_path = "src"
 plugins = ["pydantic.mypy"]
 
