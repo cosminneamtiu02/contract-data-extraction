@@ -1,245 +1,96 @@
 # CLAUDE.md
 
-Operating manual for Claude Code (and any compatible AI assistant) working on `contract-data-extraction`. Loads automatically at session start.
+Operating manual for Claude Code on `contract-data-extraction`. Loads at session start. Rules only — see linked memory files for rationale, prior examples, and historical context.
 
 ## Project context
 
-Local single-process HTTP service that ingests scanned German legal contracts, OCRs all text (body, watermarks, logos, stamps), and uses Gemma 4 E2B via Ollama to extract structured JSON. Python 3.13, `uv`-managed, ruff + mypy strict, FastAPI + asyncio. Target hardware: Mac Mini M4, 16 GB.
+Local single-process HTTP service: scanned German legal contracts → OCR → Gemma 4 E2B (Ollama) → structured JSON. Python 3.13, `uv`-managed, ruff + mypy strict, FastAPI + asyncio. Target: Mac Mini M4, 16 GB. Phases 0, 0.5, 1 complete. See [docs/plan.md](docs/plan.md) for architecture and [docs/superpowers/specs/](docs/superpowers/specs/) for spec deviation log.
 
-Read [docs/plan.md](docs/plan.md) for the full architecture and phase-by-phase plan. Phase progress lives in commits and in [docs/superpowers/specs/](docs/superpowers/specs/).
+## Phase development — Superpowers flow (Phase 2+)
 
-## Phase development methodology — go-to strategy (Superpowers flow)
+**Trigger phrases:** "implement Phase N", "begin phase X", "next phase", "what's next" (when answer is next plan phase).
 
-**When the user asks for phase work** — phrases like "implement Phase N", "begin phase X", "let's do phase Y", "next phase", or "what's next" when the answer is the next phase per the plan — use the full **Superpowers flow** below. It applies to every phase in [docs/plan.md §6](docs/plan.md) from **Phase 2 onward**; Phase 0, Phase 0.5, and Phase 1 are already complete.
-
-The flow has **two phases**, both automatic:
-
-1. **Development** — TDD, worktree isolation, parallel subagent dispatch per dependency layer until every task in the plan table lands.
-2. **Self-review** — once dev is done and the PR is opened as draft, **automatically** fire the 20-lens panel on the PR diff, synthesize findings in the main conversation, triage per the project's rules, apply fix-now items as additional commits, then mark the PR ready for review.
-
-The user only takes over **after** the PR is marked ready: they decide on merge timing, request further panel passes if they want, address any reviewer comments. Use both phases together as a single sequence; do not stop after `gh pr create` and ask "do you want a review now?" — the review is part of the standard flow.
-
-### Why this flow
-
-- **The plan IS the spec.** Each phase in [docs/plan.md §6](docs/plan.md) has a numbered task table listing files, RED tests, and GREEN implementations. Re-brainstorming isn't needed.
-- **TDD is rigid for production code.** Every task — main-conversation or subagent — follows `superpowers:test-driven-development`: no production code without a failing test first. The plan's RED test column is the contract.
-- **Per-phase git worktree isolates the work.** `./.worktrees/phase-N-<slug>/` is the phase's checkout; the main directory stays on `main` so you can answer review comments on an earlier phase's PR without `git stash` dancing. `.worktrees/` is already in `.gitignore`.
-- **Parallel subagent dispatch is the wall-clock multiplier.** Independent tasks fire in a single message via multiple `Agent` calls; layer dependencies sequentially. With 6+ independent tasks (as Phase 1 had) this saves ~25 minutes per phase.
-- **Self-review before handoff catches the items the dev-time subagents miss.** The 20-lens panel sees the assembled phase as a whole — cross-cutting concerns like type-completeness, test isolation, dependency hygiene that no per-task subagent had the context to flag. Convergent findings (≥2 lenses agree) are the strongest signal of a real defect. Running the review automatically means the user receives a PR that has already absorbed the panel's fix-now bucket, not a raw dev branch.
-- **Handoff = PR marked ready.** Once `gh pr ready` returns, the user drives every downstream decision: merge timing, further panel passes, reviewer-comment responses, deferred-items follow-up. **Never** `gh pr merge` without explicit instruction. Never merge locally. See [memory/feedback_pr_workflow.md](../../.claude/projects/-Users-cosminneamtiu-Work-contract-data-extraction/memory/feedback_pr_workflow.md).
+**Flow has two automatic phases:** (1) Development with TDD + worktree + parallel subagent dispatch; (2) Self-review with the 20-lens panel on the PR diff, synthesize, apply fix-now items, mark PR ready. User takes over only AFTER PR is marked ready.
 
 ### The flow
 
-1. **Identify the phase.** Read its section in [docs/plan.md](docs/plan.md) — §6.3 Phase 1, §6.4 Phase 2, …, §6.8 Phase 6. The task table is the spec.
-
-2. **Sync `main`, cut the worktree.**
-   ```bash
-   git fetch origin
-   git worktree add -b phase-N-<slug> .worktrees/phase-N-<slug> origin/main
-   cd .worktrees/phase-N-<slug>
-   ```
-   The branch name matches the plan: `phase-1-domain`, `phase-2-ocr`, `phase-3-llm`, `phase-4-pipeline`, `phase-5-http`, `phase-6-hardening`. All subsequent commands run from inside the worktree directory.
-
-3. **Build the task dependency graph.** For each task in the plan table, list:
-   - The files it touches (e.g., `src/.../stage.py`, `tests/unit/test_domain_stage.py`).
-   - Which earlier tasks it imports from (e.g., 1.3 imports `StageState` from 1.2, so 1.3 depends on 1.2).
-   - Whether it shares any file with another task in the layer (those can't run in parallel — same-file writes race).
-
-   Group into **layers** where every task in a layer is independent of every other task in that layer:
-   - **Layer A** = tasks with no plan-internal dependencies AND no file overlap with other Layer A tasks.
-   - **Layer B+** = each layer adds tasks whose dependencies have all landed in earlier layers.
-
-   Example from Phase 1: Layer A = {1.1, 1.2, 1.5, 1.6, 1.7, 1.8, 1.9}; Layer B = {1.3} (touches `stage.py` which 1.2 created); Layer C = {1.4} (imports `StageRecord` from 1.3).
-
-4. **Track tasks with TodoWrite.** One todo per task, plus terminal todos "Run final local verification gate" and "Open PR via gh pr create (HANDOFF — stop after PR is open)."
-
-5. **For each layer, dispatch:**
-
-   **Layer with ≥2 independent tasks** — single assistant message with one `Agent` tool call per task, all running concurrently:
-   - `subagent_type: general-purpose` for every task.
-   - `model: sonnet` unless the task is genuinely Opus-class (rare for a plan-spec'd implementation task).
-   - **No `run_in_background`** — wait for all agents in the layer to return before proceeding. The serial gate runs after the layer.
-   - Prompt template — see [§ Subagent dispatch template](#subagent-dispatch-template) below.
-
-   **Layer with 1 task** — main conversation implements it directly under TDD.
-
-6. **After each layer, run the full local verification gate** from the worktree (see [§ Verification gate](#verification-gate-all-must-pass-before-commit) below). Catches cross-task regressions immediately so layer N+1 doesn't build on rot. If anything is red, fix in the main conversation before dispatching the next layer.
-
-7. **Repeat steps 5–6** for every remaining layer.
-
-8. **Final verification gate.** One more pass of every command in [§ Verification gate](#verification-gate-all-must-pass-before-commit) on the assembled branch.
-
-9. **Push the worktree branch.** `git push -u origin phase-N-<slug>` from inside the worktree.
-
-10. **Open the PR as DRAFT.** `gh pr create --draft --title "feat(phase-N): <phase title>" --body "<standard body>"` with the [standard PR body sections](#conventional-commits--pr-conventions): Summary, What's in this PR (per commit), What's NOT in this PR (rationale), Spec deviations, Test plan (local fully checked, CI unchecked — the four required jobs run automatically). Draft state signals "work in progress through self-review pass."
-
-    --- end of development; the self-review pass begins automatically ---
-
-11. **Fire the 20-lens panel on the PR diff.** Use the dispatch mechanics from [§ Code review methodology](#code-review-methodology--go-to-strategy):
-    - `BASE_SHA` = `origin/main`
-    - `HEAD_SHA` = the just-pushed phase branch HEAD
-    - All 20 `Agent` calls in **a single assistant message**, `subagent_type: general-purpose`, `model: sonnet`, `run_in_background: true`.
-
-12. **Synthesize findings in the main conversation** per [§ The synthesizer pass](#the-synthesizer-pass--never-delegate). Demote aggressively; promote convergence (≥2 lenses agree → load-bearing); pick a side on inter-lens disagreement; reverse prior-round fixes when new evidence justifies it.
-
-13. **Triage and apply fix-now items** per [§ Triage rules](#triage-rules--what-gets-fixed-now). **Fixes land on the SAME phase branch** (not a new `chore/panel-review-fixes` branch — that naming is reserved for *standalone* reviews of already-merged code; phase-PR self-review stays on the phase branch). Atomic per-concern commits, conventional-commits format. Update the PR body's "Spec deviations" section if any fix records a new deviation; append to the phase's spec deviation log at [docs/superpowers/specs/](docs/superpowers/specs/) for material deviations.
-
-14. **Re-run the full local verification gate** from the worktree after all fixes apply.
-
-15. **Push the self-review fixes** to the PR: `git push origin phase-N-<slug>`.
-
-16. **Mark the PR ready for review.** `gh pr ready <PR#>`. The self-review pass is complete; the PR is in deliverable state for the user.
-
-17. **STOP. Handoff to user.** Report in one message:
-    - PR URL.
-    - Dev commits (one line per task).
-    - Self-review summary: convergent findings, per-lens verdicts table, fix-now items applied (per commit SHA), items deferred (with one-line rationale each).
-    - Spec deviations recorded (if any).
-    - User drives from here: merge timing, further panel passes ("rerun the review" → pass-2 against `origin/main..HEAD`), reviewer comments, CI-failure response if the four required checks go red.
-
-    Do NOT, without explicit instruction: `gh pr merge`, dispatch a second panel pass, push further commits, address CI failures, or respond to PR review comments.
+1. **Identify phase** in [docs/plan.md §6](docs/plan.md). Task table is the spec.
+2. **Cut worktree:** `git fetch origin && git worktree add -b phase-N-<slug> .worktrees/phase-N-<slug> origin/main && cd .worktrees/phase-N-<slug>`. Branch names: `phase-1-domain`, `phase-2-ocr`, `phase-3-llm`, `phase-4-pipeline`, `phase-5-http`, `phase-6-hardening`.
+3. **Build task dependency graph.** Per task: files-touched + plan-internal imports + same-file-with-peer (parallel-blocker). Group into **Layer A** (no peer overlap, no prior-task deps), **Layer B+** (deps resolved in earlier layers).
+4. **TodoWrite** one todo per task + terminal todos for gate and PR-create.
+5. **Per layer:** if ≥2 independent tasks, dispatch one `Agent` per task in **a single assistant message**, `subagent_type: general-purpose`, `model: sonnet`, NO `run_in_background` (wait before next layer). If 1 task, do it serially. Use the [§ Subagent dispatch template](#subagent-dispatch-template).
+6. **Verification gate after each layer.** Red gate → fix in main conversation before next layer.
+7. Repeat 5–6 for remaining layers.
+8. **Final verification gate** on assembled branch.
+9. `git push -u origin phase-N-<slug>` from worktree.
+10. **PR as DRAFT:** `gh pr create --draft --title "feat(phase-N): <title>"` with [standard body](#conventional-commits--pr-conventions). Draft signals "in self-review."
+11. **Fire 20-lens panel on PR diff** per [§ Code review methodology](#code-review-methodology). `BASE_SHA=origin/main`, `HEAD_SHA=<phase branch HEAD>`, all 20 in **one message**, `run_in_background: true`.
+12. **Synthesize in main conversation** per [§ Synthesizer rules](#synthesizer-rules). Demote / promote-convergence / pick-side-on-disagreement / reverse-prior-fixes-on-new-evidence.
+13. **Apply fix-now items** per [§ Triage rules](#triage-rules). Fixes land on the SAME phase branch (NOT a `chore/panel-review-fixes` branch — that's reserved for standalone "review against main"). Atomic per-concern commits. Update PR body's spec-deviations section; append to spec §17 for material deviations.
+14. Re-run verification gate after fixes.
+15. `git push origin phase-N-<slug>`.
+16. `gh pr ready <PR#>`. Self-review pass done; PR deliverable.
+17. **STOP. Handoff.** One message with PR URL + dev commits + self-review summary + spec deviations. **Never** `gh pr merge`, dispatch a second panel, push further commits, address CI failures, or respond to reviews without explicit instruction.
 
 ### Subagent dispatch template
 
-Each `Agent` call for a Layer-A independent task takes a prompt of this shape. Substitute `{N.M}`, `{TASK_DESCRIPTION}`, `{FILES_OWNED}`, `{FILES_FORBIDDEN}`, `{PLAN_SECTION}`, `{WORKTREE_PATH}`:
-
-```
-You are implementing Task {N.M} for the contract-data-extraction project's Phase N.
-
-**Worktree:** {WORKTREE_PATH} — `cd` here first and verify `git rev-parse --abbrev-ref HEAD` returns the phase branch. ALL commands run from inside this worktree.
-
-**Plan reference:** {PLAN_SECTION} of docs/plan.md.
-
-**Your task:** {TASK_DESCRIPTION}
-
-**Files you OWN (read + write):**
-{FILES_OWNED}
-
-**Files you must NOT touch** (other agents own them this layer; commits to them will race):
-{FILES_FORBIDDEN}
-
-**Workflow — rigid TDD per superpowers:test-driven-development:**
-1. Write the failing test(s) first in the test file you own. Split the plan's compact "X and Y and Z" spec into one-behavior-per-test functions.
-2. `unset VIRTUAL_ENV && uv run pytest <your-test-file> -v` — confirm the failure mode is "feature missing" (e.g., ModuleNotFoundError), not a typo in the test.
-3. Write the minimum implementation in the source file you own. No future-task anticipation.
-4. Re-run pytest on your test file. All new tests must pass.
-5. Run the full local verification gate from the worktree (the canonical gate at [§ Verification gate](#verification-gate-all-must-pass-before-commit) — every command, in order):
-   ```
-   unset VIRTUAL_ENV
-   uv lock --check
-   uv run ruff check src tests
-   uv run ruff format --check src tests
-   uv run mypy src tests
-   uv run pytest -q
-   uv run pip-audit --skip-editable
-   uv run pre-commit run --all-files
-   ```
-   Strict-mypy or ruff complaints → restructure the test or code. Do NOT sprinkle `# type: ignore` without a one-line rationale comment on the same line.
-6. `git add <your owned files only>` and commit: `feat({N.M}): <subject>` via HEREDOC body explaining WHY, with `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>` footer. One task = one commit. Do NOT push (the main conversation pushes the whole branch at phase end).
-
-**Project conventions (binding — these override the plan text where they conflict):**
-- `frozen=True` Pydantic models for value objects.
-- `StrEnum` (Python 3.11+) over `(str, Enum)` for string-valued enums.
-- `dict[str, Any]` only at IO boundaries. Every other domain field is concretely typed.
-- Test names describe behavior, not implementation (`test_contract_job_is_frozen` ✓; `test_contract_job_pydantic_config` ✗).
-- One assertion target per test — split tests if the plan compactly lists "asserts X, Y, Z."
-
-**Return:** brief report (≤200 words) — what you implemented, the commit SHA you produced, and any deviation from the plan text with a one-line rationale. If you couldn't complete the task, report the blocker and DO NOT commit partial work.
-```
+Each Layer-A independent task gets a prompt with: worktree path (`cd` first, verify branch); plan reference (§6.N task table); task description; `FILES_OWNED` (read+write); `FILES_FORBIDDEN` (peer-owned this layer); rigid TDD workflow (failing test → confirm "feature missing" fail → minimum impl → tests pass → run [§ Verification gate](#verification-gate) → atomic commit with HEREDOC body + `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>` footer, ONE task = ONE commit, do NOT push); project conventions (binding): `frozen=True` Pydantic for value objects, `StrEnum` over `(str, Enum)`, `dict[str, Any]` only at IO boundaries, no `# type: ignore` without same-line rationale, test names describe behavior not implementation, one assertion target per test. Return: ≤200-word report — what implemented + commit SHA + deviations.
 
 ### Cross-layer reconciliation
 
-Between layers (after step 5, before step 6's gate):
-
-- **No-op in the simple case.** If every agent committed only to files in its `FILES_OWNED` list, the branch is consistent — just run the gate.
-- **If an agent reports a deviation** that affects another's task (e.g., renames a symbol another task imports), revise the next layer's dispatch prompts to match the new name. Do not silently let a later task assume the old name.
-- **If two agents accidentally touched the same file** (broken file-partitioning): rare with a well-built dependency graph. Inspect with `git diff` per commit; rebase/squash to resolve before the next layer. This is a planning mistake — note it in the spec deviation log so the next phase improves the partition.
-
-### Project-wide best practices to apply uniformly
-
-These survive across phases and override the plan text where they conflict with older wording:
-
-- **`frozen=True` Pydantic models** for value objects ([docs/plan.md §4.11](docs/plan.md)). Nested mutables (e.g., a `dict[str, Any]` metadata field) are *not* deep-frozen — note that in the docstring.
-- **`StrEnum` (Python 3.11+) over `class X(str, Enum)`** for string-typed enums. Cleaner `str()` and f-string output for structlog and JSON, identical Pydantic serialization. The plan text predates `StrEnum`; treat its `(str, Enum)` as shorthand.
-- **`dict[str, Any]` only at IO boundaries** (e.g., `ContractJob.metadata`, JSON Schema loader output). Every other domain field is concretely typed.
-- **No `# type: ignore` without a one-line rationale comment** on the same line. Restructure first; ignore only when there's no clean alternative.
-- **Test names describe behavior, not implementation.** `test_contract_job_is_frozen` ✓ ; `test_contract_job_pydantic_config` ✗.
-- **One assertion target per test** — split tests when the plan compactly lists "asserts X, Y, Z."
+After each layer, before the gate: if any agent reported a deviation affecting another's task (e.g., renamed symbol), update next layer's prompts. If two agents accidentally touched the same file (broken partitioning), inspect with `git diff`; rebase/squash; note in spec deviation log.
 
 ### Spec deviations
 
-- **Minor deviations** (e.g., `StrEnum` over `(str, Enum)`): note in the commit message body and in the PR body's "Spec deviations" section. No spec doc needed.
-- **Material deviations** (changing a phase's exit criteria, skipping a task, swapping a library): create or append to a phase spec deviation log under [docs/superpowers/specs/](docs/superpowers/specs/). Phase 0.5 uses `2026-05-11-ci-cd-scaffolding-design.md §17`; later phases get their own files when needed.
+- **Minor** (e.g., `StrEnum` over `(str, Enum)`): commit body + PR "Spec deviations" section.
+- **Material** (changing exit criteria, skipping a task, library swap): append a new `§17.N` subsection to `docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md`. Do NOT retroactively rewrite earlier subsections.
 
-### When NOT to use this methodology
+### When NOT to use the Superpowers flow
 
-- **Phases with only 1–2 independent tasks** — parallel-subagent overhead exceeds the coordination cost. Fall back to serial-in-main-conversation TDD inside the worktree.
-- **One-off fixes outside a phase** — direct branch (no worktree, no subagents), no TDD ceremony for trivial doc/config changes.
-- **Panel-review-fix branches for standalone "review against main" runs** — those follow the [Code review methodology](#code-review-methodology--go-to-strategy) flow (`chore/panel-review-fixes` naming, atomic per-concern commits). Loop-mode phase-PR self-reviews use the [§ Parallel fix-dispatch pattern](#parallel-fix-dispatch-pattern) on the current phase branch instead.
-- **Phase 0, Phase 0.5, Phase 1** — already complete.
+Phases with only 1–2 independent tasks (parallel overhead exceeds coordination cost — fall back to serial TDD in main convo inside worktree); one-off fixes outside a phase (direct branch, no worktree, no TDD ceremony for trivial doc/config); panel-review-fix branches for standalone "review against main" (follow [§ Code review](#code-review-methodology) standalone exception); Phases 0/0.5/1 (already complete).
 
-For everything matching "implement phase N" where N ≥ 2 — default to this full Superpowers flow.
+## Code review methodology
 
-## Code review methodology — go-to strategy
+**Trigger phrases:** "review this", "panel review", "deep review", "review main", "rerun the review", "review the branch", "loop until converged", "keep reviewing".
 
-**When the user asks for a code review** (phrases like "review this", "panel review", "deep review", "review main", "rerun the review", "review the branch"), use the **20-lens parallel panel** described below. Do NOT default to `superpowers:requesting-code-review` (which uses 1 general-purpose agent with a 5-dimension rubric). The single-agent default is shallower; this project's convention is the panel.
-
-### Why the panel
-
-- **Specialization > breadth.** One general agent balancing security + tests + architecture + style spreads attention thin. 20 narrow lenses each go deep on one dimension.
-- **Convergence is the strongest signal.** When N≥2 lenses independently flag the same item, that's higher confidence than any one lens's severity rating. Both Criticals shipped on this project came from convergence.
-- **Same wall-clock as single-agent.** Subagents in one message run in parallel — 20 lenses finish in roughly the time the slowest takes.
+Do NOT default to `superpowers:requesting-code-review` (single-agent rubric — shallower). This project's standard is the 20-lens panel.
 
 ### The 20 lenses
 
-Always dispatch all 20. Each lens is scoped to one dimension with explicit "out of scope" guards so reviewers stay deep, not broad.
+Always dispatch all 20. Each is scoped to one dimension with "out of scope" guards.
 
-| # | Lens | Focus | Out of scope (handled by other lenses) |
-|---|---|---|---|
-| 01 | Phase plan adherence | Does committed code match `docs/plan.md` + `docs/superpowers/plans/*` + spec deviation log §17? | Code quality, CI YAML, tests |
-| 02 | Commit-message coverage | For each commit, does diff deliver what message claims? Squash commit faithfulness? | Plan itself; CI YAML internals |
-| 03 | Scope creep across phases | Did each PR stay within its declared scope (per its spec/title)? | Quality of in-scope code |
-| 04 | Type safety & static analysis | mypy strictness, type-hint completeness, `py.typed`, `ANN`/`TCH` ruff coverage | Tests, CI execution, docs |
-| 05 | Error handling & exception flow | Bare `except`, swallowed errors, missing `set -euo pipefail`, error wrapping discipline | Types, naming, docs |
-| 06 | Naming & API surface | Name clarity, `__all__` correctness, public/private boundaries, dist vs import name | Types, error handling |
-| 07 | Dead code & premature abstraction | Unused symbols, stubs without anchors, over-engineering | Style, names |
-| 08 | Idiomatic Python 3.13 + ruff config | Modern idioms, ruff rule family coverage, ruff/CI version alignment | Type completeness, naming |
-| 09 | Package layout & imports | `src/` layout, hatchling config, import order, circular imports | Module internals |
-| 10 | Security & secrets | Hardcoded creds, `.secrets.baseline`, supply-chain (action pinning, lockfile hashes), CodeQL coverage | General CI YAML, dep mgmt |
-| 11 | CI workflow correctness | Workflow YAML validity, action pinning, permissions, triggers, concurrency | dependabot.yml; pre-commit; automation gotchas |
-| 12 | Dependency management | `pyproject.toml`, `uv.lock`, `dependabot.yml`, `.python-version` consistency | CI YAML; security |
-| 13 | Test coverage & meaningfulness | Real-behavior vs mock tests, tautologies, assertion strength | Test infra; CI; determinism |
-| 14 | Pytest infrastructure | `[tool.pytest.ini_options]`, `pythonpath`, `conftest.py`, fixtures | What tests assert; CI |
-| 15 | CI test execution | Tests actually run? Right matrix? Coverage collected? JUnit output? | Test content; pytest infra |
-| 16 | Test isolation & determinism | Order-independence, `tmp_path` usage, env/time/random discipline | Coverage; CI; infra |
-| 17 | Documentation completeness | README, plan/spec accuracy, design-doc drift, docstrings, LICENSE | Quality of described things |
-| 18 | Pre-commit hooks & local DX | `.pre-commit-config.yaml`, hook/CI parity, hook pinning, README install instructions | CI workflows; repo hygiene |
-| 19 | Repository hygiene | `.gitignore`, `.gitattributes`, `.editorconfig`, CODEOWNERS, `.python-version` | Source code; workflows |
-| 20 | Workflow/automation gotchas | Dependabot automerge logic, lockfile-sync races, CodeQL config, branch-protection assumptions | General CI correctness; deps |
+| # | Lens | Focus |
+|---|---|---|
+| 01 | Phase plan adherence | Code matches `docs/plan.md` + spec §17 |
+| 02 | Commit-message coverage | Diff delivers what messages claim; squash faithfulness |
+| 03 | Scope creep across phases | PRs stayed within declared scope |
+| 04 | Type safety & static analysis | mypy strict, ANN/TCH ruff, py.typed, `cast` discipline, pydantic-mypy options |
+| 05 | Error handling & exception flow | Bare `except`, swallowed errors, ruff BLE/TRY/EM, `set -euo pipefail` |
+| 06 | Naming & API surface | Name clarity, `__all__`, public/private, N818 |
+| 07 | Dead code & premature abstraction | Unused symbols, stubs without anchors, over-engineering |
+| 08 | Idiomatic Python 3.13 + ruff config | Modern idioms, rule-family coverage, version alignment |
+| 09 | Package layout & imports | `src/` layout, hatchling, py.typed/LICENSE inclusion, circular imports |
+| 10 | Security & secrets | Hardcoded creds, baseline, SHA pinning, CodeQL, ruff `S` |
+| 11 | CI workflow correctness | YAML validity, permissions, triggers, concurrency, timeouts |
+| 12 | Dependency management | pyproject + uv.lock + dependabot + .python-version consistency |
+| 13 | Test coverage & meaningfulness | Real-behavior vs tautology, behavior-named tests, one-assertion-target |
+| 14 | Pytest infrastructure | `[tool.pytest.ini_options]`, conftest, fixtures, asyncio keys |
+| 15 | CI test execution | pytest invocation, coverage, JUnit, matrix, darwin scope |
+| 16 | Test isolation & determinism | Order-independence, `tmp_path`, env/time discipline |
+| 17 | Documentation completeness | README (queue-only), plan/spec accuracy, docstrings, LICENSE |
+| 18 | Pre-commit hooks & local DX | `.pre-commit-config.yaml`, hook/CI parity, pinning |
+| 19 | Repository hygiene | `.gitignore`/`.gitattributes`/`.editorconfig`/CODEOWNERS/.python-version |
+| 20 | Workflow/automation gotchas | Dependabot automerge, lockfile-sync races, CodeQL, branch protection |
 
 ### Dispatch mechanics
 
-- **Subagent type:** `general-purpose` for every lens. Do **NOT** use `feature-forge:code-reviewer` or any other specialized agent — keep all 20 uniform.
-- **Model:** `sonnet` for all lenses.
-- **Parallelism:** every dispatch carries `run_in_background: true`. All 20 `Agent` tool calls in a **single assistant message** for true concurrency.
-- **Prompt template per lens** (substitute `{LENS_NAME}`, `{FOCUS}`, `{FILES_HINT}`, `{OUT_OF_SCOPE}`, `{BASE_SHA}`, `{HEAD_SHA}`):
+- All 20 in a **single assistant message**. `subagent_type: general-purpose`, `model: sonnet`, `run_in_background: true`.
+- **Lens prompts carry NO carryover context** (cycle-independence rule — see [[feedback-cycle-independence]]). No "this is cycle N", no §17 awareness in prompts, no "delta from cycle N-1". Each cycle is stateless; the synthesizer's filter + §17-awareness do dedup between cycles.
+- Each prompt contains: `{LENS_NAME}` + `{FOCUS}`, `{FILES_HINT}`, `{OUT_OF_SCOPE}`, git range (`{BASE_SHA}..{HEAD_SHA}`), strict output format, 3-tier severity (Critical = broken/security/data-loss; Important = architecture/missing/test gaps; Minor = style/polish), rule "don't pad / don't manufacture Critical."
+
+### Lens output format (strict)
 
 ```
-You are a focused code reviewer in a 20-agent panel reviewing the
-`contract-data-extraction` repo at /Users/cosminneamtiu/Work/contract-data-extraction.
-
-**Your lens (stay rigidly within it):** {LENS_NAME} — {FOCUS}
-
-**Files most relevant:** {FILES_HINT}
-
-**Out of scope (other panel members cover these):** {OUT_OF_SCOPE}
-
-Git range: {BASE_SHA} (base) .. {HEAD_SHA} (head). Use `git diff {BASE_SHA}..{HEAD_SHA}` and `Read` to inspect.
-
-Apply the superpowers reviewer rubric (Plan alignment / Code quality / Architecture / Testing / Production readiness) ONLY through your lens. 3-tier severity: Critical (broken/security/data-loss), Important (architecture/missing/test gaps), Minor (style/polish).
-
-**Output (strict format, used by synthesizer):**
-
 ### Lens: {LENS_NAME}
 
 ### Strengths
@@ -260,314 +111,176 @@ Apply the superpowers reviewer rubric (Plan alignment / Code quality / Architect
 ### Lens Assessment
 **Ship-ready within this lens?** Yes | No | With fixes
 **Reasoning:** [1 sentence]
-
-Rules: Don't stretch outside your lens. Don't pad findings. Don't manufacture Critical. Bootstrap scaffolding is mostly Minor.
 ```
 
-- **Multi-cycle reviews (auto-converge loop):** Per the 2026-05-12 user clarification documented in [§Cycle-loop mode](#cycle-loop-mode-auto-converge--the-default-for-review-re-runs), each new review cycle gets CLEAN lens prompts with NO carryover context — no "this is cycle-N", no "§17 accepts X", no "delta from cycle-N-1". Lenses are pure stateless reviewers of the current branch state. The synthesizer's senior-dev filter and §17-awareness do the dedup between cycles. The historical "Multi-pass reviews" paragraph that previously lived here (which DID inject pass-N context into lens prompts) is superseded.
+### Synthesizer rules
 
-### The synthesizer pass — never delegate
+Synthesis happens in main conversation, NEVER delegated to a subagent (user sees the judgment in-conversation; subagent roundtrip hides the re-ranking).
 
-After all 20 lens reports return, **the synthesis is done in the main conversation, not by a subagent.** Reasons:
-1. The user benefits from seeing the synthesis happen in-conversation, not as another tool result.
-2. Subagent delegation would hide the re-ranking judgment that's the whole point.
-3. The 20 reports collectively fit in main context; a synthesizer agent would add a roundtrip for no real benefit.
+1. **Demote aggressively.** With 20 lenses each pressured to find an Important, most globally re-rank to Minor.
+2. **Promote convergence.** ≥2 lenses on the same item → load-bearing regardless of individual severity.
+3. **Inter-lens disagreement:** pick a side, explain why. Don't average. Don't punt.
+4. **Reverse prior-cycle fixes** when new evidence justifies (don't anchor).
+5. **Apply [§ Senior-dev filter](#senior-dev-filter) to every finding** BEFORE applying.
 
-**Synthesizer rules:**
+### 6-section report structure (strict order, non-negotiable)
 
-1. **Demote aggressively.** Each lens feels pressure to surface at least one Important. With 20 lenses that means ~20 raw Importants. Most need re-ranking to Minor in the global picture. Don't preserve every lens's vote.
-2. **Promote convergence.** When ≥2 lenses independently flag the same item, treat it as **load-bearing regardless of individual severities reported**. Convergence is the strongest signal a multi-agent review produces. In this project: the CodeQL `@v4` pin (3-lens convergence in pass 1) and the dependabot `update-types` ecosystem asymmetry (4-lens convergence in pass 2) were both promoted to Critical/Important via convergence.
-3. **Inter-lens disagreement: pick a side, explain why.** Don't average, don't punt to the user. Example from this project: Pass-1 Lens 06 said add `__all__: list[str] = []`; Pass-2 Lens 07 called it premature. The synthesizer correctly chose Lens 07 because empty `__all__` actively masks future symbols — a quiet bug-by-construction outweighs an explicit-gate benefit.
-4. **Reversing a prior fix is correct when new evidence justifies it.** If lens N now contradicts a fix from a prior round, undo the prior fix. Don't anchor.
-5. **The synthesis report structure — strict order; 6 sections, non-negotiable.** Do not deviate from this order; do not collapse categories; do not skip the per-deferred-item justification length requirement.
+1. **Per-lens verdicts table** — lens / verdict (Yes / No / With fixes) / per-severity counts. At-a-glance signal. NO finding details here.
+2. **Objective fixes (auto-applied)** — file:line + reason + commit SHA. Auto-applies: convergent findings, state-tracking doc errors, substantive cosmetic per [[feedback-cosmetic-fixes-apply]], defense-in-depth tightenings with zero current violations, uncontested single-lens findings.
+3. **Headbutting findings (synthesizer-decided)** — disagreeing lenses + substance + side picked + 1-sentence rationale. Auto-applied.
+4a. **Deferred — waiting on later phase** — 3–4 sentence justification naming the specific phase/dependency that unblocks. Built-in re-trigger.
+4b. **Deferred — other reasons** — 3–4 sentence justification walking through cost-benefit. NO auto-resurface; the paragraph IS the audit trail.
+5. **For user decision** (LAST) — items where project-context judgment belongs to user. Include synthesizer recommendation. Single-pass mode: explicitly ASK. Cycle-loop mode: synthesizer self-decides (recommendation = decision).
 
-   **1. Per-lens verdicts table.** One row per lens: lens number, lens name, verdict (Yes / No / With fixes), and per-severity finding counts. This is the cold-pickup signal — what the panel said at a glance. **No finding details in this table** — those belong in the five sections below.
+### Apply-then-report execution order (STRICT)
 
-   **2. Objective fixes (auto-applied).** Findings where no reasonable reader would dispute the item needs fixing. Auto-apply this category. Includes:
-      - Convergent findings (≥2 lenses agree on the same item)
-      - State-tracking errors in docs (stale claims about CI state, branch protection, infra)
-      - Doc hygiene (per the cosmetic-fixes-always-apply rule)
-      - Defense-in-depth tightenings with zero current violations
-      - Single-lens findings whose substance is uncontested by any other lens (silence ≠ disagreement)
+Per [[feedback-apply-then-report]]:
 
-      For each item: file:line, one-line reason, commit SHA where applied.
+1. Draft full 6-section report internally (not shown yet).
+2. **Auto-apply every Objective fix** — atomic per-concern commits, gate after batch.
+3. **Auto-apply every Headbutting decision.**
+4. Push to PR.
+5. Present report — sections 2+3 show commit SHAs as confirmation log; 4a/4b deferred with rationale; 5 is the only open ask. User does NOT receive a planning doc asking permission for every Objective item.
 
-   **3. Headbutting findings (synthesizer-decided).** Where ≥2 lenses contradict each other on a factual or design call. Do NOT punt to the user; pick a side. For each item: which lenses disagree, the substance of the disagreement, the side I picked (or "both wrong → third option"), and a one-sentence rationale for the call. Applied automatically with the decision recorded in the commit message.
+### Triage rules
 
-   **4a. Deferred — waiting on a later phase.** Findings that will naturally resurface when the dependent phase code lands, and applying them now means inventing scaffolding (fake consumers, hypothetical threat models, unused config knobs) with no real callsite. Each gets a 3–4 sentence justification, but the justification should name the specific later phase / specific dependency that unblocks the item. These items have a built-in re-trigger.
+**ALWAYS APPLY** (subject to [§ Senior-dev filter](#senior-dev-filter)):
 
-   **4b. Deferred — other reasons.** Findings deferred because the cost-benefit doesn't work today, the synthesizer can't resolve them without out-of-band info (e.g., a `gh api` call), they're cosmetic and non-load-bearing, or they conflict with a project rule (e.g., "prefer new commit over amend on shared branches"). Each gets a 3–4 sentence justification walking through the specific cost-benefit. **These items will NOT auto-resurface** — a future review cycle needs to explicitly decide to re-take them, so the justification is more load-bearing than for 4a.
+- ✅ Convergent findings (≥2 lenses agree).
+- ✅ Active risks today (auto-merge gaps, security holes, supply-chain pins, broken plumbing).
+- ✅ Every substantive cosmetic fix, no matter how small — doc sync after divergence, typos, stale class-name refs after rename, missing WHY comment at hidden constraint, dep floor additions, new spec deviation-log sections, version-comment annotations. Per [[feedback-cosmetic-fixes-apply]]. Substantive cosmetic NEVER appears in Deferred.
+- ✅ Defense-in-depth tightenings even when lens calls them "not a current defect."
+- ✅ Reversing prior-round fixes when a later lens shows them wrong.
 
-   For both 4a and 4b: not a one-liner; not "Phase 5 will handle it" as a bare statement. The paragraph IS the deferred item's audit trail — a future review cycle that re-flags the same item should be able to read this paragraph and either agree with the deferral or explicitly counter it.
+**DEFER ONLY (narrow):**
 
-   **5. For user decision (last).** Findings where the project-context judgment call belongs to the user — subjective design choices, naming preferences, scope renegotiations, anything where I could decide either way and reasonable readers could disagree with my call. For each item, include my recommendation based on project context. In **single-pass mode**, explicitly ASK the user: "do you want to decide each of these, or are you OK with me deciding based on project context?" — do NOT decide unilaterally; do NOT skip the ask. In **[§ Cycle-loop mode](#cycle-loop-mode-auto-converge--the-default-for-review-re-runs)** the synthesizer self-decides per the [§ Senior-developer judgment filter](#senior-developer-judgment-filter) and the recommendation IS the decision — no ask between cycles.
+- ⏳ Work that needs later-phase code to be meaningful: real behavior-asserting tests, `--cov` enforcement, JUnit XML, Python version matrix, ruff `PERF` rules, mypy → pre-push stage.
+- ⏳ User-excluded items.
 
-   The order is non-negotiable: **1. Verdicts → 2. Objective → 3. Headbutting → 4a. Deferred (later phase) → 4b. Deferred (other reasons) → 5. For user decision.** Verdicts first because they're the at-a-glance signal. Objective is largest and most skimmable. Headbutting is the synthesizer's real value-add. Deferred-4a items have a built-in re-trigger; deferred-4b items don't, so the justification carries more weight. User-decision is last because it pauses the flow.
+**SKIP:** historical immutable items (already-merged commit messages on shared branches); genuinely impossible mechanical changes.
 
-   **Apply-first-then-report execution order — STRICT.** The 6 sections describe the *content* of the report; the *execution* order is different. After the panel returns, the synthesizer:
+**Do NOT defer:** "doc hygiene" / "cosmetic" / "low-priority", "premature" tightenings whose current cost is 1–3 lines and close a plausible future hole, "not a current defect" defense-in-depth mirroring an established pattern, "will land naturally with the next phase" 1-line fixes.
 
-   1. **Drafts the full report internally** (not shown to the user yet) with all 6 categories populated.
-   2. **Auto-applies every item in section 2 (Objective fixes)** — atomic per-concern commits, full local verification gate after the batch.
-   3. **Auto-applies every item in section 3 (Headbutting findings)** the synthesizer has decided. Only items routed to section 5 (User decision) wait for user input; everything in 2 and 3 is already a decision the synthesizer made, so applying is automatic.
-   4. **Pushes the resulting commits to the PR.**
-   5. **Presents the full report to the user** with section 2 + 3 already showing commit SHAs as confirmation of what landed, section 4a/4b as deferred-with-rationale, section 5 as the only open ask.
+### Senior-dev filter
 
-   The user receives a report that is partly a confirmation log ("here's what already happened") and partly a forward ask ("here are the items I held for your call"). They do NOT receive a planning document asking for permission on every Objective item — that loop is wasted; the rules already decided. See [memory/feedback_apply_then_report.md](../../.claude/projects/-Users-cosminneamtiu-Work-contract-data-extraction/memory/feedback_apply_then_report.md).
+Apply to every finding BEFORE auto-applying. Full rationale in [[feedback-senior-dev-filter]].
 
-6. **Skip the synthesized report if asked to go straight to triage.** When the user says "evaluate implementation relevance" or "what's worth fixing", jump straight to the triage matrix below.
+**Ask:** Is this (1) real defect / project-rule violation / factual drift / convergent? → apply. (2) Ceremony / preemption / over-specification with no current need? → drop. (3) Cost-benefit upside-down (3 lines + import + misleading comment for a benefit mypy/ruff already provide)? → drop. (4) Would a senior dev push back? Yes → drop; no → apply.
 
-### Triage rules — what gets fixed now
+**Filter-out (ceremonial) drop list:**
 
-This is the **most opinionated** part of the methodology and where the prior single-agent default goes wrong. The default leans conservative ("defer to next phase"); this project's standard is the opposite.
+- 🪨 Exhaustiveness guards on closed Literals where type system already enforces (e.g., `assert_never` on 2-arm `Literal["dev","prod"]`).
+- 🪨 Defensive code paths that cannot trigger under typed/internal callers.
+- 🪨 Preemptive tightenings with no current violation AND no plausible future violation in scope.
+- 🪨 Comment inflation on unambiguous config.
+- 🪨 Testing third-party library behavior.
+- 🪨 Tests for absence-of-behavior the plan doesn't claim.
+- 🪨 Doc snapshots that drift from a live source-of-truth (add a pointer instead).
+- 🪨 Re-versioning prior-pass decisions just for churn (requires NEW evidence, not a new stylistic opinion).
+- 🪨 **README rewrites** — README is user-restricted. Append the proposed change to [`docs/readme-changes-pending.md`](docs/readme-changes-pending.md). Routing to the queue IS the apply-equivalent action (not "deferred" or "user decision"). See [[feedback-readme-queue]].
 
-**ALWAYS APPLY (fix-now bucket):**
+**Convergence overrides the filter.** ≥2 lenses agreeing on the same item is load-bearing regardless of whether the item looks ceremonial. EXCEPT when both lenses argue for *preemptive add-suppression with no current violation* — that pattern routes to deferred-4a, not apply.
 
-- ✅ **Convergent findings** (≥2 lenses agree)
-- ✅ **Active risks today** (auto-merge gaps, security holes, supply-chain pins, broken plumbing)
-- ✅ **EVERY substantive cosmetic fix, no matter how small** — subject to the [§ Senior-developer judgment filter](#senior-developer-judgment-filter) below. Doc sync after a live divergence, typos in spec/plan, stale class-name references after a rename, missing one-line WHY comments at a hidden constraint, dependency version-floor additions, new spec deviation-log sections, version-comment annotations on pinned SHAs. **A one-character typo or a one-line annotation IS worth fixing — code quality is non-negotiable and the change being minimal is not a reason to defer.** See [memory/feedback_cosmetic_fixes_apply.md](../../.claude/projects/-Users-cosminneamtiu-Work-contract-data-extraction/memory/feedback_cosmetic_fixes_apply.md). Substantive cosmetic items NEVER appear in the Deferred section. The senior-dev filter below distinguishes substantive cosmetic from *ceremonial* cosmetic; only the latter is allowed to be dropped.
-- ✅ **Defense-in-depth tightenings** even if the lens called them "not a current defect" (e.g., explicit `permissions: {}` blocks, preventive ruff/mypy rules that don't false-positive on current code)
-- ✅ **Reversing prior-round fixes** when a later lens shows them wrong
+### Cycle-loop mode (auto-converge)
 
-**DEFER ONLY (narrow bucket):**
+**Trigger phrases:** "rerun the review", "loop until converged", "keep reviewing", "do so until no more errors to fix appear", or any "review" command following a prior review cycle on the same branch with no merge between.
 
-- ⏳ Work that **needs later-phase code to exist** to be meaningful:
-  - Real behavior-asserting tests (waiting for production code)
-  - Coverage gate `--cov` enforcement (waiting for non-stub coverage)
-  - mypy → pre-push stage (waiting for codebase growth where pre-commit slowness bites)
-  - JUnit XML / test-results artifacts (waiting for tests that produce signal)
-  - Python version matrix (waiting for cross-version requirements)
-  - ruff `PERF` rules (waiting for loops to lint)
-- ⏳ User-excluded items (explicitly named by the user as "skip this")
+**Each panel re-run is an INDEPENDENT NEW CYCLE**, not a "pass within a single cycle." Lenses receive CLEAN prompts (no carryover). See [[feedback-cycle-independence]].
 
-**SKIP (true non-options):**
+**What changes vs. single-cycle invocation:**
 
-- 🚫 Historical immutable items — already-merged commit messages on shared branches (can't be rewritten without destructive ops on `main`)
-- 🚫 Genuinely impossible mechanical changes
+1. Section 5 (User decision) collapses into synthesizer self-decision. User is NOT asked between cycles.
+2. Per-cycle output is the compact status line below; full 6-section report only at terminal cycle.
+3. Lens prompts carry no §17 awareness; no "delta from cycle N-1" framing.
 
-**Do NOT defer:**
+**HEAD/BASE rule** (per [[feedback-review-pass-target]]): cycle 1 targets `origin/main` (HEAD=origin/main); cycle 2+ targets the **current fix branch HEAD**. BASE_SHA stays at cycle-1's origin/main SHA so each cycle sees the cumulative body of work.
 
-- ❌ "Doc hygiene" / "cosmetic" / "low-priority" — these are fix-now (subject to the filter below).
-- ❌ "Premature" preemptive tightenings whose current cost is 1–3 lines AND that close a plausible future hole — fix-now (subject to the filter below).
-- ❌ "Not a current defect" defense-in-depth that mirrors an established project pattern — fix-now.
-- ❌ "Will land naturally with the next phase anyway" — if it's a 1-line fix today, fix it today.
+**Termination:** zero-commits after filter (Objective + self-decided User-decision empty) → CONVERGED. Deferred entries don't block termination.
 
-### Senior-developer judgment filter
+**Max cap: 5 cycles per loop.** If hit, terminate with MAX-CAP-HIT + [§ MAX-CAP diagnosis](#max-cap-diagnosis). Post-max-cap restart resets cycle counter to 1.
 
-The cosmetic-always-apply rule above guards against complacency on small fixes that ARE real. The senior-dev filter guards against the opposite failure mode: *ceremony posing as quality*. Apply this filter to every finding the panel surfaces BEFORE auto-applying it. The filter is what separates substantive cosmetic from ceremonial cosmetic. See [memory/feedback_senior_dev_filter.md](../../.claude/projects/-Users-cosminneamtiu-Work-contract-data-extraction/memory/feedback_senior_dev_filter.md).
+**Per-cycle mechanics:**
 
-**For each finding, ask:**
-
-1. Is this a real defect, project-rule violation, factual drift, or convergent finding? → **apply**
-2. Or is this ceremony / preemption / over-specification with no current need? → **filter out**
-3. Does the cost-benefit make sense given the project's actual scope and stage? If the cost is 3 lines + an import + a misleading comment for a benefit that mypy/ruff/tests already provide, the cost-benefit is upside-down.
-4. Would a senior dev push back on this in code review? If yes, drop it; if no, apply.
-
-**Filter-out (ceremonial) categories — explicit drop list:**
-
-- 🪨 **Exhaustiveness guards on closed Literals where the type system already enforces it.** `assert_never` on a 2-arm `Literal["development", "production"]` is the canonical example — mypy enforces exhaustiveness without the guard; the `case _` arm cannot execute for typed callers; the unused import + misleading "mypy-visible guard" comment is pure ceremony. The guard EARNS ITS KEEP on large / growing Literals; drop it on closed small ones.
-- 🪨 **Defensive code paths that cannot trigger under typed/internal callers.** `if x is None: raise X` on a parameter typed `X` (not `X | None`) where every caller is internal is dead code dressed as paranoia.
-- 🪨 **Preemptive tightenings with no current violation AND no plausible future violation in scope.** Adding a `>=` floor on `hatchling` in `[build-system].requires` when `uv.lock` pins the version and `pip install` is not a supported install path is closing a path no one uses.
-- 🪨 **Comment inflation on unambiguous config.** `asyncio_mode = "auto"` doesn't need a comment for pytest-asyncio users; over-commenting buries the genuinely-warranted comments (`markers = []` pre-empting a footgun).
-- 🪨 **Testing third-party library behavior.** "Add a test that env-vars-override-.env precedence works" is testing pydantic-settings, not our code.
-- 🪨 **Tests for absence-of-behavior the plan doesn't claim.** "Add a test that `complete().start()` silently returns IN_PROGRESS" locks in a non-guarantee.
-- 🪨 **Doc snapshots that drift from a live source-of-truth.** Better to add a "see live file" pointer than copy-paste-and-re-drift the live config.
-- 🪨 **Re-versioning prior-pass decisions just for churn.** If §17.N accepted a tradeoff, reverting it requires new evidence — not just a new lens that has a different stylistic opinion.
-- 🪨 **README rewrites** — README is user-restricted (per [§ Project state notes](#project-state-notes-project-specific-guardrails)). Never edit `README.md` directly. Instead, append the proposed change to [`docs/readme-changes-pending.md`](docs/readme-changes-pending.md) using the format documented at the top of that file; the queue file gets applied by the user in one pass when they're ready. Routing a README finding to the queue is the apply-equivalent action for this category — do NOT bucket it as "deferred" or "for user decision."
-
-**Convergence overrides the filter.** If ≥2 lenses independently flag the same item, treat it as load-bearing regardless of whether the item *looks* ceremonial. Convergence is the strongest signal multi-agent review produces; the filter is a per-finding judgment, but convergence is a structural signal that overrides the judgment.
-
-**Canonical example from this project (Phase 1 third-pass review):** Lens 04 endorsed an `assert_never` on a 2-arm Literal as "correct and tight"; Lens 07 called it ceremony with no payoff. The synthesizer picked Lens 07 and removed it. The decision is recorded in `9a7c66b` (original add) and `ad1755d` (removal); the §17.9 entry documents the headbutting resolution. This is the kind of judgment the filter codifies.
-
-### Cycle-loop mode (auto-converge) — the default for review re-runs
-
-> **2026-05-12 user clarification (binding):** Each panel re-run is **a NEW INDEPENDENT REVIEW CYCLE**, NOT a "pass within a single cycle." No cycle knows about the one before it — the lens prompts for cycle N+1 receive CLEAN prompts with no "this is pass N", no "§17.N acknowledges", no "delta from pass N-1" framing. The senior-dev filter is the only mechanism that prevents thrash on re-flagged-by-design items; lenses are pure stateless reviewers of current branch state. The "pass-N" terminology that appears in legacy paragraphs below should be read as "cycle-N." See [[feedback-cycle-independence]] memory file. Trigger phrases: "rerun the review", "rerun in a loop", "review again", "loop the review", "loop until converged", "keep reviewing", or any "review" command following a prior review cycle on the same branch with no merge between.
-
-**What changes vs. a stand-alone single-cycle invocation:**
-
-1. **Section 5 (User decision) collapses into synthesizer decision.** Items that would route to "for user decision" in a single isolated cycle are decided by the synthesizer when cycling-to-converge, applying the [§ Senior-developer judgment filter](#senior-developer-judgment-filter) the same way Objective + Headbutting items are. The user is not asked between cycles.
-2. **The user-decision-item recommendation IS the decision.** The single-cycle rule "include my recommendation, then ask the user" becomes "make the decision, apply it, record it in §17.N". If the recommendation was "defer", record the defer with rationale (no commit needed); if "apply", make the commit.
-3. **Per-cycle output is compact.** While auto-cycling, do NOT emit the full 6-section synthesis report between cycles. After each cycle, emit a 1-paragraph status (cycle N: K fixes applied + commit SHAs + filtered/dropped count) so the user can interrupt mid-loop if they want. The full 6-section report is reserved for the terminal cycle.
-4. **Lens prompts carry NO carryover context.** Each cycle's 20 lens prompts must be clean of any reference to prior cycles, prior §17.N entries, "delta from pass N-1" sections, "don't re-flag items §17 acknowledges" hints, etc. The lenses see ONLY the current branch state. The synthesizer's §17-aware filter does the dedup work between cycles.
-
-**Termination condition.** The auto-cycle terminates when a cycle produces zero commits to the branch. Specifically:
-
-- 20 lenses run on the current branch state.
-- Synthesizer applies the senior-dev filter.
-- After filter, both the Objective bucket AND the (now-self-decided) User-decision bucket are empty (or all entries are "defer with rationale" — no actual code/doc changes).
-- The deferred section may still have entries (real later-phase blockers); those don't block termination.
-
-**Max iteration cap: 5 cycles.** If the auto-cycle hasn't converged in 5 cycles, stop and report a MAX-CAP-HIT termination. The most likely cause of non-convergence at that point is EITHER the filter being too loose (one or more "filter-out" categories needs to be added) OR a workflow gap that introduces drift faster than the cycle catches it.
-
-**MAX-CAP-HIT diagnosis procedure.** At the terminal cycle (whether zero-commits or max-cap), if the loop hit the max-cap without converging, the synthesizer MUST analyze which patterns of findings recurred across cycles and route them to one of three categories:
-
-- **Filter-gap items** — items the senior-dev filter should have caught but didn't. The fix is to add a new "filter-out" category here in CLAUDE.md and to [[feedback-senior-dev-filter]].
-- **Workflow-gap items** — items that arise from HOW the cycle executes (e.g., test splits committed without a paired plan sync; renaming sweeps that miss callsites; comment additions with unchecked factual claims). The fix is a workflow rule, NOT a filter category — see the [§ Known workflow gaps from prior loops](#known-workflow-gaps-from-prior-loops) subsection below.
-- **Real bugs that needed those cycles to surface** — genuine code/doc defects that no filter or workflow change would have prevented. These are the loop's actual value; no diagnosis change needed.
-
-The terminal report's "MAX-CAP diagnosis" section must enumerate which category each recurring pattern falls into and propose the corresponding fix (filter category addition, workflow rule addition, or no-fix-needed).
-
-### Known workflow gaps from prior loops
-
-Three workflow patterns were diagnosed at the end of the 2026-05-12 5-cycle loop (recorded in `docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md §17.23`). Future loops should prevent these IN-cycle rather than relying on the next cycle to catch them:
-
-1. **Test split + missed plan sync** (caught in 4 of 5 cycles of the 2026-05-12 loop). When a same-cycle commit splits a test (e.g., `test_X` → `test_X_part_a` + `test_X_part_b`), the plan-sync commit for `docs/plan.md §6.3` task tables must reference the post-split test names. The failure mode: plan-sync agent ran BEFORE the test-split agent in parallel Layer A dispatch, so the plan-sync missed the just-introduced split.
-   - **Workflow rule:** when a Layer A includes both a plan-sync agent AND a test-split agent on the same task row, dispatch the test-split agent in Layer A and the plan-sync agent in **Layer B** (sequential after Layer A completes), so the plan-sync always sees the post-split state.
-   - **Alternative:** after Layer A completes and before §17.N audit, run a final `grep -n <pre-split-test-name> docs/plan.md` for every split test in the cycle; sync any drift in a follow-up commit before the audit entry.
-
-2. **CLAUDE.md terminology rename leaks** (caught in 3 of 5 cycles). When renaming a heading or terminology in CLAUDE.md (e.g., `§Loop mode` → `§Cycle-loop mode`), partial grep-and-replace sweeps leave broken anchor references, indirect callsites, and stale hedges.
-   - **Workflow rule:** when renaming a heading or coining a new term in CLAUDE.md, AFTER applying the rename, run `grep -ni '<old-term>' CLAUDE.md` and walk EVERY hit, classifying each as "needs update" or "legitimate other-context usage" (e.g., "single-pass mode" as a contrast term, "CI checks pass" as imperative verb). Don't rely on grep-and-replace heuristics on the visible callsites only. Also grep for the anchor form: `grep -ni '#<old-heading-slug>' CLAUDE.md`.
-
-3. **Prior-cycle audit-comment factual drift** (caught in 3 cycles). Audit-quality comments added during a cycle (e.g., a new `[tool.pydantic-mypy]` rationale comment) sometimes carry factual inaccuracies (claims about "every model uses X" that aren't true, or "tracks the locked Y" arithmetic that doesn't match) that the next cycle's lens catches.
-   - **Workflow rule:** when adding audit-quality comments to `pyproject.toml`, `.pre-commit-config.yaml`, or any other live config file during a fix-dispatch, verify EACH factual claim against the actual config/code state at commit time. Don't write narrative speculation as if it were established fact. Specifically: if a comment says "every X uses Y," grep to confirm; if a comment says "tracks the locked minor `A.B.C`," verify the floor specifier matches `>=A.B`.
-
-If a future loop's MAX-CAP diagnosis identifies a NEW recurring pattern beyond these three, add it as a numbered item here. Treat these workflow rules as binding for any auto-converge loop run in this project.
-
-**Post-max-cap restart semantics.** If the user requests a review re-run after max-cap termination ("rerun same loop", "loop again", "rerun the loop", or similar), treat it as a NEW 5-cycle loop with the iteration counter reset to 1 (not as an extension of the prior cap). The new loop starts a fresh cycle-N numbering against the current branch HEAD and applies the same termination conditions (zero-commits convergence OR 5-cycle max cap). The senior-dev filter rationale paragraph above still applies: if the new loop also hits the cap without converging, the most likely cause is filter looseness, and the right response is to tighten the filter rather than start yet another loop. Record each restart's cycle range and termination reason in `docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md §17.N` so the cumulative audit trail is unambiguous.
-
-**HEAD/BASE target rule (carries over from §17.19 pass-target rule, restated for cycle terminology):** The first cycle of a fresh review against `main` targets `origin/main` (HEAD=origin/main). Every subsequent cycle on the same fix branch targets the **current fix branch HEAD** (with prior cycles' commits on top), NOT `origin/main` again. BASE_SHA stays at the cycle-1 origin/main SHA so each cycle sees the full cumulative body of work since main as if seeing it fresh.
-
-**Per-cycle mechanics within the auto-converge loop:**
-
-1. Cycle starts: get current `HEAD_SHA`, capture in cycle log.
-2. Dispatch all 20 lenses in a single message with `run_in_background: true`, prompts unchanged from a stand-alone single-cycle invocation.
-3. Wait for all 20 to return.
-4. Synthesize internally: apply filter, partition into Objective / Headbutting / 4a / 4b / (self-decided user-decision).
-5. Apply fixes via the [§ Parallel fix-dispatch pattern](#parallel-fix-dispatch-pattern) below — non-overlapping fixes fire in parallel via `Agent` subagents, file-conflicting fixes serialize across layers.
-6. Run the full local verification gate.
+1. Capture HEAD_SHA.
+2. Dispatch 20 lenses (single message, `run_in_background: true`, clean prompts).
+3. Wait for all 20.
+4. Synthesize internally + apply filter + partition into Objective / Headbutting / 4a / 4b / self-decided.
+5. Apply fixes via [§ Parallel fix-dispatch](#parallel-fix-dispatch).
+6. Run [§ Verification gate](#verification-gate).
 7. Push.
-8. **Compact status line emitted to chat at the end of every cycle** (mandatory; user-requested 2026-05-12 — *"how i want it to display at the end of a cycle with the number of findings importance clean lanes etc"*). Required fields, in this order:
-   - **Cycle N closed.** (one-line header so the user can grep for cycle-N boundaries)
-   - **Commits applied: M** (raw count of commits landed this cycle, includes the §17.N audit entry; note any methodology-codification or mid-cycle commits separately)
-   - **Fixes by severity: 0 Critical / X Important / Y Minor** — severity-bucketed count of distinct lens-derived findings applied (lens-rated severity, not synthesizer-rated)
-   - **Convergence: N multi-lens findings** (count of items where ≥2 lenses agreed; explicitly note inter-lens-disagreement-resolved cases) or "none"
-   - **Ship-ready (pre-fix): A/20 Yes, B/20 With fixes** (count of lens verdicts across the 20 panel agents)
-   - **Clean lenses (0 findings or all filter-drop): C/20** (the user's specifically-requested "clean lanes" signal — counts lenses whose output had zero apply-bucket items after filter)
-   - **Filtered out: ~F findings** (rough count of items the senior-dev filter dropped)
-   - **Deferred new this cycle: D** (entries added to 4a wait-for-later-phase + 4b other-reasons buckets)
-   - **Prior-cycle deferrals reversed: R** (with one-line callout per reversal, citing the §17.N entry being reversed and the new evidence)
-   - **New HEAD: \<sha\>. Continuing.** (≥1 fix → next cycle runs) OR **New HEAD: \<sha\>. CONVERGED.** (0 fixes after filter → loop terminates with zero-commits convergence) OR **New HEAD: \<sha\>. MAX-CAP-HIT.** (cycle count == 5 with ≥1 fix → loop terminates at max-cap)
+8. **Emit compact status line in chat** (mandatory; format below).
+9. If converged or cycle count == 5 → emit final 6-section report. Else loop.
 
-   This compact line is the user's only between-cycle output. Do NOT emit the full 6-section synthesis report between cycles — that is reserved for the terminal cycle (zero-commits or max-cap-hit).
-9. If converged or cycle count == 5, emit the final 6-section report. Else loop.
-
-### Parallel fix-dispatch pattern
-
-The 20-lens panel already runs in parallel. The fix-application phase that follows it also parallelizes — non-overlapping fixes are independent units of work and should not be applied serially when a single message with multiple `Agent` calls can land them concurrently. This is the same Superpowers worktree-dispatch pattern used for phase development (see [§ Phase development methodology](#phase-development-methodology--go-to-strategy)), reused for review-derived fixes.
-
-**Step 1 — Partition the synthesized fix list by file overlap.**
-
-For each fix in the Objective + Headbutting + self-decided buckets, list the files it touches. Two fixes conflict if they share at least one file. Build the conflict graph and produce **layers**:
-
-- **Layer A** = the maximal set of fixes where no two fixes share a file. Every fix in Layer A is independent of every other fix in Layer A.
-- **Layer B** = fixes whose required files overlap with at least one Layer A fix — they wait until Layer A's commits land.
-- **Layer C+** = same logic; each layer's files may overlap with prior layers but not with peers in the same layer.
-
-Single-file fixes that don't appear elsewhere are trivially in Layer A.
-
-The §17 spec deviation log entry is **always its own layer (last)** because it summarizes the other fixes — it depends on every other commit's SHA being known.
-
-**Step 2 — Within each layer, dispatch parallel agents.**
-
-Send a single assistant message containing one `Agent` tool call per fix. Each agent gets a self-contained prompt covering:
-
-- The lens that surfaced the finding (so the agent has rationale context).
-- The exact files it owns (read + write).
-- The files it must NOT touch (Layer A peers' files; commits to them would race).
-- The concrete fix to apply (file:line + old text + new text).
-- The commit message body (subject + 5-15 line body explaining WHY, with the standard `Co-Authored-By` footer).
-- The rule that the agent commits ONLY its own files. It does NOT push (the main conversation pushes the assembled branch after all layers land).
-
-Use `subagent_type: general-purpose`, `model: sonnet`, `run_in_background: false` (the main conversation needs results before the next layer can dispatch). All `Agent` tool calls in **a single assistant message** so they execute concurrently.
-
-**Step 3 — After each layer, run the full local verification gate.**
-
-The gate is unchanged ([§ Verification gate](#verification-gate-all-must-pass-before-commit)). If a layer's commits collectively break the gate, fix in the main conversation before dispatching the next layer (the conflict surfaces immediately, not after several layers of compounded changes).
-
-**Step 4 — Repeat for each remaining layer.**
-
-After all layers commit, perform the §17.N spec deviation entry as the final commit (sequentially, in the main conversation) — it references every preceding commit's SHA.
-
-**When to NOT parallelize.**
-
-- **Tiny passes (≤2 fixes).** The dispatch overhead exceeds the parallelism benefit. Apply serially in the main conversation.
-- **All fixes touch the same file.** Dispatching one agent per fix would race on the same file. Apply serially.
-- **Subagents would need to read each other's outputs.** If fix B depends on fix A's text content (rare in review-derived fixes; common only when a renaming cascade is in flight), serialize.
-- **First pass with the user.** If the user hasn't seen the methodology in action yet, run the first iteration serially so they can verify the partitioning logic before delegating to subagents.
-
-**Why this matters.** A pass with 14 fixes spread across 8 files, if applied serially, takes the wall-clock sum of every fix. Partitioned into 3-4 layers with ~4 parallel agents per layer, the wall-clock collapses to the layer count × the slowest agent — typically 4-6× faster. The git history is identical (same atomic per-concern commits), the verification gate runs identically (after each layer), and the §17.N entry is identical (it just lists SHAs).
-
-**Per-cycle agent prompt template (fix-application):**
+### Compact per-cycle status line format (mandatory in chat at end of every cycle)
 
 ```
-You are implementing one panel-derived fix for the contract-data-extraction
-project's Phase N review cycle-N. Working directory:
-/Users/cosminneamtiu/Work/contract-data-extraction. Current branch:
-<phase-branch> (e.g. phase-N-<slug>).
-
-**Lens that surfaced this finding:** {LENS_NUMBER} — {LENS_NAME}, severity
-{Critical | Important | Minor}. The lens flagged: {one-line summary of the
-finding}.
-
-**Files you OWN (read + write):**
-{FILES_OWNED — concrete paths}
-
-**Files you must NOT touch** (other agents own them this layer; commits to
-them would race):
-{FILES_FORBIDDEN — concrete paths}
-
-**The fix:**
-{Exact text edits, file:line specific. Old → new. No ambiguity.}
-
-**Workflow:**
-1. Read the owned file(s) to confirm the current state matches what's expected.
-2. Apply the edit(s) with Edit tool.
-3. Run a narrow verification for your owned files only (e.g.,
-   `unset VIRTUAL_ENV && uv run pytest <your-test-file>` if tests, or
-   `unset VIRTUAL_ENV && uv run ruff check <your-file>` for source).
-4. `git add` ONLY your owned files; do not `git add -A` or `git add .`.
-5. Commit with the message below (HEREDOC, with Co-Authored-By footer).
-6. Do NOT push — the main conversation pushes the whole branch at cycle end.
-
-**Commit message (use HEREDOC verbatim):**
-{full subject + body + footer}
-
-**Return:** brief report (≤120 words) — the commit SHA you produced and any
-deviation from this prompt with a one-line rationale. If you couldn't make
-the change, report the blocker and DO NOT commit partial work.
+**Cycle N closed.**
+- Commits applied: M
+- Fixes by severity: 0 Critical / X Important / Y Minor
+- Convergence: N multi-lens findings (or "none")
+- Ship-ready (pre-fix): A/20 Yes, B/20 With fixes
+- Clean lenses (0 findings or all filter-drop): C/20
+- Filtered out: ~F findings
+- Deferred new this cycle: D (E to 4a, F to 4b)
+- Prior-cycle deferrals reversed: R (one-line callout each with §17.N reference + new evidence)
+- New HEAD: <sha>. Continuing | CONVERGED | MAX-CAP-HIT.
 ```
 
-**Final report emitted only after termination** includes the per-cycle commit log (so the user can see what shipped across the whole loop), the standard 6 sections rolled up over all cycles, and a "Loop convergence" footer noting iteration count and the reason for termination (zero-changes or max-cap-hit).
+### MAX-CAP diagnosis
 
-**The default: review runs on the CURRENT branch — everything built in the current phase. Fixes land on the CURRENT branch.** This is true for both the auto-fired phase-PR self-review and any manual "review this PR" / "review the branch" invocation. The diff under review is `origin/main..HEAD` — i.e., every commit the current branch added on top of `main`, which IS the phase's full body of work. The 20 lenses see the whole phase as a unit; the synthesizer's fix-now items become commits on the same branch you are currently on. **Do NOT cut a separate branch.**
+If loop hit max-cap, the synthesizer MUST analyze recurring findings across cycles and route to one of three categories:
 
-**The exception — only when the user explicitly says "review against main," "review main," or "review the current state of main":** the panel is being run on already-merged code, the diff under review is `<some-base-on-main>..origin/main`, and there is no working branch to put fixes on. In that case, follow the numbered steps below — cut `chore/panel-review-fixes` from `main`, apply fixes there, open a separate PR. This is the *standalone* review pattern Phase 0.5 used after PR #2 merged.
+- **Filter-gap items** → add a new "filter-out" category here + in [[feedback-senior-dev-filter]].
+- **Workflow-gap items** → add a new rule to [§ Known workflow gaps](#known-workflow-gaps) + [[feedback-loop-workflow-gaps]].
+- **Real bugs** that needed those cycles to surface → no diagnosis change.
 
-The numbered steps below apply ONLY to the "review against main" exception. For everything else (phase-PR self-review, "review this PR," "panel review the branch"), the fixes go on the current branch — no new branch needed; you skip directly to "apply fixes per the triage matrix" and follow the per-commit + per-PR conventions in [§ Conventional commits + PR conventions](#conventional-commits--pr-conventions).
+The terminal report's MAX-CAP-diagnosis section enumerates each recurring pattern's category and the corresponding fix.
 
-1. **Cut a new branch from `main`.** Naming: `chore/panel-review-fixes` for first pass, `chore/panel-review-fixes-pass-N` for subsequent. Never work directly on `main`.
-2. **Apply fixes.** Use Edit/Write directly. For grouped doc updates, use `replace_all: true` only when the pattern is genuinely identical across sites. For inter-related fixes, prefer atomic per-concern commits over one large commit.
-3. **Verify locally — the gate below must be fully green before commit.**
-4. **Commit in logical groups** with conventional-commits prefixes (`fix`, `feat`, `ci`, `chore`, `docs`, `test`, `build`, `refactor`). One concern per commit. Use HEREDOC for multi-line messages. Always include `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>`.
-5. **Push + open PR via `gh pr create`.** PR body must list: items applied (by commit), items explicitly NOT in this PR (with rationale), items permanently skipped (with rationale), local verification checklist (checked), CI verification checklist (unchecked, fires on the PR).
-6. **Do NOT merge locally.** User merges via GitHub UI. See [memory/feedback_pr_workflow.md](../../.claude/projects/-Users-cosminneamtiu-Work-contract-data-extraction/memory/feedback_pr_workflow.md).
-7. **Update memory** with significant new project state (PR landed, ruleset configured, etc.) — but only what's surprising or non-obvious. Routine PR landings already live in git history; memory captures *interpretive* state.
+### Known workflow gaps
+
+Three patterns diagnosed at the 2026-05-12 MAX-CAP termination (spec §17.23). Future loops MUST prevent these in-cycle. Full details in [[feedback-loop-workflow-gaps]].
+
+1. **Test split + missed plan sync.** A same-cycle test-split commit lands before the plan-sync commit in Layer A; the plan-sync misses the split.
+   - **Rule:** if a Layer A includes both, pin the plan-sync agent to **Layer B** (sequential after Layer A). OR: post-Layer-A `grep -n <pre-split-name> docs/plan.md` for every split test, sync drift before §17.N.
+2. **CLAUDE.md terminology rename leaks.** Partial grep-and-replace misses anchor refs and indirect callsites.
+   - **Rule:** after a rename, `grep -ni '<old-term>' CLAUDE.md` AND `grep -ni '#<old-heading-slug>' CLAUDE.md` and walk EVERY hit. Classify each: "needs update" vs "legitimate other-context."
+3. **Prior-cycle audit-comment factual drift.** Comments added in cycle N carry inaccuracies cycle N+1 catches.
+   - **Rule:** when adding audit-quality comments to config files, verify EACH factual claim against actual config/code state at commit time. "Every X uses Y" → grep. "Tracks the locked minor A.B.C" → confirm floor reads `>=A.B`. Drop unverifiable claims; don't preserve speculation by hedging.
+
+### Parallel fix-dispatch
+
+For Objective + Headbutting + self-decided fixes:
+
+1. **Partition by file overlap.** Two fixes conflict if they share a file. Layer A = maximal set with no peer overlap. Layer B+ = fixes overlapping Layer A peers (sequential). §17.N audit is always the last layer.
+2. **Dispatch per layer:** one `Agent` per fix in a **single assistant message**, `subagent_type: general-purpose`, `model: sonnet`, `run_in_background: false` (need results before next layer). Each prompt: lens + severity + `FILES_OWNED` + `FILES_FORBIDDEN` + exact fix (file:line + old → new) + commit message HEREDOC + "commit ONLY owned files, do NOT push."
+3. **Verification gate after each layer.**
+4. Repeat. Final commit = §17.N audit entry (sequential, in main conversation).
+
+**When NOT to parallelize:** ≤2 fixes (dispatch overhead exceeds benefit); all fixes touch the same file; subagents need to read each other's outputs.
+
+### Where review fixes land
+
+**Default — fixes on the CURRENT branch:**
+- Phase-PR self-review (auto-fired step in Superpowers flow): fixes on the phase branch.
+- "Review this PR" / "review the branch": fixes on the current branch.
+- Diff under review: `origin/main..HEAD`.
+
+**Exception — only when user says "review against main" / "review main" / "review the current state of main":** standalone review of already-merged code. Cut a branch named `chore/panel-review-fixes` (first run) or `chore/panel-review-fixes-<DATE>` (subsequent runs to avoid name collision). Open a separate PR. Do NOT merge locally; user merges via GitHub UI.
 
 ### Verification gate (all must pass before commit)
 
-Run these locally, in order. If any fails, fix before proceeding — do not commit on a yellow gate.
-
 ```bash
-unset VIRTUAL_ENV  # in case the wrong venv is active
-uv lock --check                           # no lockfile drift
-uv run ruff check src tests               # lint
-uv run ruff format --check src tests      # format
-uv run mypy src tests                     # type check
-uv run pytest -q                          # tests
-uv run pip-audit --skip-editable          # CVE scan (note: --strict deferred; see spec §17.2)
-uv run pre-commit run --all-files         # all hooks
+unset VIRTUAL_ENV
+uv lock --check
+uv run ruff check src tests
+uv run ruff format --check src tests
+uv run mypy src tests
+uv run pytest -q
+uv run pip-audit --skip-editable
+uv run pre-commit run --all-files
 ```
 
-For changes touching package metadata (`__init__.py`, `py.typed`, `LICENSE`, `pyproject.toml`'s `[project]`), additionally:
+For changes touching package metadata (`__init__.py`, `py.typed`, `LICENSE`, `pyproject.toml` `[project]`):
 
 ```bash
 uv build --wheel
@@ -575,38 +288,33 @@ unzip -l dist/extraction_service-0.1.0-py3-none-any.whl | grep -E "(py.typed|LIC
 rm -rf dist/
 ```
 
-This catches PEP 561 / license inclusion regressions that the test gate alone misses.
-
 ## Conventional commits + PR conventions
 
-- **Subject line:** `<type>(<scope>): <subject>`. Type ∈ `fix|feat|ci|chore|docs|test|build|refactor`. Subject in imperative mood.
-- **Squash type rule:** when squashing a PR, the squash type should match the **highest-impact constituent type** per conventional-commits precedence (`feat` > `fix` > `chore`). If a PR contains a `fix(security)` sub-commit, the squash subject should not be typed `chore`.
-- **Subject parenthetical (squash):** should reference all material constituents, not a subset. If a PR adds a `LICENSE` and a `py.typed` marker, the subject must mention them.
-- **HEREDOC for multi-line messages** to preserve formatting. Always include the `Co-Authored-By` footer.
-- **PR body required sections:** Summary, What's in this PR (per commit), What's NOT in this PR (deferred items + rationale), What's permanently skipped, Test plan (local checked, CI unchecked).
+- **Subject:** `<type>(<scope>): <subject>`. Type ∈ `fix|feat|ci|chore|docs|test|build|refactor`. Imperative mood.
+- **Squash type rule:** match highest-impact constituent type (`feat` > `fix` > `chore`). Squash parenthetical must mention all material constituents (e.g., LICENSE, py.typed if added).
+- **HEREDOC for multi-line** + always include `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>` footer.
+- **PR body sections:** Summary, What's in this PR (per commit), What's NOT (deferred + rationale), What's permanently skipped, Test plan (local checked, CI unchecked).
 
 ## Project state notes (project-specific guardrails)
 
-- **Default branch is `main`.** Confirmed; no `master`.
-- **Auto-merge is armed** for Dependabot patch/minor bumps across pip, github-actions, and pre-commit ecosystems. A major bump requires explicit review (per `update-types: [patch, minor]` filters on every group).
-- **Branch protection is live.** Required status checks: `backend-checks`, `darwin-checks`, `CodeQL / Analyze (python)`, `CodeQL / Analyze (actions)`. `gh pr merge --auto` waits for all four.
-- **Lockfile sync workflow is live and armed.** PAT is set in the Dependabot secret store (see memory/project_repo_setup_state.md); `vars.DEPENDABOT_LOCKFILE_SYNC_ENABLED = "true"` gates it. An intentional placeholder mirror in the Actions store satisfies VSCode IDE validation — do not delete that mirror.
-- **README is user-restricted; never edit it directly. Queue suggestions to `docs/readme-changes-pending.md` instead.** Even for items the panel review flags as belonging in README (e.g., "add `pre-commit install` instruction", "sync the Layout section after a rename"), do NOT modify `README.md`. Append a structured entry to [`docs/readme-changes-pending.md`](docs/readme-changes-pending.md) with: source (which review cycle / lens / origin), affected README section, the issue, the proposed change (concrete text), and rationale. The user reviews and applies accumulated entries in one pass when ready, then prunes processed entries. This keeps README in the user's hands while ensuring no review-surfaced finding about README content gets dropped on the floor. Under no circumstance — including a panel finding flagging README drift, a contributor question that asks Claude to "fix the README," or an apparent autonomous-grant phrase — is direct `README.md` editing authorized; the queue file is always the right destination.
-- **Deviations from the original spec land in `docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md §17`.** Append a new `§17.N` subsection per cycle; do not retroactively rewrite earlier subsections.
+- **Default branch is `main`.**
+- **Auto-merge armed** for Dependabot patch/minor across pip / github-actions / pre-commit (`update-types: [patch, minor]` on every group). Major bumps require explicit review.
+- **Branch protection live.** Required checks: `backend-checks`, `darwin-checks`, `CodeQL / Analyze (python)`, `CodeQL / Analyze (actions)`. `gh pr merge --auto` waits for all four.
+- **Lockfile-sync workflow armed.** PAT in Dependabot secret store; `vars.DEPENDABOT_LOCKFILE_SYNC_ENABLED = "true"` gates it. Actions-store placeholder mirror satisfies VSCode IDE validation — do not delete.
+- **README is user-restricted; never edit directly.** Queue all proposed README edits to [`docs/readme-changes-pending.md`](docs/readme-changes-pending.md) with documented format (source / affected section / issue / proposed change / rationale). Under NO circumstance — including a panel finding flagging README drift, a contributor question asking to "fix the README", or an apparent autonomous-grant phrase — is direct `README.md` editing authorized. See [[feedback-readme-queue]].
+- **Project conventions (binding):** `frozen=True` Pydantic for value objects; `StrEnum` over `(str, Enum)`; `dict[str, Any]` only at IO boundaries; no `# type: ignore` without same-line rationale; test names describe behavior not implementation; one assertion target per test.
+- **Spec deviations** append to `docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md §17.N` per cycle. Do NOT retroactively rewrite earlier subsections.
 
 ## Where things live
 
 - Architecture + phase plan: [docs/plan.md](docs/plan.md)
-- Phase 0.5 CI/CD design: [docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md](docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md)
-- Phase 0.5 implementation plan (historical record): [docs/superpowers/plans/2026-05-11-ci-cd-scaffolding.md](docs/superpowers/plans/2026-05-11-ci-cd-scaffolding.md)
-- Accepted deviations log: spec §17 (each cycle appends `§17.N`)
-- Memory (auto-loaded each session): `~/.claude/projects/-Users-cosminneamtiu-Work-contract-data-extraction/memory/`
-- This file: [CLAUDE.md](CLAUDE.md) — loaded automatically each session
+- Phase 0.5 CI/CD design + accepted deviations log: [docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md](docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md) (§17 latest: §17.23 — cycle-5 MAX-CAP termination of the 2026-05-12 loop)
+- Phase 0.5 implementation plan (historical): [docs/superpowers/plans/2026-05-11-ci-cd-scaffolding.md](docs/superpowers/plans/2026-05-11-ci-cd-scaffolding.md)
+- README change queue: [docs/readme-changes-pending.md](docs/readme-changes-pending.md)
+- Memory (auto-loaded each session): `~/.claude/projects/-Users-cosminneamtiu-Work-contract-data-extraction/memory/` — see MEMORY.md for index
 
 ## When NOT to use the 20-lens panel
 
-- **Trivial single-file PRs** where the user explicitly asks for "a quick review" — use `superpowers:requesting-code-review` (single agent) instead.
-- **Pre-merge sanity check on tiny changes** — single-agent review suffices.
-- **Cloud-billed deep review requested** — that's `/ultrareview`, not this. The user triggers it explicitly when they want it.
-
-For everything else — "review", "panel review", "deep review", "code review", "review the branch / PR / state" — default to the 20-lens panel.
+- Trivial single-file PRs where user asks for "a quick review" — use `superpowers:requesting-code-review` (single agent).
+- Pre-merge sanity check on tiny changes.
+- `/ultrareview` — user triggers explicitly when they want cloud-billed deep review.
