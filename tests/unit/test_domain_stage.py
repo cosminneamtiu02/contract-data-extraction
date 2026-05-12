@@ -190,3 +190,38 @@ def test_stage_record_start_with_default_now_uses_current_time() -> None:
     assert record.state == StageState.IN_PROGRESS
     assert record.started_at is not None
     assert record.started_at.tzinfo is not None
+
+
+def test_stage_record_complete_with_default_now_uses_current_time() -> None:
+    """The production call path (``record.complete()`` with no argument) must
+    assign a timezone-aware ``completed_at`` — a future refactor that drops
+    the ``datetime.now(UTC)`` default would silently leave ``completed_at``
+    at ``None``, breaking ``duration_ms`` derivation without a test catching
+    it."""
+    record = StageRecord().start(now=T0)
+
+    finished = record.complete()
+
+    assert finished.state == StageState.DONE
+    assert finished.completed_at is not None
+    assert finished.completed_at.tzinfo is not None
+    assert finished.duration_ms is not None
+    assert finished.duration_ms >= 0
+
+
+def test_stage_record_fail_with_default_now_uses_current_time() -> None:
+    """The production call path (``record.fail(error=...)`` with no ``now``
+    argument) must assign a timezone-aware ``completed_at`` — a future
+    refactor that drops the ``datetime.now(UTC)`` default would silently
+    leave ``completed_at`` at ``None``, breaking ``duration_ms`` derivation
+    without a test catching it."""
+    error = StageError(code="ocr_engine_failed", description="x")
+    record = StageRecord().start(now=T0)
+
+    failed = record.fail(error=error)
+
+    assert failed.state == StageState.FAILED
+    assert failed.completed_at is not None
+    assert failed.completed_at.tzinfo is not None
+    assert failed.duration_ms is not None
+    assert failed.duration_ms >= 0
