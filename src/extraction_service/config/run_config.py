@@ -32,6 +32,8 @@ _DEFAULT_RETRY_ON: list[RetryOnCode] = ["llm_failed", "schema_invalid"]
 
 
 class OcrConfig(BaseModel):
+    """OCR engine choice and timeout knobs (docs/plan.md §2.5)."""
+
     model_config = ConfigDict(extra="forbid")
 
     engine: Literal["docling"] = "docling"
@@ -40,6 +42,8 @@ class OcrConfig(BaseModel):
 
 
 class LlmConfig(BaseModel):
+    """LLM stage configuration: prompt template path and timeout (docs/plan.md §6.5)."""
+
     model_config = ConfigDict(extra="forbid")
 
     prompt_template_path: Path
@@ -47,18 +51,29 @@ class LlmConfig(BaseModel):
 
 
 class RetryConfig(BaseModel):
+    """Retry policy for the LLM stage. ``retry_on`` lists error codes that
+    trigger a retry; OCR errors are always non-retried (docs/plan.md §3.3).
+    Entries are validated against the ExtractionError code Literal."""
+
     model_config = ConfigDict(extra="forbid")
 
     retry_on: list[RetryOnCode] = Field(default_factory=lambda: list(_DEFAULT_RETRY_ON))
 
 
 class PathsConfig(BaseModel):
+    """User-supplied filesystem paths. Currently just the domain-model JSON
+    Schema; will grow as later phases add prompt-template directories,
+    model-cache locations, etc."""
+
     model_config = ConfigDict(extra="forbid")
 
     domain_model_path: Path
 
 
 class RunConfig(BaseModel):
+    """Top-level per-deployment configuration loaded from the YAML file
+    pointed at by ``EXTRACTION_RUN_CONFIG`` (docs/plan.md §4.7)."""
+
     model_config = ConfigDict(extra="forbid")
 
     ocr: OcrConfig = Field(default_factory=OcrConfig)

@@ -63,6 +63,8 @@ class StageRecord(BaseModel):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def duration_ms(self) -> int | None:
+        """Elapsed wall time in milliseconds, or ``None`` if the stage has not
+        both started and completed. Derived live so it never goes stale."""
         if self.started_at is None or self.completed_at is None:
             return None
         return int((self.completed_at - self.started_at).total_seconds() * 1000)

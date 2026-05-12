@@ -7,7 +7,8 @@ data against it (docs/plan.md §3.2; ``SchemaInvalid`` exception in §4.13).
 ``load_domain_model`` runs JSON Schema meta-validation via the ``jsonschema``
 library so a malformed schema raises at startup, not on the first contract.
 The return type is ``dict[str, Any]`` — this is an IO-boundary case where
-``Any`` is explicitly accepted per CLAUDE.md §7.
+``Any`` is explicitly accepted per docs/plan.md §7 ("`Any` is acceptable only
+at IO boundaries").
 """
 
 import json

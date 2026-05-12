@@ -42,6 +42,9 @@ class ContractRecord(BaseModel):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def overall_status(self) -> OverallStatus:
+        """Derived top-level status. ``failed`` if any stage failed, ``done`` only
+        when all three stages are done, ``in_progress`` otherwise. Per the
+        transition table in docs/plan.md §3.3."""
         states = [self.intake.state, self.ocr.state, self.data_parsing.state]
         if StageState.FAILED in states:
             return "failed"
