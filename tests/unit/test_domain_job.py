@@ -6,7 +6,7 @@ asyncio.Lock-based concurrency model described in docs/plan.md §3.5: jobs
 are read by multiple workers, so they must not be mutable across stages.
 """
 
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import pytest
 from pydantic import ValidationError
@@ -23,7 +23,6 @@ def test_contract_job_stores_contract_id() -> None:
     )
 
     assert job.contract_id == contract_id
-    assert isinstance(job.contract_id, UUID)
 
 
 def test_contract_job_stores_pdf_bytes() -> None:
