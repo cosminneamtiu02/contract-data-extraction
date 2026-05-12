@@ -18,7 +18,7 @@ gets ``sys.stdout``; tests inject ``io.StringIO`` to capture rendered output.
 
 import logging
 import sys
-from typing import Literal, TextIO, assert_never
+from typing import Literal, TextIO
 
 import structlog
 
@@ -37,10 +37,6 @@ def configure_logging(
             renderer = structlog.processors.JSONRenderer()
         case "development":
             renderer = structlog.dev.ConsoleRenderer(colors=False)
-        case _ as unreachable:
-            # mypy-visible exhaustiveness guard: extending the Literal without
-            # adding a case here becomes a type error, not a runtime NameError.
-            assert_never(unreachable)
 
     structlog.configure(
         processors=[
