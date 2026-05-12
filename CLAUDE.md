@@ -10,7 +10,7 @@ Read [docs/plan.md](docs/plan.md) for the full architecture and phase-by-phase p
 
 ## Phase development methodology — go-to strategy (Superpowers flow)
 
-**When the user asks for phase work** — phrases like "implement Phase N", "begin phase X", "let's do phase Y", "next phase", or "what's next" when the answer is the next phase per the plan — use the full **Superpowers flow** below. It applies to every phase in [docs/plan.md §6](docs/plan.md) from **Phase 2 onward**; Phase 0, Phase 0.5, and Phase 1 are already complete or in-review.
+**When the user asks for phase work** — phrases like "implement Phase N", "begin phase X", "let's do phase Y", "next phase", or "what's next" when the answer is the next phase per the plan — use the full **Superpowers flow** below. It applies to every phase in [docs/plan.md §6](docs/plan.md) from **Phase 2 onward**; Phase 0, Phase 0.5, and Phase 1 are already complete.
 
 The flow has **two phases**, both automatic:
 
@@ -176,7 +176,7 @@ These survive across phases and override the plan text where they conflict with 
 - **Phases with only 1–2 independent tasks** — parallel-subagent overhead exceeds the coordination cost. Fall back to serial-in-main-conversation TDD inside the worktree.
 - **One-off fixes outside a phase** — direct branch (no worktree, no subagents), no TDD ceremony for trivial doc/config changes.
 - **Panel-review-fix branches for standalone "review against main" runs** — those follow the [Code review methodology](#code-review-methodology--go-to-strategy) flow (`chore/panel-review-fixes` naming, atomic per-concern commits). Loop-mode phase-PR self-reviews use the [§ Parallel fix-dispatch pattern](#parallel-fix-dispatch-pattern) on the current phase branch instead.
-- **Phase 0, Phase 0.5, Phase 1** — already complete or in-review.
+- **Phase 0, Phase 0.5, Phase 1** — already complete.
 
 For everything matching "implement phase N" where N ≥ 2 — default to this full Superpowers flow.
 
@@ -296,11 +296,11 @@ After all 20 lens reports return, **the synthesis is done in the main conversati
 
    **4a. Deferred — waiting on a later phase.** Findings that will naturally resurface when the dependent phase code lands, and applying them now means inventing scaffolding (fake consumers, hypothetical threat models, unused config knobs) with no real callsite. Each gets a 3–4 sentence justification, but the justification should name the specific later phase / specific dependency that unblocks the item. These items have a built-in re-trigger.
 
-   **4b. Deferred — other reasons.** Findings deferred because the cost-benefit doesn't work today, the synthesizer can't resolve them without out-of-band info (e.g., a `gh api` call), they're cosmetic and non-load-bearing, or they conflict with a project rule (e.g., "prefer new commit over amend on shared branches"). Each gets a 3–4 sentence justification walking through the specific cost-benefit. **These items will NOT auto-resurface** — a future panel pass needs to explicitly decide to re-take them, so the justification is more load-bearing than for 4a.
+   **4b. Deferred — other reasons.** Findings deferred because the cost-benefit doesn't work today, the synthesizer can't resolve them without out-of-band info (e.g., a `gh api` call), they're cosmetic and non-load-bearing, or they conflict with a project rule (e.g., "prefer new commit over amend on shared branches"). Each gets a 3–4 sentence justification walking through the specific cost-benefit. **These items will NOT auto-resurface** — a future review cycle needs to explicitly decide to re-take them, so the justification is more load-bearing than for 4a.
 
-   For both 4a and 4b: not a one-liner; not "Phase 5 will handle it" as a bare statement. The paragraph IS the deferred item's audit trail — a future panel pass that re-flags the same item should be able to read this paragraph and either agree with the deferral or explicitly counter it.
+   For both 4a and 4b: not a one-liner; not "Phase 5 will handle it" as a bare statement. The paragraph IS the deferred item's audit trail — a future review cycle that re-flags the same item should be able to read this paragraph and either agree with the deferral or explicitly counter it.
 
-   **5. For user decision (last).** Findings where the project-context judgment call belongs to the user — subjective design choices, naming preferences, scope renegotiations, anything where I could decide either way and reasonable readers could disagree with my call. For each item, include my recommendation based on project context. In **single-pass mode**, explicitly ASK the user: "do you want to decide each of these, or are you OK with me deciding based on project context?" — do NOT decide unilaterally; do NOT skip the ask. In **[§ Loop mode](#loop-mode-auto-converge--the-default-for-review-re-runs)** the synthesizer self-decides per the [§ Senior-developer judgment filter](#senior-developer-judgment-filter) and the recommendation IS the decision — no ask between passes.
+   **5. For user decision (last).** Findings where the project-context judgment call belongs to the user — subjective design choices, naming preferences, scope renegotiations, anything where I could decide either way and reasonable readers could disagree with my call. For each item, include my recommendation based on project context. In **single-pass mode**, explicitly ASK the user: "do you want to decide each of these, or are you OK with me deciding based on project context?" — do NOT decide unilaterally; do NOT skip the ask. In **[§ Cycle-loop mode](#cycle-loop-mode-auto-converge--the-default-for-review-re-runs)** the synthesizer self-decides per the [§ Senior-developer judgment filter](#senior-developer-judgment-filter) and the recommendation IS the decision — no ask between cycles.
 
    The order is non-negotiable: **1. Verdicts → 2. Objective → 3. Headbutting → 4a. Deferred (later phase) → 4b. Deferred (other reasons) → 5. For user decision.** Verdicts first because they're the at-a-glance signal. Objective is largest and most skimmable. Headbutting is the synthesizer's real value-add. Deferred-4a items have a built-in re-trigger; deferred-4b items don't, so the justification carries more weight. User-decision is last because it pauses the flow.
 
