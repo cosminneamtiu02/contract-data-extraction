@@ -19,7 +19,17 @@ from jsonschema.validators import Draft202012Validator
 
 
 def load_domain_model(path: Path) -> dict[str, Any]:
-    """Load and meta-validate a JSON Schema document from disk."""
+    """Load and meta-validate a JSON Schema document from disk.
+
+    Propagates (intentionally — failures here must crash at startup, not
+    silently fall through into request handling):
+
+    - ``FileNotFoundError``: ``path`` does not exist on disk.
+    - ``json.JSONDecodeError``: file contents are not valid JSON.
+    - ``jsonschema.exceptions.SchemaError``: JSON is structurally valid
+      but does not conform to JSON Schema (e.g., a non-dict top-level
+      value, or a malformed ``$schema``/``type`` declaration).
+    """
     # Pin UTF-8 explicitly: a server running a non-UTF-8 locale would silently
     # mis-decode non-ASCII characters in JSON string values (German field
     # names, descriptions). Matches the encoding pin on Settings.env_file.
