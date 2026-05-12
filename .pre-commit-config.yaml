@@ -47,6 +47,7 @@ repos:
       - id: check-yaml
       - id: check-json
       - id: check-toml
+      - id: check-merge-conflict
       - id: check-added-large-files
         args: ["--maxkb=500"]
       - id: detect-private-key
