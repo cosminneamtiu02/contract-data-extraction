@@ -25,6 +25,10 @@ def load_domain_model(path: Path) -> dict[str, Any]:
     silently fall through into request handling):
 
     - ``FileNotFoundError``: ``path`` does not exist on disk.
+    - ``OSError`` (and subclasses such as ``PermissionError``): the file
+      exists but cannot be opened — e.g., directory in place of a file,
+      permission denied on a read-protected path, or a hardware/FS error
+      surfaced by ``path.open()``.
     - ``json.JSONDecodeError``: file contents are not valid JSON.
     - ``jsonschema.exceptions.SchemaError``: JSON is structurally valid
       but does not conform to JSON Schema (e.g., an array or integer at
