@@ -20,7 +20,10 @@ from jsonschema.validators import Draft202012Validator
 
 def load_domain_model(path: Path) -> dict[str, Any]:
     """Load and meta-validate a JSON Schema document from disk."""
-    with path.open() as f:
+    # Pin UTF-8 explicitly: a server running a non-UTF-8 locale would silently
+    # mis-decode non-ASCII characters in JSON string values (German field
+    # names, descriptions). Matches the encoding pin on Settings.env_file.
+    with path.open(encoding="utf-8") as f:
         schema: dict[str, Any] = json.load(f)
     Draft202012Validator.check_schema(schema)
     return schema

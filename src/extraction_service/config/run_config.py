@@ -107,6 +107,10 @@ class RunConfig(BaseModel):
 
 def load_run_config(path: Path) -> RunConfig:
     """Parse and validate a run-config YAML file from disk."""
-    with path.open() as f:
+    # Pin UTF-8 explicitly: a server running a non-UTF-8 locale would silently
+    # mis-decode non-ASCII characters in YAML scalar values (German contract
+    # field names, paths with diacritics). Matches the encoding pin on
+    # Settings.env_file and domain_model.load_domain_model.
+    with path.open(encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
     return RunConfig.model_validate(data)
