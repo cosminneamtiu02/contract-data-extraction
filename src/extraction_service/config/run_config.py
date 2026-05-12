@@ -36,7 +36,7 @@ RetryOnCode = Literal[
 # config-level mistake. The field_validator on RetryConfig rejects these codes
 # at boot. Keeping them in the Literal preserves type-completeness; the
 # validator is the semantic guard.
-_OCR_RETRY_CODES_REJECTED: frozenset[str] = frozenset({"ocr_engine_failed", "ocr_empty_output"})
+_OCR_RETRY_CODES_REJECTED: frozenset[RetryOnCode] = frozenset({"ocr_engine_failed", "ocr_empty_output"})
 
 # Matches docs/plan.md §3.3 verbatim ("by default retry `llm_failed` and
 # `schema_invalid`"). `context_overflow` is INTENTIONALLY omitted: while it is
@@ -90,9 +90,10 @@ class RetryConfig(BaseModel):
 
 
 class PathsConfig(BaseModel):
-    """User-supplied filesystem paths. Currently just the domain-model JSON
-    Schema; will grow as later phases add prompt-template directories,
-    model-cache locations, etc."""
+    """User-supplied filesystem paths consumed at startup. Currently just the
+    domain-model JSON Schema (LLM prompt template paths live in ``LlmConfig``
+    because they pair with LLM timeout knobs); will grow as later phases add
+    genuinely unhoused paths such as model-cache locations."""
 
     model_config = ConfigDict(extra="forbid")
 
