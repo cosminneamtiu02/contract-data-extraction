@@ -152,6 +152,14 @@ class DoclingOcrEngine:
         a synthetic ``contract.pdf`` placeholder because Docling uses it only
         for the input descriptor — actual content is determined by the bytes.
 
+        ``asyncio.wait_for`` enforces ``OcrConfig.timeout_seconds`` at the
+        asyncio layer. When the timeout fires, ``TimeoutError`` propagates to
+        the caller (Phase 4 worker → ``StageError``). The underlying executor
+        thread keeps running until ``convert`` returns — Python lacks thread
+        cancellation primitives — but the work completes harmlessly in the
+        background; subsequent OCR jobs are unaffected because each gets a
+        fresh thread from the default pool.
+
         Error wrapping (empty output → ``OcrEmptyOutputError``; converter
         exceptions → ``OcrError``) is added in Task 2.9.
         """
@@ -162,7 +170,10 @@ class DoclingOcrEngine:
         stream = DocumentStream(name="contract.pdf", stream=BytesIO(pdf_bytes))
 
         loop = asyncio.get_running_loop()
-        result = await loop.run_in_executor(None, self._converter.convert, stream)
+        result = await asyncio.wait_for(
+            loop.run_in_executor(None, self._converter.convert, stream),
+            timeout=self._ocr_config.timeout_seconds,
+        )
 
         document = result.document
         return OcrResult(

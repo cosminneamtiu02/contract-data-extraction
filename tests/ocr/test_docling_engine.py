@@ -160,6 +160,46 @@ async def test_docling_extract_wraps_bytes_in_document_stream() -> None:
     assert document_stream.stream.getvalue() == pdf_bytes
 
 
+async def test_docling_extract_raises_timeout_when_convert_exceeds_budget() -> None:
+    """``extract`` raises ``asyncio.TimeoutError`` when the converter exceeds
+    ``OcrConfig.timeout_seconds``.
+
+    Uses a fake converter whose ``convert`` blocks on a ``threading.Event``
+    longer than the configured timeout. The user-level timeout fires at the
+    asyncio layer; the underlying worker thread keeps running until released
+    via the event (Python doesn't have thread cancellation), so the test
+    sets the event in ``finally`` right after the assertion to free the
+    thread immediately — otherwise pytest waits ~5 s for the thread pool to
+    drain.
+
+    The 1-second timeout is the minimum permitted by
+    ``OcrConfig.timeout_seconds: PositiveInt``.
+    """
+    import threading
+
+    release = threading.Event()
+
+    def slow_convert(_stream: object) -> object:
+        # Block until release.set() OR 10 s — never reached under normal
+        # test flow because release is set right after the timeout fires.
+        release.wait(timeout=10)
+        return MagicMock()
+
+    stub_converter = MagicMock()
+    stub_converter.convert.side_effect = slow_convert
+
+    engine = DoclingOcrEngine(
+        OcrConfig(timeout_seconds=1),
+        _converter_factory=lambda _cfg: stub_converter,
+    )
+
+    try:
+        with pytest.raises(TimeoutError):
+            await engine.extract(b"any bytes")
+    finally:
+        release.set()  # Free the leaked executor thread immediately
+
+
 @pytest.mark.slow
 async def test_docling_extract_against_sample(
     ocr_sample_pdf: Path,
