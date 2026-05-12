@@ -1188,3 +1188,64 @@ Re-bucketing of L17 README finding under the corrected rule: **L17 Minor (README
 **Pass-target rule (user-confirmed 2026-05-12, applies to all future cycles):** Pass 1 of a cycle reviews `origin/main` (HEAD=origin/main). Every subsequent pass in the same cycle reviews the CURRENT FIX BRANCH (HEAD=`chore/panel-review-fixes-<DATE>` with the prior passes' commits on top), NOT `origin/main` again. Re-running pass-N against `origin/main` would just re-surface items earlier passes already addressed; reviewing the live fix branch lets the panel see the cumulative state (pass-1 fixes + anything pass-N-1 introduced) and surface new findings that emerged from the prior passes' edits. The BASE_SHA in pass-2+ should typically be the cycle's initial origin/main SHA (so the diff shows the entire cycle's body of work), though a tight pass-by-pass delta review can set BASE_SHA to the previous pass's HEAD.
 
 Single-pass mode for cycle 3 pass 1 means the user can request a pass 2 (which would activate loop mode and auto-decide section 5 items per the senior-dev filter); a requested pass 2 would target HEAD=`chore/panel-review-fixes-2026-05-12` per the pass-target rule above. Otherwise this is the terminal pass for cycle 3.
+
+### 17.20. Cycle-2 on `chore/panel-review-fixes-2026-05-12` — terminology correction + 10 applied fixes
+
+The user clarified mid-loop (2026-05-12): *"they are not passes btw. they are literally new reviews that run until there are no more errors detected on repeat. no cycle knows about the one beforehand."* The prior `§17.19` framing of "single-pass + pass-2" was incorrect — each panel re-run is an **INDEPENDENT NEW CYCLE**, not a "pass within a single cycle." The earlier "pass-1" recorded in §17.19 is retroactively the FIRST CYCLE on this fix branch; this entry documents the SECOND CYCLE. The methodology correction is codified in `CLAUDE.md §Cycle-loop mode` (commit `35be975`) and memory file `feedback_cycle_independence.md`.
+
+**Cycle-2 dispatch:** 20 lens prompts with NO carryover context — no "this is pass-2" framing, no §17 awareness in the prompts, no "delta from cycle-1" section in the output format. Lenses are pure stateless reviewers of the current branch state. Synthesizer's senior-dev filter and §17-awareness handle dedup of re-flagged-by-design items.
+
+Range: `e8178175` (origin/main at cycle-1 start) .. `16506e0` (chore/panel-review-fixes-2026-05-12 HEAD after cycle-1's 20 commits). Per the HEAD/BASE rule restated in §17.19, cycle-2 targets the cumulative branch state.
+
+**Cycle-2 totals: 10 panel-derived fixes applied as 10 atomic commits + 1 methodology codification commit + this §17.20 audit entry = 12 commits.** By severity (lens-rated): 0 Critical, 4 Important applied, 6 Minor applied. Plus 1 reversal of a prior-cycle deferral on better reasoning (the pytest-cov floor bump, §17.16 reversal).
+
+**Convergence detected (0):** No same-item convergence across lenses in cycle 2. Lens 11 + Lens 20 both flagged the ci.yml line-19 comment formatting, but both rated it borderline-cosmetic and the synthesizer dropped both per the senior-dev filter.
+
+**Cycle-2 ship-ready verdicts (panel pre-fix):** 12 × Yes (L01, L03, L05, L07, L09, L10, L11, L14, L15, L16, L18, L20), 8 × With fixes (L02, L04, L06, L08, L12, L13, L17, L19). Total: 20.
+
+**Layer A commits (10 atomic, parallel fix-dispatch across 7 agents):**
+
+- `cd851cf` docs(plan): update §6.3 Task 1.1 RED-test name after split — **Lens 01 Minor**. Cycle 1's `12b5cbc` split `test_contract_job_constructs_with_required_fields` into 3 tests but the plan §6.3 task table still referenced the pre-split name. Same drift-correction pattern as §17.10/12/13 applied to other task rows; this row was missed because the split happened in cycle 1.
+- `7c40fc7` docs(config): add __all__-omission rationale to config/__init__.py — **Lens 06 Important**. The top-level `__init__.py` documents its `__all__`-omission rationale explicitly; `config/__init__.py` made the same choice silently. Add a matching rationale comment for consistency.
+- `5a23e53` test(domain): split test_stage_record_start_sets_started_at_on_new_record — **Lens 13 Important**. Cycle 1's `dc4d595` split correctly decomposed the original 5-assertion test into 3, but this descendant survived as a 2-target (`started_at == T0` AND `completed_at is None`). Split further so a regression in either invariant points at the broken contract.
+- `e69e6b3` test(domain): split test_stage_error_constructs_with_code_and_description — **Lens 13 Minor**. Same pattern as cycle 1's ContractJob field-storage decomposition (`12b5cbc`) — apply to StageError's two-field construction test for consistency.
+- `ff82324` docs(spec): clean up §17.19 ship-ready verdicts paragraph — **Lens 17 Minor**. The §17.19 ship-ready paragraph had a stream-of-consciousness self-correction left in ("×6...wait, 7"). Clean up to the final authoritative tally. Same pattern as §17.17 commit `bd2a84b` applied to §17.16's iteration-count prose.
+- `ab35b36` chore(gitattributes): add explicit *.toml text eol=lf rule — **Lens 19 Minor**. Same consistency-completion logic cycle 1 applied to `*.json` (`e88e57a`). `*.jsonl`, `*.csv`, `*.ipynb` all had explicit pins; `*.toml` fell through to the global rule.
+- `a79a011` docs(ci): mirror github-token rationale comment on darwin-checks — **Lens 10 Minor**. backend-checks's setup-uv step had a rate-limit-rationale comment; darwin-checks passed the same `github-token` without the comment. Add for consistency; the rationale is load-bearing (without it, a future reviewer at the darwin callsite could remove the line as "unused").
+- `29d1008` chore(ruff): add ANN family to select with rationale comment — **Lens 04 Important**. `ANN` (flake8-annotations) was absent from the select list despite the project enabling every other safety-relevant family. Zero current violations. Defense-in-depth tripwire for later phases.
+- `456c7b1` docs(pyproject): correct [tool.pydantic-mypy] comment factual error — **Lens 04 Minor**. Cycle 1's `65a8132` added the `[tool.pydantic-mypy]` section with a comment claiming "every domain/config model uses extra='forbid'" — FALSE: only the 5 RunConfig sub-models do; ContractJob/ContractRecord/StageError/StageRecord use frozen=True without extra='forbid'. Corrected the comment to reflect the actual model state; the `init_forbid_extra` option is still valuable as defense-in-depth.
+- `d9ebdfc` chore(deps): bump pytest-cov floor to >=7.0 (reverses §17.16 deferral) — **Lens 12 Important**. Locked at 7.1.0, prior floor `>=6.0`. **REVERSES §17.16's deferral** on better reasoning: the tracks-the-locked-major convention is about lockfile-regen safety on a fresh machine, NOT about whether the package is actively used (the prior deferral's logic). pytest-cov 7.0 dropped pytest 7.x support; a fresh-machine resolve could silently lock 6.x. uv.lock refreshed (resolved set unchanged at 7.1.0).
+
+**Layer B (sequential):**
+
+- `35be975` docs(claude): codify cycle-independence (new cycle, not pass-within-cycle) — the methodology correction per the user's mid-loop clarification. Renames `§Loop mode` → `§Cycle-loop mode`; adds the "clean lens prompts" rule (item 4); supersedes the legacy "Multi-pass reviews" pattern that previously injected pass-N context into lens prompts.
+- This `§17.20` entry.
+
+**Items the senior-dev filter dropped (cycle 2; all filter-correct per CLAUDE.md):**
+
+- **L02 Important × 2 + Minor (commit-message type corrections on cycle-1 commits):** `feat(types)` on `65a8132` should be `build(types):` or `ci(types):` per conventional-commits precedence; `docs(pyproject)` on `7aecca3` is more accurately `chore(pyproject):`-type; double-space typo in `b7e493b` subject. **All require force-pushing a shared branch** (the PR has been pushed and the user has seen it); per CLAUDE.md "NEVER run destructive git commands (push --force) unless the user explicitly requests these actions," not authorized. Drop. Convention is codified in CLAUDE.md §Conventional commits for future PRs.
+- **L03 Minor (anticipatory "Phase 5" / "Phase 2-4" comments in pyproject):** Lens itself rated "cosmetic, no current cost." Filter-drop as comment-inflation on annotations whose forward-pointed nature is the load-bearing part.
+- **L05 Minor (`match mode:` no `case _:` assert_never):** Explicit filter-drop per the senior-dev rule. Lens 05 itself flagged as drop candidate.
+- **L07 Minor (`__main__.py` docstring redundancy):** Borderline ceremonial; lens itself rated "not blocking."
+- **L08 Minor × 2 (D pydocstyle family absent + G family absent rationale comment):** D would add 14 cosmetic auto-fix violations; lens itself defers ("better deferred to a later phase when there is enough production code to make the cost visible"). G comment is comment-inflation on unambiguous config.
+- **L11 Minor + L20 Minor (ci.yml line 19 comment formatting):** Same item flagged by two lenses — borderline-cosmetic comment placement; functional impact zero. Filter-drop. (NOT a convergence promotion — both lenses themselves rated cosmetic-only.)
+- **L13 Minor × 2 (isinstance drop comment hygiene; duration_ms test 2 asserts in same behavioral claim):** Lens itself rated "not a meaningful gap" and "within spirit of convention."
+- **L15 Minor × 3 (coverage gate, JUnit XML, darwin full-suite):** Pre-existing accepted deferrals per §17.2/§17.9/§17.11. Drop (not re-versioning prior decisions for churn).
+- **L16 Minor × 3 (uuid4-inline-per-test, default-now clock dep, _MINIMAL_YAML /tmp paths):** All flagged by the lens as "no current failure risk" / "anticipatory only."
+- **L17 Important (README Layout section drift):** Already routed to `docs/readme-changes-pending.md` in cycle 1 (commit `a2502b3`). Already-resolved via queue routing; lens noted "no direct edit recommended."
+- **L17 Minor (plan-doc historical snapshot tags):** Plan file is by definition a historical snapshot; adding "see live file" pointers re-versions a snapshot. Filter-drop.
+- **L18 Minor × 2 (mypy hardcoded `src tests` path; pip-audit always-runs on docs commits):** Both flagged as "low-urgency forward observations," not current defects. Drop.
+
+**Deferred items new in cycle 2 (4b — Other reasons):**
+
+- **L02 commit-message type corrections** — would require force-pushing a shared branch with cycle 1's pushed commits. Not authorized per CLAUDE.md destructive-operation rules. Defer permanently unless the user explicitly grants force-push authorization.
+
+**Carrying forward from §17.19:**
+
+- 4a deferred (Phase 5 wiring, suite-scoped fixtures) — unchanged.
+- 4b deferred (PR #3/#4 squash type, StageError rename, RetryOnCode `__all__`, pre-commit `rev:` tag-vs-SHA, codeql fetch-depth) — unchanged.
+- L19 .python-version patch-pinning — explicitly dropped in cycle-1's L19 user-decision resolution (synthesizer recommendation accepted by user).
+
+**No user-decision items in cycle 2** (auto-cycle mode per the user's standing instruction → synthesizer self-decides per the senior-dev filter). The L02 commit-message type corrections — which would normally be a borderline filter case — were specifically dropped due to the destructive-operation gate.
+
+**Per-cycle status line (compact):** `Cycle 2 on chore/panel-review-fixes-2026-05-12: 12 commits applied (10 fixes + 1 methodology codification + this §17.20); 10 fixes (0 Critical / 4 Important / 6 Minor); 1 prior-cycle deferral reversed (§17.16 pytest-cov floor); Ship-ready (pre-fix): 12/20 Yes, 8/20 With fixes; ~16 filtered out, 1 new deferral (L02 force-push gate). Continuing — cycle 2 produced ≥1 fix, so cycle 3 follows per the auto-converge rule.`
