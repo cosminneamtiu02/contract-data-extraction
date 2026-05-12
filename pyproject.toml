@@ -125,8 +125,14 @@ ignore_missing_imports = true
 # frozen-but-not-extra-forbid ones (ContractJob, ContractRecord, StageError,
 # StageRecord). `warn_required_dynamic_aliases` catches alias names that
 # can't be resolved statically (forward-looking for Phase 5 HTTP models).
+# `init_typed` closes the static-vs-runtime gap at construction sites: without
+# it the plugin generates `__init__` with `Any` for all parameters, so
+# `ContractJob(contract_id="not-a-uuid", ...)` passes mypy even though
+# runtime Pydantic validation would reject the string. With init_typed=true
+# the generated __init__ carries `contract_id: UUID`, `pdf_bytes: bytes`, etc.
 init_forbid_extra = true
 warn_required_dynamic_aliases = true
+init_typed = true
 
 [tool.pytest.ini_options]
 # Implicit-mode async tests: function bodies marked `async def` are
