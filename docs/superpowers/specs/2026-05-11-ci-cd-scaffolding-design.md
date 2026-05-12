@@ -565,3 +565,55 @@ Recorded after the 20-lens panel was re-run against `phase-1-domain` at the post
 **State changes captured here for memory parity:**
 
 - Lockfile-sync workflow state was previously described as "configured but currently disarmed pending PAT setup" in CLAUDE.md. As of 2026-05-12 it is live and armed (PAT set in Dependabot store; `vars.DEPENDABOT_LOCKFILE_SYNC_ENABLED = "true"`).
+
+### 17.9. Phase 1 panel third pass (fresh review, treat-prior-rounds-as-nonexistent)
+
+Recorded after a third 20-lens panel against `phase-1-domain` at the post-`10a91dc`-commit state on 2026-05-12, run with each lens instructed to treat prior reviews as nonexistent. Synthesizer applied a senior-developer judgment filter on top of the cosmetic-always-apply rule (per user direction: "what seems as a forced or unnecessary finding isn't implemented"), demoting items where the cost-benefit was upside-down. Diff range under review: `0bed324..10a91dc` (33 files, 2006 insertions); the third-pass fixes themselves land in commits `6b07e68..` on the same branch.
+
+**Plan / spec deviations introduced or acknowledged in this pass:**
+
+- **`# type: ignore` rationale comments retrofitted across eight sites.** Project rule in CLAUDE.md requires every ignore to carry a one-line same-line rationale. Lens 04 (Type safety) + Lens 08 (Idiomatic Python + ruff) convergently flagged that 3 prop-decorator ignores in `domain/record.py` + `domain/stage.py` and 5 misc/call-arg ignores in `test_domain_job.py` + `test_domain_stage.py` were lacking the rationale comment. All eight retrofitted with cause-specific reasoning (Pydantic @computed_field/@property stacking, intentional frozen-model mutation tests, intentional required-field-omission tests). No behavior change.
+
+- **`assert_never` exhaustiveness guard removed from `configure_logging`.** A `case _ as unreachable: assert_never(unreachable)` arm guarded a 2-arm `Literal["development", "production"]` `match`. Two reviewers disagreed (Lens 04 endorsed it as "correct and tight"; Lens 07 called it ceremony with no payoff). Synthesizer ruled for Lens 07: mypy enforces match exhaustiveness on a closed 2-arm Literal without `assert_never`, and the `case _` arm cannot execute for any type-checked caller. The `from typing import assert_never` import was also dropped. The guard remains the right move on large/growing Literals; a 2-value mode toggle never grows past "we already test both cases".
+
+- **`src/extraction_service/config/domain_model.py:5` stale class name.** Module docstring referenced `SchemaInvalid` (the pre-rename name); the class was renamed to `SchemaInvalidError` in commit `387cc84` per §17.8. Convergent finding from Lens 06 + Lens 17. Docstring updated to match the live class.
+
+- **`docs/plan.md §6.3` goal sentence corrected.** Original wording: "All immutable types (`ContractJob`, `ContractRecord`, stage state machine)". §3.5 requires `ContractRecord` to be mutable so workers can reassign stage fields under the lock — the plan was internally contradictory. The goal sentence now matches §3.5's architectural commitment.
+
+- **`docs/plan.md §6.3 Task 1.2 GREEN cell` updated to `StrEnum`.** Original cell said `class StageState(str, Enum)`; CLAUDE.md treats the older form as global shorthand, but a phase-implementor subagent reads the task-table cell literally. Cell updated to match the live `StrEnum` implementation with a one-line rationale embedded.
+
+- **`docs/plan.md §5` tests/unit filetree updated.** Replaced the non-existent `test_stage_record.py` with the real Phase 1 test files (`test_domain_errors`, `test_domain_job`, `test_domain_model`, `test_domain_record`, `test_domain_stage`, `test_logging`). Kept the Phase 3+ prospective entries for the §5 forward-view purpose.
+
+- **`docs/plan.md §5.1` pyproject.toml snapshot annotated.** Rather than copy-paste the live `pyproject.toml` into the plan (which would then re-drift on the next ruff/pytest tightening), prepended a header note pointing readers to the live file and to §17.8 for the formal deviation list.
+
+- **Two test invariants tightened.** `test_stage_record_complete_sets_completed_at_and_computes_duration_ms` and `test_stage_record_fail_sets_state_completed_at_and_error` previously asserted `duration_ms == N` but only implicitly tested `started_at` preservation through `complete()` / `fail()`. Added explicit `assert finished.started_at == T0` (and `failed.started_at == T0`) so a future refactor that resets `started_at` on transition would fail loudly instead of transitively. Lens 13 Important.
+
+- **New test: `test_stage_field_inside_contract_record_remains_frozen`.** §3.5's worker contract requires `record.ocr = record.ocr.start(...)` as the only legal mutation path. A worker doing `record.ocr.state = IN_PROGRESS` would bypass the asyncio.Lock — the new test verifies that path raises `ValidationError` because the inner `StageRecord` is frozen even when reached through the mutable `ContractRecord` parent. Lens 13 Important.
+
+- **`test_retry_on_code_literal_mirrors_concrete_extraction_error_codes` drift-guard comment rewritten.** The previous comment said "intermediates like OcrError / LlmError carry their own codes too, but for this test we capture every subclass that has explicitly overridden .code." The word "but" implied intermediates were excluded — they were not, because `cls.__dict__.get("code")` includes them. A future reader could be misled into thinking intermediate-class code removals were safe. Lens 05 Important.
+
+- **`Settings.model_config` pins `env_file_encoding="utf-8"`.** pydantic-settings defaults env_file_encoding to None, which resolves to the platform locale charset — on a non-UTF-8 server locale, non-ASCII bytes in `.env` would mis-decode or raise. Forward-looking 1-keyword hardening with inline justification. Lens 10 Minor.
+
+- **`.github/dependabot.yml`: `pre-commit` added to `dev-tools` group.** `pre-commit` is in `[dependency-groups.dev]` as a pip package but was not in any Dependabot pip group, so a major `pre-commit` bump would arrive ungrouped and bypass the `update-types: [patch, minor]` major-bump filter that the file header documents as the intended posture. Lens 12 Important.
+
+- **`.github/workflows/dependabot-lockfile-sync.yml` PAT scope comment corrected.** Setup comment requested `Pull requests: Read and write` PAT scope; the workflow performs only `actions/checkout` + `git push` and never calls the PRs API. Removed the over-permission line with an inline note explaining why. Lens 20 Minor.
+
+- **`.gitattributes`: model-weight extensions binary-marked.** `.gguf`, `.safetensors`, `.pt`, `.pth`, `.bin` are gitignored at the pattern level, but if a small fixture ever slipped through `.gitignore` before being caught, git's `text=auto` would corrupt the bytes. Mirrored the established `.onnx binary` pattern. `*.ipynb text eol=lf` also added forward-looking for Phase 2+ OCR prototyping notebooks. Lens 19 Important + Minor.
+
+- **`.gitignore`: clarifying comment for `data/` / `models/`.** A future contributor placing test fixtures under top-level `data/` would have them silently dropped. Added a comment noting that tracked fixtures live under `tests/fixtures/` (not ignored). Lens 19 Minor.
+
+**Items the senior-dev filter dropped from the panel's recommendations (deferred or filtered out):**
+
+- **Coverage `--cov-fail-under=80` enforcement in CI** (Lens 15 Important). Already documented as deferred in §17.2 until non-stub production code lands; resurfaces naturally in Phase 2.
+- **JUnit XML output from pytest** (Lens 15 Minor). Forward-looking for Phase 2+ flake diagnosis; no current need.
+- **`asyncio_mode = "auto"` explanatory comment** (Lens 14 Minor). Setting is unambiguous to pytest-asyncio users; commenting every config knob is over-documentation.
+- **`hatchling>=N` floor in `[build-system].requires`** (Lens 12 Minor). uv lockfile pins the version; the ad-hoc `pip install` path is not a supported install method.
+- **`hatchling exclude = ["**/__pycache__"]` removal** (Lens 09 Minor). The line is redundant with hatchling's default, but it was applied in §17.8 as defensive — reverting now adds churn for zero functional gain.
+- **`isolated_env` autouse promotion** (Lens 16 Minor). Current opt-in pattern works; documentation gap is real but the convention can formalize when Phase 5 grows more `Settings`-constructing tests.
+- **`record.py` Phase 5 forward-looking comment removal** (Lens 03 Minor). Lens itself acknowledged the comment is "the right form" with a clear handoff pointer; removing it would lose a useful breadcrumb.
+- **Invalid-transition / empty-retry-on / env-var-precedence tests** (Lens 13 Minor x3). Over-specifying behavior the plan doesn't claim, or testing third-party library behavior, or low-signal documentation-by-test.
+- **Three commit messages that claim "memory updated"** (Lens 02 Important). Immutable historical commits on a shared branch — re-writing requires destructive ops the user has not authorized.
+
+**Item routed to user decision (not auto-applied):**
+
+- **Rename `src/extraction_service/logging.py` → `log_config.py` (or similar)** (Lens 06 Minor). The current module name shadows the stdlib `logging` module from inside the `extraction_service` package — any sibling module that writes `import logging` would resolve to this file, not the stdlib. No actual shadowing today (only `logging.py` itself does `import logging`, at top-of-package). The rename is a moderate refactor (file move + import updates + the `from extraction_service.logging import configure_logging` callsite). Senior-dev judgment: defer until Phase 5's HTTP wiring actually introduces a sibling module that risks the collision — the cost-benefit today is upside-down.

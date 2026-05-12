@@ -62,6 +62,11 @@ updates:
           - "detect-secrets"
           - "types-*"
           - "hatchling"
+          # pre-commit is a dev dep too; without listing it here a future
+          # Dependabot pre-commit pip bump would arrive UNGROUPED and bypass
+          # the `update-types: [patch, minor]` major-bump gate that the file
+          # header documents as the intended posture.
+          - "pre-commit"
       runtime-singletons:
         update-types: ["patch", "minor"]
         patterns:

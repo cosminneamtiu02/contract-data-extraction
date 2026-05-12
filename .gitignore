@@ -54,7 +54,9 @@ Thumbs.db
 # Model / data artifacts (preempt phase 2+ — Ollama weights are under ~/.ollama
 # and outside the tree, but intermediate model files dropped into the working
 # directory by Docling/RapidOCR/modelscope test runs would otherwise be a
-# git-add-everything accident waiting to happen).
+# git-add-everything accident waiting to happen). Tracked test fixtures (sample
+# PDFs, ground-truth CSVs) live under tests/fixtures/ which is NOT ignored —
+# never under top-level data/ or models/, both of which are silently dropped.
 *.gguf
 *.safetensors
 *.pt

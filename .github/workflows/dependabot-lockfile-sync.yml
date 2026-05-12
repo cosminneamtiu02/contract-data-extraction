@@ -10,7 +10,8 @@
 # SETUP (one-time, after this lands on main):
 #   1. Create a fine-grained PAT scoped to this repo with:
 #         Contents:        Read and write
-#         Pull requests:   Read and write
+#      (Pull requests scope is intentionally NOT requested. This workflow only
+#      runs git operations — checkout + push — and never calls the PRs API.)
 #   2. gh secret set DEPENDABOT_LOCKFILE_SYNC_PAT --app dependabot --body "<PAT>"
 #      (--app dependabot is REQUIRED: Dependabot-triggered workflows only
 #       read secrets from the Dependabot store.)
