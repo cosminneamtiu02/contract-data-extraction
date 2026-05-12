@@ -77,15 +77,25 @@ def test_stage_record_defaults_duration_ms_to_none() -> None:
     assert StageRecord().duration_ms is None
 
 
-def test_stage_record_start_returns_new_record_with_started_at() -> None:
-    record = StageRecord()
-
-    started = record.start(now=T0)
+def test_stage_record_start_returns_new_record_in_progress() -> None:
+    started = StageRecord().start(now=T0)
 
     assert started.state == StageState.IN_PROGRESS
+
+
+def test_stage_record_start_sets_started_at_on_new_record() -> None:
+    started = StageRecord().start(now=T0)
+
     assert started.started_at == T0
     assert started.completed_at is None
-    # Original record is untouched (frozen + functional).
+
+
+def test_stage_record_start_leaves_original_record_unchanged() -> None:
+    # Frozen + functional: start() must return a new record; the original
+    # must not mutate (state stays PENDING, started_at stays None).
+    record = StageRecord()
+    record.start(now=T0)
+
     assert record.state == StageState.PENDING
     assert record.started_at is None
 
