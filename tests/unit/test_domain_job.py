@@ -65,7 +65,7 @@ def test_contract_job_raises_when_both_required_fields_missing() -> None:
     request payloads — fully-empty input must be rejected before the
     pipeline sees it."""
     with pytest.raises(ValidationError):
-        ContractJob()  # type: ignore[call-arg]  # intentionally invalid for the test
+        ContractJob()  # type: ignore[call-arg]  # intentionally omits BOTH required fields to verify required-field rejection.
 
 
 def test_contract_job_raises_when_pdf_bytes_missing() -> None:
