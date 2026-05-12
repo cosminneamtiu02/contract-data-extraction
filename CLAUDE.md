@@ -264,7 +264,7 @@ Apply the superpowers reviewer rubric (Plan alignment / Code quality / Architect
 Rules: Don't stretch outside your lens. Don't pad findings. Don't manufacture Critical. Bootstrap scaffolding is mostly Minor.
 ```
 
-- **Multi-pass reviews:** for a pass-N review (re-running the panel after a previous round's fixes merged), each prompt gets an additional context block: *"This is pass-N. PR #X merged hardening from the prior review. Accepted deviations are recorded in spec §17. Note specifically what is STILL outstanding, NEWLY problematic, or accepted-deferred. Don't re-flag items §17 acknowledges."* Output format adds a "Delta from pass N-1" section with Resolved / Persisting / New.
+- **Multi-cycle reviews (auto-converge loop):** Per the 2026-05-12 user clarification documented in [§Cycle-loop mode](#cycle-loop-mode-auto-converge--the-default-for-review-re-runs), each new review cycle gets CLEAN lens prompts with NO carryover context — no "this is cycle-N", no "§17 accepts X", no "delta from cycle-N-1". Lenses are pure stateless reviewers of the current branch state. The synthesizer's senior-dev filter and §17-awareness do the dedup between cycles. The historical "Multi-pass reviews" paragraph that previously lived here (which DID inject pass-N context into lens prompts) is superseded.
 
 ### The synthesizer pass — never delegate
 
@@ -378,26 +378,29 @@ The cosmetic-always-apply rule above guards against complacency on small fixes t
 
 **Canonical example from this project (Phase 1 third-pass review):** Lens 04 endorsed an `assert_never` on a 2-arm Literal as "correct and tight"; Lens 07 called it ceremony with no payoff. The synthesizer picked Lens 07 and removed it. The decision is recorded in `9a7c66b` (original add) and `ad1755d` (removal); the §17.9 entry documents the headbutting resolution. This is the kind of judgment the filter codifies.
 
-### Loop mode (auto-converge) — the default for review re-runs
+### Cycle-loop mode (auto-converge) — the default for review re-runs
 
-**When invoked:** Any review re-run after the first pass uses loop mode by default. Trigger phrases: "rerun the review", "rerun in a loop", "review again", "loop the review", "loop until converged", "keep reviewing", or any "review" command following a prior review pass on the same branch with no merge between.
+> **2026-05-12 user clarification (binding):** Each panel re-run is **a NEW INDEPENDENT REVIEW CYCLE**, NOT a "pass within a single cycle." No cycle knows about the one before it — the lens prompts for cycle N+1 receive CLEAN prompts with no "this is pass N", no "§17.N acknowledges", no "delta from pass N-1" framing. The senior-dev filter is the only mechanism that prevents thrash on re-flagged-by-design items; lenses are pure stateless reviewers of current branch state. The "pass-N" terminology that appears in legacy paragraphs below should be read as "cycle-N." See [[feedback-cycle-independence]] memory file. Trigger phrases: "rerun the review", "rerun in a loop", "review again", "loop the review", "loop until converged", "keep reviewing", or any "review" command following a prior review cycle on the same branch with no merge between.
 
-**What changes vs. single-pass mode:**
+**What changes vs. a stand-alone single-cycle invocation:**
 
-1. **Section 5 (User decision) collapses into synthesizer decision.** Items that would route to "for user decision" in single-pass mode are decided by the synthesizer in loop mode, applying the [§ Senior-developer judgment filter](#senior-developer-judgment-filter) the same way Objective + Headbutting items are. The user is not asked between passes.
-2. **The user-decision-item recommendation IS the decision.** The single-pass rule "include my recommendation, then ask the user" becomes "make the decision, apply it, record it in §17.N". If the recommendation was "defer", record the defer with rationale (no commit needed); if "apply", make the commit.
-3. **Per-pass output is compact.** Loop mode does NOT emit the full 6-section synthesis report between passes. After each pass, emit a 1-paragraph status (pass N: K fixes applied + commit SHAs + filtered/dropped count) so the user can interrupt mid-loop if they want. The full 6-section report is reserved for the final pass (termination).
+1. **Section 5 (User decision) collapses into synthesizer decision.** Items that would route to "for user decision" in a single isolated cycle are decided by the synthesizer when cycling-to-converge, applying the [§ Senior-developer judgment filter](#senior-developer-judgment-filter) the same way Objective + Headbutting items are. The user is not asked between cycles.
+2. **The user-decision-item recommendation IS the decision.** The single-cycle rule "include my recommendation, then ask the user" becomes "make the decision, apply it, record it in §17.N". If the recommendation was "defer", record the defer with rationale (no commit needed); if "apply", make the commit.
+3. **Per-cycle output is compact.** While auto-cycling, do NOT emit the full 6-section synthesis report between cycles. After each cycle, emit a 1-paragraph status (cycle N: K fixes applied + commit SHAs + filtered/dropped count) so the user can interrupt mid-loop if they want. The full 6-section report is reserved for the terminal cycle.
+4. **Lens prompts carry NO carryover context.** Each cycle's 20 lens prompts must be clean of any reference to prior cycles, prior §17.N entries, "delta from pass N-1" sections, "don't re-flag items §17 acknowledges" hints, etc. The lenses see ONLY the current branch state. The synthesizer's §17-aware filter does the dedup work between cycles.
 
-**Termination condition.** The loop terminates when a panel pass produces zero commits to the branch. Specifically:
+**Termination condition.** The auto-cycle terminates when a cycle produces zero commits to the branch. Specifically:
 
-- 20 lenses run.
+- 20 lenses run on the current branch state.
 - Synthesizer applies the senior-dev filter.
 - After filter, both the Objective bucket AND the (now-self-decided) User-decision bucket are empty (or all entries are "defer with rationale" — no actual code/doc changes).
 - The deferred section may still have entries (real later-phase blockers); those don't block termination.
 
-**Max iteration cap: 5 passes.** If the loop hasn't converged in 5 passes, stop and report. The most likely cause of non-convergence at that point is the filter being too loose — one or more "filter-out" categories needs to be added based on what's being repeatedly surfaced.
+**Max iteration cap: 5 cycles.** If the auto-cycle hasn't converged in 5 cycles, stop and report. The most likely cause of non-convergence at that point is the filter being too loose — one or more "filter-out" categories needs to be added based on what's being repeatedly surfaced.
 
-**Post-max-cap restart semantics.** If the user requests a review re-run after max-cap termination ("rerun same cycle", "loop again", "rerun the loop", or similar), treat it as a NEW 5-iteration loop with the iteration counter reset to 1 (not as an extension of the prior cap). The new loop starts a fresh pass-N numbering against the current branch HEAD and applies the same termination conditions (zero-commits convergence OR 5-iteration max cap). The senior-dev filter rationale paragraph above still applies: if the new loop also hits the cap without converging, the most likely cause is filter looseness, and the right response is to tighten the filter rather than start yet another cycle. Record each cycle's pass range and termination reason in `docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md §17.N` so the cumulative audit trail is unambiguous.
+**Post-max-cap restart semantics.** If the user requests a review re-run after max-cap termination ("rerun same loop", "loop again", "rerun the loop", or similar), treat it as a NEW 5-cycle loop with the iteration counter reset to 1 (not as an extension of the prior cap). The new loop starts a fresh cycle-N numbering against the current branch HEAD and applies the same termination conditions (zero-commits convergence OR 5-cycle max cap). The senior-dev filter rationale paragraph above still applies: if the new loop also hits the cap without converging, the most likely cause is filter looseness, and the right response is to tighten the filter rather than start yet another loop. Record each restart's cycle range and termination reason in `docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md §17.N` so the cumulative audit trail is unambiguous.
+
+**HEAD/BASE target rule (carries over from §17.19 pass-target rule, restated for cycle terminology):** The first cycle of a fresh review against `main` targets `origin/main` (HEAD=origin/main). Every subsequent cycle on the same fix branch targets the **current fix branch HEAD** (with prior cycles' commits on top), NOT `origin/main` again. BASE_SHA stays at the cycle-1 origin/main SHA so each cycle sees the full cumulative body of work since main as if seeing it fresh.
 
 **Per-pass mechanics within the loop:**
 
