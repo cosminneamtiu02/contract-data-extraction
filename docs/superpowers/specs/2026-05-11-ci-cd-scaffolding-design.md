@@ -1462,7 +1462,7 @@ These three workflow gaps explain why the loop hit the max cap rather than conve
 **Loop final summary:**
 
 - Loop start HEAD: `e8178175` (origin/main at cycle-1 start)
-- Loop end HEAD: <pending push>
+- Loop end HEAD: `f50148d` (the §17.23 audit commit itself, which was the cycle-5 terminal commit on `chore/panel-review-fixes-2026-05-12`; the 2026-05-13 prune-CLAUDE.md and methodology-codification commits that came later were SEPARATE post-loop work)
 - Total cycles: 5 (max cap)
 - Total commits across loop: 60 (51 fixes + 9 audit/methodology/codification)
 - Total fixes by severity: 0 Critical / 22 Important / 29 Minor
@@ -1526,7 +1526,7 @@ Recurring filter-drops by category (with prior-loop cycle-count for each pattern
 
 **No user-decision items in cycle 1** (auto-cycle mode per CLAUDE.md `§Cycle-loop mode`).
 
-**Per-cycle status line (compact):** `Cycle 1 on chore/panel-review-fixes-2026-05-13: 13 commits applied (12 fixes + this §17.24); 22 findings (0 Critical / 6 Important / 16 Minor); 0 strong convergent findings; Ship-ready (pre-fix): 14/20 Yes, 6/20 With fixes; Clean lenses: 2/20 (L10, L14); ~13 categories filter-dropped (recurring patterns); 0 new deferrals; 0 prior-cycle deferrals reversed. New HEAD: <pending push>. Continuing.`
+**Per-cycle status line (compact):** `Cycle 1 on chore/panel-review-fixes-2026-05-13: 13 commits applied (12 fixes + this §17.24); 22 findings (0 Critical / 6 Important / 16 Minor); 0 strong convergent findings; Ship-ready (pre-fix): 14/20 Yes, 6/20 With fixes; Clean lenses: 2/20 (L10, L14); ~13 categories filter-dropped (recurring patterns); 0 new deferrals; 0 prior-cycle deferrals reversed. New HEAD: 26b788e3. Continuing.`
 
 ### 17.25. Cycle-2 on `chore/panel-review-fixes-2026-05-13` — 4 applied fixes, sharp fix-count drop (12 → 4)
 
@@ -1581,7 +1581,7 @@ Second cycle of the auto-converge loop on this branch. Per the cycle-independenc
 
 Fix count: 12 → 4 (sharp decrease, ratio 0.33). Clean lenses: 2 → 4 (doubled). Severity collapse: from 6 Important + 16 Minor to 0 Important + 4 Minor — a strong convergence signal. Filter-drop volume up slightly as the panel re-flags more recurring categories per cycle (expected behaviour under cycle-independence).
 
-**Per-cycle status line (compact):** `Cycle 2 on chore/panel-review-fixes-2026-05-13: 5 commits applied (4 fixes + this §17.25); 4 findings (0 Critical / 0 Important / 4 Minor); 0 strong convergent findings; Ship-ready (pre-fix): 14/20 Yes, 6/20 With fixes (rotated set: L01/L02/L06/L16/L17/L19); Clean lenses: 4/20 (L05 + L07 + L09 + L14); ~15 categories filter-dropped; 0 new deferrals; 0 prior-cycle deferrals reversed. New HEAD: <pending push>. Continuing.`
+**Per-cycle status line (compact):** `Cycle 2 on chore/panel-review-fixes-2026-05-13: 5 commits applied (4 fixes + this §17.25); 4 findings (0 Critical / 0 Important / 4 Minor); 0 strong convergent findings; Ship-ready (pre-fix): 14/20 Yes, 6/20 With fixes (rotated set: L01/L02/L06/L16/L17/L19); Clean lenses: 4/20 (L05 + L07 + L09 + L14); ~15 categories filter-dropped; 0 new deferrals; 0 prior-cycle deferrals reversed. New HEAD: f1385c60. Continuing.`
 
 ### 17.26. Cycle-3 on `chore/panel-review-fixes-2026-05-13` — 2 applied fixes, 1 STRONG convergent finding, 2 lens hallucinations identified
 

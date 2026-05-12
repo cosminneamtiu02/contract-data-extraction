@@ -685,7 +685,7 @@ Each phase is **its own git worktree** so phases can be reviewed/merged independ
 | 0.2 | Create src/ layout | `src/extraction_service/__init__.py`, `src/extraction_service/__main__.py` | `tests/test_smoke.py` asserts `import extraction_service` works | empty `__init__.py`; `__main__.py` with `def main() -> None: print("ok")` | `uv run pytest tests/test_smoke.py` |
 | 0.3 | Add ruff config | (already in pyproject.toml) | none | apply [tool.ruff.lint] block from Section 5.1 | `uv run ruff check src tests` clean |
 | 0.4 | Add mypy strict config | (already in pyproject.toml) | none | apply [tool.mypy] block | `uv run mypy src tests` clean |
-| 0.5 | Add pytest config | (already in pyproject.toml) | none | apply [tool.pytest.ini_options] | `uv run pytest` shows 1 passing test (smoke) |
+| 0.5 | Add pytest config | (already in pyproject.toml) | none | apply [tool.pytest.ini_options] | `uv run pytest` shows 2 passing tests (smoke — import + entrypoint sentinels) |
 | 0.6 | Pre-commit hooks | `.pre-commit-config.yaml` | none | hooks for ruff check, ruff format, mypy | `uv run pre-commit run --all-files` clean |
 | 0.7 | .gitignore + README stub | `.gitignore`, `README.md` | none | standard Python .gitignore + project description | git status clean |
 
