@@ -32,9 +32,10 @@ dist/
 Thumbs.db
 .idea/
 .vscode/*
-# extensions.json + settings.json are intentionally shared: the team standardises
-# on the same VS Code extension set and on a workspace-pinned Python interpreter
-# (.venv/bin/python) so first-run dev experience matches CI.
+# Carve-outs (not yet created — these will be committed once added): the team
+# will standardise on the same VS Code extension set and a workspace-pinned
+# Python interpreter (.venv/bin/python) so first-run dev matches CI. Until
+# then the !-rules are forward-looking stubs with no current file behind them.
 !.vscode/extensions.json
 !.vscode/settings.json
 *.swp

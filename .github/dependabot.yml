@@ -8,7 +8,7 @@
 #     are NOT declared deps either; they're pulled by the `standard` extra.
 #   - pydantic:      pydantic + pydantic-settings (lockstep releases)
 #   - pytest:        pytest + plugins (aligned releases)
-#   - dev-tools:     ruff + mypy + pip-audit + detect-secrets + types-* + hatchling
+#   - dev-tools:     ruff + mypy + pip-audit + detect-secrets + types-* + hatchling + pre-commit
 #   - runtime-singletons: structlog + httpx + ollama + jsonschema + pyyaml
 #   - ml-stack:      docling + rapidocr-onnxruntime + modelscope (heavy transitive trees)
 #
@@ -97,10 +97,17 @@ updates:
     groups:
       github-actions-stack:
         update-types: ["patch", "minor"]
+        # "*" catch-all closes the ungrouped-bypass loophole for any future
+        # action namespace (docker/*, hashicorp/*, etc.). Without it, a new
+        # namespace would arrive as an UNGROUPED PR, bypassing the
+        # `update-types: [patch, minor]` major-bump filter. The explicit
+        # namespace patterns are kept for documentation — they enumerate what
+        # we currently use; the catch-all backstops anything else.
         patterns:
           - "actions/*"
           - "astral-sh/*"
           - "github/codeql-action/*"
+          - "*"
 
   - package-ecosystem: pre-commit
     directory: /
