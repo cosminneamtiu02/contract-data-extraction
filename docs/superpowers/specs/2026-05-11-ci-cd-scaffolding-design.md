@@ -921,3 +921,37 @@ The loop did NOT converge to zero commits within the 5-iteration cap. **Cause an
 **Termination decision:** Per CLAUDE.md max-iteration-cap rule, the loop terminates at iteration 5 / pass 8. The branch state at HEAD post pass 8 represents 5 panel iterations of senior-dev-filtered hardening — ~98 ceremonial items dropped, ~55 substantive items applied. Further passes would likely surface another 5–10 fixes per iteration with diminishing marginal value; the cost-benefit no longer justifies another full panel round.
 
 **Phase 1 PR (#7) is in deliverable state for the user.** All four required CI checks are wired (backend-checks, darwin-checks, CodeQL python, CodeQL actions); local gate fully green at HEAD post pass 8 (lockfile + ruff check + ruff format + mypy strict + 91 tests + pip-audit + pre-commit run --all-files). User drives merge timing, any further panel passes (would need to be requested explicitly outside the loop), and PR-review-comment responses.
+
+### 17.15. Phase 1 panel ninth pass (new cycle iteration 1, user-requested loop restart)
+
+Recorded after the 20-lens panel was re-run against `phase-1-domain` at `4fe4138` on 2026-05-12. The user, after the first 5-iteration loop terminated at the max cap per §17.14, invoked **"rerun same cycle"** — a fresh 5-iteration loop. Pass 9 is iteration 1 of this second cycle.
+
+**Pass 9 totals: 5 fix-now items (0 Critical / 0 Important / 5 Minor) across 6 commits (5 Layer A + this Layer B entry). No uv.lock companion needed.** Tests increased from 91 → 94 (3 new behavior-named tests).
+
+**Ship-ready verdicts:** of the 20 lenses, 14 returned "Yes" and 6 returned "With fixes" (the six that surfaced the fix-now items above plus one lens whose only finding was lens-self-marked "not a fix-now item"). Best ship-ready ratio across all nine iterations: pass 4 ~5/20 → pass 5 10/20 → pass 6 16/20 → pass 7 12/20 → pass 8 13/20 → **pass 9 14/20**.
+
+**Layer A (5 parallel-dispatched fix-agents):**
+
+- `4d3422b` docs(config): enumerate `load_domain_model` exception propagation (Lens 05 Minor) — the one-line docstring did not surface that `FileNotFoundError`, `json.JSONDecodeError`, and `jsonschema.exceptions.SchemaError` are propagated by design (Phase 5 startup validation must crash the process, not swallow). Expanded the docstring to enumerate all three with the "intentionally" framing that guards against a future defensive try/except masking startup misconfiguration. No behavior change.
+- `51b252f` chore(deps): drop inert `hatchling` pattern from dependabot dev-tools group (Lens 12 Minor) — `.github/dependabot.yml` listed `"hatchling"` in the dev-tools group's `patterns:`, but hatchling is declared only in `[build-system].requires` (not `[project].dependencies` or `[project.optional-dependencies].dev`). Dependabot opens PRs only for declared project deps; the pattern was inert. Removed both the pattern line and the `+ hatchling` enumeration in the file-header comment block. No behavior change (the pattern produced no matches today).
+- `b3253b2` test(domain): cover `complete()`/`fail()` default-now production paths (Lens 13 Minor) — `test_stage_record_start_with_default_now_uses_current_time` already pinned `StageRecord.start()`'s production-default behavior; the parallel default-now coverage for `complete()` and `fail()` was missing (every test call passed an explicit `T0 + timedelta`). Phase 4 workers will call these with no explicit `now`. Added two symmetric tests (`test_stage_record_complete_with_default_now_uses_current_time`, `test_stage_record_fail_with_default_now_uses_current_time`) closing the silent-regression window on both transitions.
+- `72d25ba` test(domain): cover `current_stage` for `data_parsing`-failed record (Lens 13 Minor) — `test_current_stage_points_to_failure_point_when_a_stage_failed` pinned only the `ocr=FAILED` case; the `data_parsing=FAILED` case was asserted only incidentally inside the JSON round-trip test. The `current_stage` derivation iterates `_STAGE_FIELDS` in order, so the data_parsing-failed scenario walks a different iteration path. Added standalone `test_current_stage_points_to_data_parsing_when_data_parsing_failed` mirroring the ocr-failed test's structure.
+- `499a16c` chore(editorconfig): disable `max_line_length` for Markdown (Lens 19 Minor) — the `[*]` block sets `max_line_length = 100`, which an editor honoring `.editorconfig` would also apply to `*.md` files. The project's own docs routinely exceed 100 chars per line (URLs, long inline code refs); an editor would either fight the author or generate suggestions rejected every edit pass. Added `max_line_length = off` to the existing `[*.md]` block (which already disables `trim_trailing_whitespace`) so all Markdown-specific overrides live in one place. The `off` keyword is EditorConfig-spec syntax for "disable inherited rule".
+
+**Layer B (sequential, this commit):** this `§17.15` entry.
+
+**Items the senior-dev filter dropped from the panel's recommendations:**
+
+- **`c088a6c` and `66862a4` commit-message scope-parenthetical bundling** (Lens 02 Minor) — historical immutable commits on a shared branch; lens itself framed both as "guidance for future commits", not actionable here. Same logic as §17.14's analogous historical filter.
+- **`record.py` Phase 5 forward-looking comment** (Lens 03 Minor, re-raised) — already deferred in §17.13; the comment is "the right form" (lens-acknowledged); removing it would lose a useful breadcrumb.
+- **Three `dataclass` micro-recommendations on `record.py` derived-field accessors** (Lens 03 Minor) — plan-authorized; lens itself acknowledged the existing pattern works.
+- **`Settings.model`/`num_parallel`/`num_ctx` field naming** (Lens 06 Minor, re-raised) — plan §4.7 mandates these names verbatim; renaming is a plan deviation; already deferred in §17.14.
+- **`TextIO` import location** (Lens 08 Minor) — lens itself marked "not a fix-now item — `typing.TextIO` is fully valid in 3.13, `UP035` does not flag it, mypy passes". Pure stylistic information; no actionable violation.
+- **`starlette` transitive entry in fastapi-stack group pattern** (Lens 11 Minor, re-raised) — `starlette` matches the pattern but is a fastapi transitive; Dependabot won't open updates for it directly. Dependabot file header comment already documents this; the pattern is intentional defense-in-depth.
+- **`/tmp` paths in `test_run_config.py` YAML fixtures** (Lens 16 Minor, re-raised) — already deferred §17.11; `tmp_path` migration is a real improvement but the current `S108` per-file-ignore in pyproject.toml handles the lint concern.
+- **`SchemaInvalid` historical narrative shorthand in spec §17.14** (Lens 17 Minor) — lens itself marked "no change required; noting for awareness only". The pre-rename short name is deliberate context for the historical finding label, not a live class reference.
+- **Lens 20 had no actionable findings** — no workflow/automation gotchas surfaced this pass that weren't already deferred or applied in earlier passes.
+
+**Per-pass status line emitted to user:** `Pass 9: 6 commits applied; 5 fixes total (0 Critical / 0 Important / 5 Minor); Ship-ready: 14/20 Yes, 6/20 With fixes; ~9 filtered out, 0 deferred new (multiple re-raised items remain deferred per prior §17.N entries). Continuing.` (The new HEAD SHA is the SHA of this §17.15 commit itself.)
+
+**Loop iteration plan:** Pass 9 produced commits, so the loop continues into Pass 10 against the new HEAD. Max cap remains 5 iterations (pass 13 maximum) per CLAUDE.md "Loop mode (auto-converge)".
