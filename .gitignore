@@ -71,5 +71,21 @@ Thumbs.db
 models/
 data/
 
+# Phase 2 OCR sample contracts — kept LOCAL ONLY (not committed to the public
+# repo because the source PDFs are real-or-anonymised German legal contracts
+# carrying privacy-sensitive content). The corresponding .txt ground-truth
+# transcriptions are also ignored because they contain the same text. Tests in
+# tests/ocr/test_docling_engine.py auto-skip when these files are not present,
+# so CI on a fresh clone stays green. The .gitkeep keeps the directory tracked.
+#
+# The carve-out `!tests/ocr/data/` is needed because the broader `data/` rule
+# above matches any directory named `data` at any depth. Order matters: the
+# negation must come after the broader rule and before the file-level
+# re-ignores below.
+!tests/ocr/data/
+tests/ocr/data/*.pdf
+tests/ocr/data/*.txt
+!tests/ocr/data/.gitkeep
+
 # Claude Code per-machine state (transcripts, worktrees, etc.)
 .claude/
