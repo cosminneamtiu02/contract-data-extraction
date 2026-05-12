@@ -7,11 +7,35 @@
 *.jpeg binary
 *.gif binary
 *.ico binary
+*.tiff binary
+*.tif binary
 *.pdf binary
 *.onnx binary
+
+# Model weight artifacts — gitignored at the pattern level, but if one ever
+# slips through (e.g., a small fixture committed before .gitignore catches it)
+# we still want git to leave the bytes alone instead of applying text=auto.
+*.gguf binary
+*.safetensors binary
+*.pt binary
+*.pth binary
+*.bin binary
+
+# Tabular fixtures (text but should not be normalized aggressively).
+*.csv text eol=lf
+*.jsonl text eol=lf
+
+# Jupyter notebooks contain JSON with embedded newlines; pin LF to avoid
+# diff churn from Windows contributors. Forward-looking for Phase 2+ OCR
+# prototyping notebooks.
+*.ipynb text eol=lf
 
 # Lock files (collapse in PR diffs; tracked but not human-reviewed).
 # `merge=union` reduces merge conflicts when two PRs add different deps —
 # git takes the union of both sides instead of marking conflicts. The
 # resulting file is then re-canonicalized by the lockfile-sync workflow.
 uv.lock linguist-generated=true -diff merge=union
+
+# Python source: use the built-in `python` diff driver so `git diff` and
+# PR diffs show `def foo():` / `class Bar:` as hunk context headers.
+*.py diff=python

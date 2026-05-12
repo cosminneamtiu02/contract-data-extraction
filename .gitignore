@@ -32,6 +32,10 @@ dist/
 Thumbs.db
 .idea/
 .vscode/*
+# Carve-outs (not yet created — these will be committed once added): the team
+# will standardise on the same VS Code extension set and a workspace-pinned
+# Python interpreter (.venv/bin/python) so first-run dev matches CI. Until
+# then the !-rules are forward-looking stubs with no current file behind them.
 !.vscode/extensions.json
 !.vscode/settings.json
 *.swp
@@ -40,6 +44,9 @@ Thumbs.db
 # Local environment
 .env
 .env.*
+# .env.example will be committed as a contributor template alongside the
+# Settings env-var documentation (currently in src/extraction_service/settings.py
+# docstring); the !-rule is a forward-looking stub with no current file behind it.
 !.env.example
 
 # Logs
@@ -47,6 +54,22 @@ Thumbs.db
 
 # Additional tooling caches (preempt phase 2+)
 .import_linter_cache/
+
+# Model / data artifacts (preempt phase 2+ — Ollama weights are under ~/.ollama
+# and outside the tree, but intermediate model files dropped into the working
+# directory by Docling/RapidOCR/modelscope test runs would otherwise be a
+# git-add-everything accident waiting to happen). PDFs, CSVs, JSONs, and plain
+# text files under tests/fixtures/ are NOT ignored, but the model-weight
+# patterns below (*.bin, *.pt, *.pth, *.gguf, *.safetensors) DO match files
+# inside tests/fixtures/ too — model-weight fixtures cannot be tracked there.
+# Top-level data/ and models/ are also silently dropped.
+*.gguf
+*.safetensors
+*.pt
+*.pth
+*.bin
+models/
+data/
 
 # Claude Code per-machine state (transcripts, worktrees, etc.)
 .claude/

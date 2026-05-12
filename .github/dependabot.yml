@@ -2,10 +2,13 @@
 #
 # Scope: pip (single workspace at /), github-actions, pre-commit.
 # Groups batch interlocking package updates into atomic PRs:
-#   - fastapi-stack: fastapi + starlette + uvicorn + standard transitives
+#   - fastapi-stack: fastapi + uvicorn (declared deps). `starlette` matches the
+#     pattern but is a fastapi transitive — Dependabot won't open updates for it
+#     directly. `uvicorn[standard]` transitives (httptools, uvloop, watchfiles)
+#     are NOT declared deps either; they're pulled by the `standard` extra.
 #   - pydantic:      pydantic + pydantic-settings (lockstep releases)
 #   - pytest:        pytest + plugins (aligned releases)
-#   - dev-tools:     ruff + mypy + pip-audit + detect-secrets + types-* + hatchling
+#   - dev-tools:     ruff + mypy + pip-audit + detect-secrets + types-* + pre-commit
 #   - runtime-singletons: structlog + httpx + ollama + jsonschema + pyyaml
 #   - ml-stack:      docling + rapidocr-onnxruntime + modelscope (heavy transitive trees)
 #
@@ -58,7 +61,11 @@ updates:
           - "pip-audit"
           - "detect-secrets"
           - "types-*"
-          - "hatchling"
+          # pre-commit is a dev dep too; without listing it here a future
+          # Dependabot pre-commit pip bump would arrive UNGROUPED and bypass
+          # the `update-types: [patch, minor]` major-bump gate that the file
+          # header documents as the intended posture.
+          - "pre-commit"
       runtime-singletons:
         update-types: ["patch", "minor"]
         patterns:
@@ -73,6 +80,16 @@ updates:
           - "docling"
           - "rapidocr-onnxruntime"
           - "modelscope"
+      pip-catchall:
+        # Backstop for any pip dependency that doesn't match one of the six
+        # named groups above. Without this, a future declared dep that
+        # slipped between the named patterns would arrive as an UNGROUPED
+        # Dependabot PR, bypassing the `update-types: [patch, minor]`
+        # major-bump filter. Mirrors the `"*"` catch-all on
+        # github-actions-stack (added pass 4).
+        update-types: ["patch", "minor"]
+        patterns:
+          - "*"
 
   - package-ecosystem: github-actions
     directory: /
@@ -89,10 +106,17 @@ updates:
     groups:
       github-actions-stack:
         update-types: ["patch", "minor"]
+        # "*" catch-all closes the ungrouped-bypass loophole for any future
+        # action namespace (docker/*, hashicorp/*, etc.). Without it, a new
+        # namespace would arrive as an UNGROUPED PR, bypassing the
+        # `update-types: [patch, minor]` major-bump filter. The explicit
+        # namespace patterns are kept for documentation — they enumerate what
+        # we currently use; the catch-all backstops anything else.
         patterns:
           - "actions/*"
           - "astral-sh/*"
           - "github/codeql-action/*"
+          - "*"
 
   - package-ecosystem: pre-commit
     directory: /

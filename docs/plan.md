@@ -396,24 +396,26 @@ Makes testing trivial — override dependencies in tests with `app.dependency_ov
 Define a small exception hierarchy:
 
 ```python
+from typing import ClassVar
+
 class ExtractionError(Exception):
     """Base."""
-    code: str
+    code: ClassVar[str] = "extraction_error"
 
 class OcrError(ExtractionError):
-    code = "ocr_engine_failed"
+    code: ClassVar[str] = "ocr_engine_failed"
 
-class OcrEmptyOutput(OcrError):
-    code = "ocr_empty_output"
+class OcrEmptyOutputError(OcrError):
+    code: ClassVar[str] = "ocr_empty_output"
 
 class LlmError(ExtractionError):
-    code = "llm_failed"
+    code: ClassVar[str] = "llm_failed"
 
-class ContextOverflow(LlmError):
-    code = "context_overflow"
+class ContextOverflowError(LlmError):
+    code: ClassVar[str] = "context_overflow"
 
-class SchemaInvalid(LlmError):
-    code = "schema_invalid"
+class SchemaInvalidError(LlmError):
+    code: ClassVar[str] = "schema_invalid"
 ```
 
 Each exception carries its error code as a class attribute. Workers catch the appropriate type, record the error on the stage, and either retry or terminate. HTTP exception handlers map the base `ExtractionError` to JSON responses — but for this service, errors live in the status object, not in HTTP responses (always 200 unless 404/429).
@@ -467,12 +469,12 @@ extraction-service/
 │       ├── __init__.py
 │       ├── __main__.py          # `python -m extraction_service` entrypoint
 │       ├── settings.py          # pydantic-settings Settings class
-│       ├── logging.py           # structlog config
+│       ├── log_config.py        # structlog config (renamed from logging.py to avoid stdlib shadowing)
 │       │
 │       ├── domain/
 │       │   ├── __init__.py
 │       │   ├── job.py           # ContractJob frozen Pydantic model
-│       │   ├── stage.py         # StageState, StageRecord
+│       │   ├── stage.py         # StageState, StageRecord, StageError
 │       │   ├── record.py        # ContractRecord (full status)
 │       │   └── errors.py        # exception hierarchy
 │       │
@@ -517,8 +519,12 @@ extraction-service/
 │   │   ├── fake_ocr.py          # deterministic OcrEngine
 │   │   └── fake_ollama.py       # canned LLM responses
 │   ├── unit/
+│   │   ├── test_domain_errors.py
 │   │   ├── test_domain_job.py
-│   │   ├── test_stage_record.py
+│   │   ├── test_domain_model.py
+│   │   ├── test_domain_record.py
+│   │   ├── test_domain_stage.py
+│   │   ├── test_log_config.py
 │   │   ├── test_settings.py
 │   │   ├── test_run_config.py
 │   │   ├── test_prompt_render.py
@@ -560,6 +566,8 @@ extraction-service/
 ```
 
 ### 5.1 pyproject.toml (essential sections)
+
+> The block below is the original plan-time snapshot. The live `pyproject.toml` is the source of truth — it has diverged since Phase 1 review passes added ruff rule-set entries (`EM`, `TRY`, `TCH`, `N`, `S`), per-file-ignores for tests, pytest `markers`/`filterwarnings`, the hatchling `exclude` directive, and version floors on the `types-*` dev deps. See `pyproject.toml` directly for current state; deviations from this snapshot are recorded in `docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md §17.8`.
 
 ```toml
 [build-system]
@@ -685,21 +693,21 @@ Each phase is **its own git worktree** so phases can be reviewed/merged independ
 
 ### 6.3 Phase 1 — Domain types and configuration
 
-**Goal:** All immutable types (`ContractJob`, `ContractRecord`, stage state machine), settings loading, run config parsing. No I/O, no async — pure data.
+**Goal:** Domain value objects (`ContractJob`, stage state machine, `StageRecord` — frozen) plus the mutable `ContractRecord` container (workers reassign stage fields under the §3.5 lock), settings loading, run config parsing. No I/O, no async — pure data.
 
 **Worktree:** `phase-1-domain`
 
 | # | Task | File | RED test | GREEN impl | Verify |
 |---|---|---|---|---|---|
-| 1.1 | `ContractJob` frozen Pydantic model | `src/extraction_service/domain/job.py` | `tests/unit/test_domain_job.py::test_frozen_construct` — construct with valid bytes + UUID, assert frozen and round-trips through `model_dump_json` | Pydantic v2 model with `model_config = ConfigDict(frozen=True)`, fields: `contract_id: UUID`, `pdf_bytes: bytes`, `metadata: dict[str, Any]` | `uv run pytest tests/unit/test_domain_job.py` |
-| 1.2 | `StageState` enum | `src/extraction_service/domain/stage.py` | `test_stage_state_values` — assert enum has `pending`, `in_progress`, `done`, `failed` | `class StageState(str, Enum)` with those four values | pytest |
-| 1.3 | `StageRecord` Pydantic model | `src/extraction_service/domain/stage.py` | `test_stage_record_transitions` — start pending, transition to in_progress sets `started_at`, transition to done sets `completed_at` and `duration_ms` | model with state, started_at, completed_at, duration_ms (computed), error (Optional) | pytest |
-| 1.4 | `ContractRecord` | `src/extraction_service/domain/record.py` | `test_contract_record_default_state` — fresh record has intake=done, ocr=pending, parsing=pending; `overall_status="in_progress"` | model with intake, ocr, data_parsing StageRecords plus a derived `overall_status` and `current_stage` property | pytest |
-| 1.5 | Error hierarchy | `src/extraction_service/domain/errors.py` | `test_error_codes` — each exception class has correct `code` attribute | exception classes from Section 4.13 | pytest |
-| 1.6 | `Settings` (pydantic-settings) | `src/extraction_service/settings.py` | `test_settings_defaults` (set env vars via monkeypatch, assert parsed values); `test_settings_required_run_config` (assert missing EXTRACTION_RUN_CONFIG raises) | Section 4.7 settings class | pytest |
-| 1.7 | Run config loader | `src/extraction_service/config/run_config.py` | `test_run_config_load_valid_yaml` (write sample yaml, parse it); `test_run_config_missing_required_field` raises | YAML parser → Pydantic `RunConfig` model with fields for ocr, llm, retry, paths | pytest |
-| 1.8 | Domain model loader | `src/extraction_service/config/domain_model.py` | `test_domain_model_load_valid_schema` (write a JSON schema, load and validate it parses); `test_invalid_schema_raises` | uses `jsonschema` library to validate the schema is itself a valid JSON schema | pytest |
-| 1.9 | Structlog config | `src/extraction_service/logging.py` | `test_logging_emits_json_in_production_mode`; `test_logging_pretty_in_dev` | configure_logging(mode) sets renderers | pytest |
+| 1.1 | `ContractJob` frozen Pydantic model | `src/extraction_service/domain/job.py` | `test_contract_job_is_frozen`; `test_contract_job_constructs_with_required_fields` (in `tests/unit/test_domain_job.py`) | Pydantic v2 model with `model_config = ConfigDict(frozen=True)`, fields: `contract_id: UUID`, `pdf_bytes: bytes`, `metadata: dict[str, Any]` | `uv run pytest tests/unit/test_domain_job.py` |
+| 1.2 | `StageState` enum | `src/extraction_service/domain/stage.py` | `test_stage_state_has_expected_member_values`; `test_stage_state_members_are_str_instances`; `test_stage_state_str_coerces_to_value` (in `tests/unit/test_domain_stage.py`) | `class StageState(StrEnum)` with those four values (Python 3.11+ `StrEnum` over the older `(str, Enum)` form — cleaner `str()` / f-string output for structlog) | pytest |
+| 1.3 | `StageRecord` Pydantic model | `src/extraction_service/domain/stage.py` | `test_stage_record_defaults_to_pending_with_no_timestamps_or_error`; `test_stage_record_start_returns_new_record_with_started_at`; `test_stage_record_complete_sets_completed_at_and_computes_duration_ms`; `test_stage_record_fail_sets_state_completed_at_and_error` (in `tests/unit/test_domain_stage.py`) | model with state, started_at, completed_at, duration_ms (computed), error (Optional) | pytest |
+| 1.4 | `ContractRecord` | `src/extraction_service/domain/record.py` | `test_fresh_contract_record_marks_intake_done_with_timestamps`; `test_overall_status_is_done_only_when_all_three_stages_done`; `test_current_stage_is_ocr_when_intake_done_and_ocr_pending` (in `tests/unit/test_domain_record.py`) | model with intake, ocr, data_parsing StageRecords plus a derived `overall_status` and `current_stage` property | pytest |
+| 1.5 | Error hierarchy | `src/extraction_service/domain/errors.py` | `test_base_extraction_error_has_sentinel_code`; `test_concrete_error_classes_inherit_from_correct_parents`; `test_raised_error_preserves_code_and_message` (in `tests/unit/test_domain_errors.py`) | exception classes from Section 4.13 | pytest |
+| 1.6 | `Settings` (pydantic-settings) | `src/extraction_service/settings.py` | `test_settings_loads_documented_defaults_when_only_run_config_set`; `test_settings_raises_when_run_config_env_var_missing` (in `tests/unit/test_settings.py`) | Section 4.7 settings class | pytest |
+| 1.7 | Run config loader | `src/extraction_service/config/run_config.py` | `test_load_minimal_valid_yaml_returns_run_config`; `test_load_yaml_raises_when_required_section_missing`; `test_load_yaml_raises_on_unknown_top_level_field` (in `tests/unit/test_run_config.py`) | YAML parser → Pydantic `RunConfig` model with fields for ocr, llm, retry, paths | pytest |
+| 1.8 | Domain model loader | `src/extraction_service/config/domain_model.py` | `test_load_valid_json_schema_returns_dict`; `test_load_raises_schema_error_on_invalid_meta_schema`; `test_load_raises_when_file_does_not_exist` (in `tests/unit/test_domain_model.py`) | uses `jsonschema` library to validate the schema is itself a valid JSON schema | pytest |
+| 1.9 | Structlog config | `src/extraction_service/log_config.py` (renamed from `logging.py` to avoid stdlib shadowing) | `test_configure_logging_production_emits_json_with_event_and_kwargs`; `test_configure_logging_production_serializes_subsequent_events_one_per_line`; `test_configure_logging_dev_emits_human_readable_not_json` (in `tests/unit/test_log_config.py`) | configure_logging(mode) sets renderers | pytest |
 
 **Exit criteria:** all unit tests pass, mypy strict clean. Commit, merge.
 
@@ -735,9 +743,9 @@ Each phase is **its own git worktree** so phases can be reviewed/merged independ
 |---|---|---|---|---|---|
 | 3.1 | Ollama client wrapper | `src/extraction_service/llm/client.py` | `test_ollama_client_calls_correct_endpoint` (use `FakeOllamaClient`) | thin wrapper over `ollama.AsyncClient`, exposes `extract(prompt, schema) -> dict` | pytest |
 | 3.2 | Prompt template rendering | `src/extraction_service/llm/prompt.py` | `test_prompt_renders_with_ocr_text_and_schema` (load sample template, substitute placeholders, assert output) | Jinja2-style or simple `str.format`-based renderer; reads template from disk once | pytest |
-| 3.3 | JSON schema validation | `src/extraction_service/llm/schema.py` | `test_valid_extracted_data_passes`, `test_invalid_extracted_data_raises_schema_invalid` | use `jsonschema.validate`; wrap exceptions in `SchemaInvalid` with details | pytest |
+| 3.3 | JSON schema validation | `src/extraction_service/llm/schema.py` | `test_valid_extracted_data_passes`, `test_invalid_extracted_data_raises_schema_invalid` | use `jsonschema.validate`; wrap exceptions in `SchemaInvalidError` with details | pytest |
 | 3.4 | Retry policy | `src/extraction_service/llm/retry.py` | `test_retry_on_listed_error_codes_until_max`, `test_does_not_retry_on_unlisted_codes` | function `retry_extraction(extract_fn, max_retries, retry_on) -> result_or_raises` | pytest |
-| 3.5 | Context overflow detection | `src/extraction_service/llm/client.py` | `test_context_overflow_raises_loudly` (FakeOllama returns 400 with overflow indication) | catch Ollama's context-length errors, raise `ContextOverflow` | pytest |
+| 3.5 | Context overflow detection | `src/extraction_service/llm/client.py` | `test_context_overflow_raises_loudly` (FakeOllama returns 400 with overflow indication) | catch Ollama's context-length errors, raise `ContextOverflowError` | pytest |
 | 3.6 | Per-attempt _debug capture (dev mode) | `src/extraction_service/llm/client.py` | `test_dev_mode_captures_raw_request_and_response` | accept `mode` param; when development, attach raw payloads to result | pytest |
 | 3.7 | LLM client timeout | `src/extraction_service/llm/client.py` | `test_llm_timeout_raises_llm_failed` | wrap call with `asyncio.wait_for`; map to `LlmError` | pytest |
 
@@ -754,7 +762,7 @@ Each phase is **its own git worktree** so phases can be reviewed/merged independ
 | 4.1 | `ResultStore` | `src/extraction_service/pipeline/result_store.py` | `test_result_store_concurrent_updates_are_safe` (spawn 100 concurrent tasks updating one record, assert no torn reads) | asyncio.Lock + dict; expose `create`, `update_stage`, `get` | pytest |
 | 4.2 | `PipelineState` | `src/extraction_service/pipeline/state.py` | `test_pipeline_state_construct` — assert queues sized from settings | dataclass with intake_queue, interstage_queue, result_store, settings | pytest |
 | 4.3 | OCR worker basic loop | `src/extraction_service/pipeline/ocr_worker.py` | `test_ocr_worker_processes_one_job` (push a ContractJob, await, assert it appears on interstage queue with `ocr.state=done`) | async generator/loop: pull → update state → call engine → update state → push | pytest |
-| 4.4 | OCR worker handles OCR error | same | `test_ocr_worker_handles_ocr_empty_output` (FakeOcr raises `OcrEmptyOutput`, assert record has `ocr.state=failed` and `data_parsing.state=pending`) | try/except OcrError, record on stage, do not push to interstage | pytest |
+| 4.4 | OCR worker handles OCR error | same | `test_ocr_worker_handles_ocr_empty_output` (FakeOcr raises `OcrEmptyOutputError`, assert record has `ocr.state=failed` and `data_parsing.state=pending`) | try/except OcrError, record on stage, do not push to interstage | pytest |
 | 4.5 | LLM worker basic loop | `src/extraction_service/pipeline/llm_worker.py` | `test_llm_worker_processes_one_job` (push ocr-completed job, await, assert record has `data_parsing.state=done` and `extracted` populated) | async loop: pull from interstage → render prompt → call LLM client (with retry) → validate schema → update record | pytest |
 | 4.6 | LLM worker respects retry policy | same | `test_llm_worker_retries_on_schema_invalid_max_times` | use retry policy from Phase 3.4 | pytest |
 | 4.7 | Two LLM workers run in parallel | `tests/pipeline/test_llm_worker.py::test_two_lanes_concurrent` | push 4 jobs, await with a FakeOllama that sleeps 100ms; assert wall time ~ 200ms (two lanes), not 400ms (serialized) | start two `llm_worker` tasks; verify in test by timing | pytest |

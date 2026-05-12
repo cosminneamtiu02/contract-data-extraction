@@ -737,8 +737,7 @@ git commit -m "ci: add Dependabot auto-merge workflow (kill-switch armed via rep
 #
 # SETUP (one-time, after this lands on main):
 #   1. Create a fine-grained PAT scoped to this repo with:
-#         Contents:        Read and write
-#         Pull requests:   Read and write
+#         Contents: Read and write only (no Pull requests scope — the workflow performs git operations only; see spec §4.4 / §17.10 for the post-implementation correction)
 #   2. gh secret set DEPENDABOT_LOCKFILE_SYNC_PAT --app dependabot --body "<PAT>"
 #      (--app dependabot is REQUIRED: Dependabot-triggered workflows only
 #       read secrets from the Dependabot store.)
@@ -784,7 +783,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "$PAT" ]; then
-            echo "::error::DEPENDABOT_LOCKFILE_SYNC_PAT secret is not set, but DEPENDABOT_LOCKFILE_SYNC_ENABLED variable is 'true'. Either create a fine-grained PAT (Contents:RW, Pull requests:RW) and save it as DEPENDABOT_LOCKFILE_SYNC_PAT in the Dependabot secret store, or disarm with: gh variable set DEPENDABOT_LOCKFILE_SYNC_ENABLED --body 'false'"
+            echo "::error::DEPENDABOT_LOCKFILE_SYNC_PAT secret is not set, but DEPENDABOT_LOCKFILE_SYNC_ENABLED variable is 'true'. Either create a fine-grained PAT (Contents: Read and write only (no Pull requests scope; see spec §4.4 / §17.10)) and save it as DEPENDABOT_LOCKFILE_SYNC_PAT in the Dependabot secret store, or disarm with: gh variable set DEPENDABOT_LOCKFILE_SYNC_ENABLED --body 'false'"
             exit 1
           fi
 
@@ -1000,7 +999,7 @@ After this PR merges, configure the following:
 2. **Repo setting** — \"Allow GitHub Actions to create and approve pull requests\" → enabled.
 3. **Arm auto-merge:** \`gh variable set DEPENDABOT_AUTOMERGE_ENABLED --body \"true\"\`
 4. **Set up lockfile sync** (one-time, requires PAT creation):
-   - Create a fine-grained PAT scoped to this repo with Contents:RW + Pull requests:RW.
+   - Create a fine-grained PAT scoped to this repo with Contents: Read and write only (no Pull requests scope; see spec §4.4 / §17.10).
    - \`gh secret set DEPENDABOT_LOCKFILE_SYNC_PAT --app dependabot --body \"<PAT>\"\`
    - \`gh variable set DEPENDABOT_LOCKFILE_SYNC_ENABLED --body \"true\"\`
 

@@ -10,7 +10,8 @@
 # SETUP (one-time, after this lands on main):
 #   1. Create a fine-grained PAT scoped to this repo with:
 #         Contents:        Read and write
-#         Pull requests:   Read and write
+#      (Pull requests scope is intentionally NOT requested. This workflow only
+#      runs git operations — checkout + push — and never calls the PRs API.)
 #   2. gh secret set DEPENDABOT_LOCKFILE_SYNC_PAT --app dependabot --body "<PAT>"
 #      (--app dependabot is REQUIRED: Dependabot-triggered workflows only
 #       read secrets from the Dependabot store.)
@@ -28,7 +29,7 @@
 #   The VSCode GitHub Actions extension queries only the Actions secret
 #   store, not the Dependabot store, so `secrets.DEPENDABOT_LOCKFILE_SYNC_PAT`
 #   shows a permanent "Context access might be invalid" warning on every
-#   reference (lines 60, 76) unless a same-named secret also exists in the
+#   reference (lines 75, 91) unless a same-named secret also exists in the
 #   Actions store. As a workaround we seed a same-named placeholder secret
 #   in the Actions store. That value is NEVER read at runtime: this
 #   workflow only runs on Dependabot-triggered pull_request events, where
@@ -75,7 +76,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "$PAT" ]; then
-            echo "::error::DEPENDABOT_LOCKFILE_SYNC_PAT secret is not set, but DEPENDABOT_LOCKFILE_SYNC_ENABLED variable is 'true'. Either create a fine-grained PAT (Contents:RW, Pull requests:RW) and save it as DEPENDABOT_LOCKFILE_SYNC_PAT in the Dependabot secret store, or disarm with: gh variable set DEPENDABOT_LOCKFILE_SYNC_ENABLED --body 'false'"
+            echo "::error::DEPENDABOT_LOCKFILE_SYNC_PAT secret is not set, but DEPENDABOT_LOCKFILE_SYNC_ENABLED variable is 'true'. Either create a fine-grained PAT (Contents: Read and write) and save it as DEPENDABOT_LOCKFILE_SYNC_PAT in the Dependabot secret store, or disarm with: gh variable set DEPENDABOT_LOCKFILE_SYNC_ENABLED --body 'false'"
             exit 1
           fi
 
@@ -153,6 +154,15 @@ jobs:
           enable-cache: true
           cache-dependency-glob: uv.lock
           python-version: ${{ steps.pyver.outputs.python-version }}
+          # github-token here is used by setup-uv only to lift the
+          # unauthenticated rate limit when downloading uv itself. It does NOT
+          # contradict the job-level `permissions: {}` block above — that block
+          # grants the minted GITHUB_TOKEN ZERO scopes, so it cannot perform
+          # any write operation. The token value is still injected as a
+          # secret string when explicitly requested by an action; setup-uv
+          # uses it purely as an authenticated identity for the rate-limit
+          # bucket, not for any API write. Push authentication uses
+          # secrets.DEPENDABOT_LOCKFILE_SYNC_PAT, set on git later in this job.
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Regenerate uv.lock

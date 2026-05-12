@@ -658,15 +658,15 @@ requires-dist = [
 dev = [
     { name = "detect-secrets", specifier = ">=1.5" },
     { name = "hypothesis", specifier = ">=6.115" },
-    { name = "mypy", specifier = ">=1.13" },
+    { name = "mypy", specifier = ">=2.0" },
     { name = "pip-audit", specifier = ">=2.7" },
     { name = "pre-commit", specifier = ">=4.0" },
-    { name = "pytest", specifier = ">=8.3" },
-    { name = "pytest-asyncio", specifier = ">=0.24" },
+    { name = "pytest", specifier = ">=9.0" },
+    { name = "pytest-asyncio", specifier = ">=1.0" },
     { name = "pytest-cov", specifier = ">=6.0" },
     { name = "ruff", specifier = ">=0.9" },
-    { name = "types-jsonschema" },
-    { name = "types-pyyaml" },
+    { name = "types-jsonschema", specifier = ">=4.23" },
+    { name = "types-pyyaml", specifier = ">=6.0" },
 ]
 
 [[package]]

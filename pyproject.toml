@@ -29,14 +29,26 @@ extraction-service = "extraction_service.__main__:main"
 
 [dependency-groups]
 dev = [
-    "pytest>=8.3",
-    "pytest-asyncio>=0.24",
+    # Floor mirrors locked major (pytest 9.0.3); 9.0 changed ini-key handling
+    # for `importmode` (see addopts comment at the bottom of this file), so 8.x
+    # cannot interpret the project's test config correctly.  Convergent with
+    # mypy>=2.0 (§17.14, pass 8) and pytest-asyncio>=1.0 (§17.11, pass 5).
+    "pytest>=9.0",
+    # Floor mirrors the locked major (1.3.0); 0.x → 1.x changed the default
+    # asyncio mode and added new ini keys — >=0.24 was stale.
+    "pytest-asyncio>=1.0",
     "pytest-cov>=6.0",
     "hypothesis>=6.115",
-    "mypy>=1.13",
+    # Floor tracks the API surface the codebase was tested against (locked at
+    # 2.1.x); mypy 2.0 introduced breaking strict-mode flag semantics — same
+    # cross-major-correctness pattern as the pytest-asyncio floor fix.
+    "mypy>=2.0",
     "ruff>=0.9",
-    "types-pyyaml",
-    "types-jsonschema",
+    # Stub floors mirror the runtime floors in [project].dependencies so a
+    # future lockfile regeneration on a fresh machine can't drift the stub
+    # major version away from the runtime package the stubs cover.
+    "types-pyyaml>=6.0",
+    "types-jsonschema>=4.23",
     "pre-commit>=4.0",
     "pip-audit>=2.7",
     "detect-secrets>=1.5",
@@ -44,17 +56,36 @@ dev = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/extraction_service"]
+# Hatchling already excludes __pycache__ by default — making it explicit so a
+# future build-backend swap or hatchling-plugin change cannot accidentally
+# ship .pyc artifacts.
+exclude = ["**/__pycache__"]
 
 [tool.ruff]
 line-length = 100
 target-version = "py313"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP", "ASYNC", "PIE", "SIM", "RET", "ARG", "PTH", "TID", "T20", "RUF", "C4", "FURB", "PT"]
+# EM/TRY/TCH added 2026-05-12 per Phase 1 panel review (Lens 04 + Lens 08).
+# N/S added 2026-05-12 per Phase 1 panel re-run (Lens 08 + Lens 10): N catches
+# pep8-naming drift (incl. N818 *Error suffix on exception classes — names
+# normalised in this same pass), S catches bandit security smells.
+# BLE added 2026-05-12 (Lens 05 pass-7): plan §7 "no silent exception catches"
+# rule needs a linter arm. BLE001 = blind `except Exception`. Zero current
+# violations (Phase 1 has no `except` blocks); covers Phase 2-6 catch-alls.
+# Defense-in-depth: zero current violations in src/; only tests need to raise
+# string-literal exceptions in pytest.raises blocks, handled below.
+select = ["E", "F", "I", "B", "UP", "ASYNC", "PIE", "SIM", "RET", "ARG", "PTH", "TID", "T20", "RUF", "C4", "FURB", "PT", "EM", "TRY", "TCH", "N", "S", "BLE"]
 ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["ARG"]
+"tests/**/*.py" = [
+    "ARG",      # fixtures often look unused
+    "EM101",    # tests legitimately raise with string literals in pytest.raises blocks
+    "TRY003",   # tests' raise messages are intentionally long-form for assertion clarity
+    "S101",     # `assert` IS the pytest assertion mechanism
+    "S108",     # /tmp paths in test YAML strings are never opened — pure-string Pydantic Path fixtures
+]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -72,14 +103,50 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+# pytest-asyncio 1.x emits DeprecationWarning when an async fixture is created
+# without an explicit loop_scope and this key is absent. Under our
+# filterwarnings = ["error::DeprecationWarning"] posture that would break
+# collection on the first Phase 2 async fixture. "function" matches the
+# existing per-test loop-scope default.
+asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
-addopts = ["--strict-markers", "--strict-config", "-ra"]
+# `--import-mode=importlib`: with `tests/__init__.py` present, pytest's default
+# `prepend` mode imports test files as `tests.unit.test_*` AND can re-import
+# them under the filesystem path when a file is run directly with
+# `pytest path/to/test.py`. The dual-import causes silent fixture-identity bugs.
+# `importlib` mode imports each test module once under a stable name. Passed via
+# addopts because the pytest ini key is `importmode` (no underscore, added in
+# pytest 8.1) — distinct from the CLI flag `--import-mode` and the API parameter
+# `import_mode`. However, pytest 9.0.3 (pinned in this project) fires
+# "Unknown config option: importmode" for that ini key, so the CLI-flag route
+# through addopts is the correct spelling for this locked version.
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "-ra",
+    "--import-mode=importlib",
+]
+# Pre-empt --strict-markers footgun: register the empty marker list so the
+# first custom marker added in a later phase fails loudly until it's listed.
+markers = []
+# DeprecationWarnings are errors by default — a Phase 2/3 dependency that
+# starts emitting deprecation noise will surface before it silently rots the
+# test signal. Specific noisy deps can add narrow ignores when needed.
+# PytestUnraisableExceptionWarning errors out on leaked exceptions from async
+# tasks — forward-looking for Phase 2-4 worker code that owns asyncio.Tasks.
+filterwarnings = [
+    "error::DeprecationWarning",
+    "error::pytest.PytestUnraisableExceptionWarning",
+]
 
 [tool.coverage.run]
 source = ["src/extraction_service"]
 branch = true
 
 [tool.coverage.report]
+# Inert until --cov is added to the CI pytest invocation; deferred per spec
+# §17.2 (coverage of stub-only Phase 1 code is meaningless until production
+# paths exist — gate will be activated when non-stub code lands).
 fail_under = 80
 show_missing = true
 skip_empty = true
