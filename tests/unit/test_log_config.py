@@ -82,6 +82,9 @@ def test_configure_logging_dev_mode_carries_contextvars_into_log_events() -> Non
     renderer differs between modes per docs/plan.md §4.8). A production-only
     test would miss a mode-split regression. This test confirms the dev
     renderer also surfaces bound contract_id / stage in its plain-text output."""
+    # The autouse ``_reset_structlog_state`` fixture in conftest.py guarantees
+    # contextvars are clear at test entry and exit, so this test can bind
+    # without try/finally cleanup (mirroring the production-mode twin above).
     buf = io.StringIO()
     configure_logging("development", stream=buf)
     structlog.contextvars.bind_contextvars(contract_id="abc-123", stage="ocr")
