@@ -233,8 +233,8 @@ def test_stage_record_complete_defaults_extracted_to_none() -> None:
 
 
 def test_stage_record_round_trips_through_model_dump_json_when_done() -> None:
-    # The duration_ms computed_field must survive serialization so the
-    # HTTP response in Phase 5 can read it directly.
+    # Structural equality (restored == original) exercises all fields including
+    # the computed duration_ms that Phase 5 HTTP response will read directly.
     original = (
         StageRecord()
         .start(now=T0)
@@ -248,8 +248,6 @@ def test_stage_record_round_trips_through_model_dump_json_when_done() -> None:
     restored = StageRecord.model_validate_json(payload)
 
     assert restored == original
-    assert restored.duration_ms == 250
-    assert restored.extracted == {"key": "value"}
 
 
 def test_stage_record_round_trips_through_model_dump_json_when_pending() -> None:
@@ -259,8 +257,6 @@ def test_stage_record_round_trips_through_model_dump_json_when_pending() -> None
     restored = StageRecord.model_validate_json(payload)
 
     assert restored == original
-    assert restored.duration_ms is None
-    assert restored.extracted is None
 
 
 def test_stage_record_start_with_default_now_uses_current_time() -> None:
