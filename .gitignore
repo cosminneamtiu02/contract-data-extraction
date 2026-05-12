@@ -1,6 +1,5 @@
 # Worktrees (inherited convention)
 .worktrees/
-.claude/worktrees/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

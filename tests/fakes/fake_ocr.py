@@ -15,12 +15,13 @@ assertions if needed. The ``OcrResult`` it returns IS frozen (project
 convention for value objects).
 """
 
-from extraction_service.ocr.base import (
-    OcrEngine as OcrEngine,  # re-export: tests use isinstance(fake, OcrEngine) via @runtime_checkable
-)
-from extraction_service.ocr.base import (
-    OcrResult,
-)
+from extraction_service.ocr.base import OcrResult
+
+# Note: this module does NOT import OcrEngine. FakeOcrEngine conforms to the
+# OcrEngine Protocol structurally (no subclassing) so the import would be
+# runtime-unused. Tests that need `isinstance(FakeOcrEngine(), OcrEngine)`
+# (see tests/fakes/test_fake_ocr.py) import OcrEngine themselves from
+# extraction_service.ocr.base.
 
 
 class FakeOcrEngine:

@@ -550,17 +550,17 @@ extraction-service/
 │   └── golden/
 │       └── (placeholder for OCR golden outputs, gitignored if too large)
 │
-├── config/
+├── config/                          # (Phase 6 — not yet created)
 │   ├── run_config.example.yaml
 │   ├── domain_model.example.json    # JSON Schema sample for a loan contract
 │   └── extraction_prompt.example.txt
 │
-├── scripts/
+├── scripts/                         # (Phase 6 — not yet created)
 │   ├── prewarm.py               # smoke test: hit Ollama with a tiny prompt
 │   ├── validate_ocr.py          # run OCR on a directory and dump outputs
 │   └── benchmark_e2e.py         # time a batch of contracts
 │
-└── ops/
+└── ops/                             # (Phase 6 — not yet created)
     ├── ollama_env.sh            # exports OLLAMA_* and sysctl iogpu.wired_limit_mb
     └── launchd.plist.example    # macOS launchd unit (optional)
 ```
@@ -699,9 +699,9 @@ Each phase is **its own git worktree** so phases can be reviewed/merged independ
 
 | # | Task | File | RED test | GREEN impl | Verify |
 |---|---|---|---|---|---|
-| 1.1 | `ContractJob` frozen Pydantic model | `src/extraction_service/domain/job.py` | `test_contract_job_is_frozen`; `test_contract_job_constructs_with_required_fields` (in `tests/unit/test_domain_job.py`) | Pydantic v2 model with `model_config = ConfigDict(frozen=True)`, fields: `contract_id: UUID`, `pdf_bytes: bytes`, `metadata: dict[str, Any]` | `uv run pytest tests/unit/test_domain_job.py` |
-| 1.2 | `StageState` enum | `src/extraction_service/domain/stage.py` | `test_stage_state_has_expected_member_values`; `test_stage_state_members_are_str_instances`; `test_stage_state_str_coerces_to_value` (in `tests/unit/test_domain_stage.py`) | `class StageState(StrEnum)` with those four values (Python 3.11+ `StrEnum` over the older `(str, Enum)` form — cleaner `str()` / f-string output for structlog) | pytest |
-| 1.3 | `StageRecord` Pydantic model | `src/extraction_service/domain/stage.py` | `test_stage_record_defaults_to_pending_with_no_timestamps_or_error`; `test_stage_record_start_returns_new_record_with_started_at`; `test_stage_record_complete_sets_completed_at_and_computes_duration_ms`; `test_stage_record_fail_sets_state_completed_at_and_error` (in `tests/unit/test_domain_stage.py`) | model with state, started_at, completed_at, duration_ms (computed), error (Optional) | pytest |
+| 1.1 | `ContractJob` frozen Pydantic model | `src/extraction_service/domain/job.py` | `test_contract_job_is_frozen`; `test_contract_job_stores_contract_id`; `test_contract_job_stores_pdf_bytes`; `test_contract_job_stores_metadata` (in `tests/unit/test_domain_job.py`) | Pydantic v2 model with `model_config = ConfigDict(frozen=True)`, fields: `contract_id: UUID`, `pdf_bytes: bytes`, `metadata: dict[str, Any]` | `uv run pytest tests/unit/test_domain_job.py` |
+| 1.2 | `StageState` enum | `src/extraction_service/domain/stage.py` | `test_stage_state_has_expected_member_values`; `test_stage_state_str_produces_value`; `test_stage_state_fstring_interpolation_produces_value` (in `tests/unit/test_domain_stage.py`) | `class StageState(StrEnum)` with those four values (Python 3.11+ `StrEnum` over the older `(str, Enum)` form — cleaner `str()` / f-string output for structlog) | pytest |
+| 1.3 | `StageRecord` Pydantic model | `src/extraction_service/domain/stage.py` | `test_stage_record_defaults_state_to_pending`; `test_stage_record_defaults_started_at_to_none`; `test_stage_record_defaults_completed_at_to_none`; `test_stage_record_defaults_error_to_none`; `test_stage_record_defaults_duration_ms_to_none`; `test_stage_record_start_returns_new_record_in_progress`; `test_stage_record_start_sets_started_at_on_new_record`; `test_stage_record_start_leaves_completed_at_none_on_new_record`; `test_stage_record_start_leaves_original_record_unchanged`; `test_stage_record_complete_transitions_state_to_done`; `test_stage_record_complete_sets_completed_at_to_now`; `test_stage_record_complete_carries_started_at_forward`; `test_stage_record_complete_derives_duration_ms`; `test_stage_record_fail_transitions_state_to_failed`; `test_stage_record_fail_sets_completed_at_to_now`; `test_stage_record_fail_records_error`; `test_stage_record_fail_carries_started_at_forward`; `test_stage_record_fail_derives_duration_ms`; `test_stage_error_stores_code`; `test_stage_error_stores_description` (in `tests/unit/test_domain_stage.py`) | model with state, started_at, completed_at, duration_ms (computed), error (Optional) | pytest |
 | 1.4 | `ContractRecord` | `src/extraction_service/domain/record.py` | `test_fresh_contract_record_marks_intake_done_with_timestamps`; `test_overall_status_is_done_only_when_all_three_stages_done`; `test_current_stage_is_ocr_when_intake_done_and_ocr_pending` (in `tests/unit/test_domain_record.py`) | model with intake, ocr, data_parsing StageRecords plus a derived `overall_status` and `current_stage` property | pytest |
 | 1.5 | Error hierarchy | `src/extraction_service/domain/errors.py` | `test_base_extraction_error_has_sentinel_code`; `test_concrete_error_classes_inherit_from_correct_parents`; `test_raised_error_preserves_code_and_message` (in `tests/unit/test_domain_errors.py`) | exception classes from Section 4.13 | pytest |
 | 1.6 | `Settings` (pydantic-settings) | `src/extraction_service/settings.py` | `test_settings_loads_documented_defaults_when_only_run_config_set`; `test_settings_raises_when_run_config_env_var_missing` (in `tests/unit/test_settings.py`) | Section 4.7 settings class | pytest |

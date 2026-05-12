@@ -12,7 +12,7 @@ HTTP intake handler.
 """
 
 from datetime import UTC, datetime
-from typing import Literal
+from typing import Literal, Self
 
 from pydantic import BaseModel, Field, computed_field
 
@@ -36,7 +36,7 @@ class ContractRecord(BaseModel):
     data_parsing: StageRecord = Field(default_factory=StageRecord)
 
     @classmethod
-    def fresh(cls, now: datetime | None = None) -> "ContractRecord":
+    def fresh(cls, now: datetime | None = None) -> Self:
         """Build a record for a just-arrived contract: intake done, others pending."""
         t = now if now is not None else datetime.now(UTC)
         return cls(
