@@ -62,7 +62,9 @@ Thumbs.db
 # text files under tests/fixtures/ are NOT ignored, but the model-weight
 # patterns below (*.bin, *.pt, *.pth, *.gguf, *.safetensors) DO match files
 # inside tests/fixtures/ too — model-weight fixtures cannot be tracked there.
-# Top-level data/ and models/ are also silently dropped.
+# Top-level data/ and models/ are also silently dropped. Exception: see the
+# `tests/ocr/data/` carve-out below — PDFs and .txt files there ARE ignored
+# (privacy-sensitive contract samples) even though they live under `tests/`.
 *.gguf
 *.safetensors
 *.pt

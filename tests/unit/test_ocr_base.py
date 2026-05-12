@@ -32,21 +32,21 @@ def test_ocr_result_requires_text() -> None:
     from extraction_service.ocr.base import OcrResult
 
     with pytest.raises(ValidationError):
-        OcrResult(page_count=1, engine_name="docling")  # type: ignore[call-arg]
+        OcrResult(page_count=1, engine_name="docling")  # type: ignore[call-arg]  # intentionally omits text to verify required-field rejection
 
 
 def test_ocr_result_requires_page_count() -> None:
     from extraction_service.ocr.base import OcrResult
 
     with pytest.raises(ValidationError):
-        OcrResult(text="hello", engine_name="docling")  # type: ignore[call-arg]
+        OcrResult(text="hello", engine_name="docling")  # type: ignore[call-arg]  # intentionally omits page_count to verify required-field rejection
 
 
 def test_ocr_result_requires_engine_name() -> None:
     from extraction_service.ocr.base import OcrResult
 
     with pytest.raises(ValidationError):
-        OcrResult(text="hello", page_count=1)  # type: ignore[call-arg]
+        OcrResult(text="hello", page_count=1)  # type: ignore[call-arg]  # intentionally omits engine_name to verify required-field rejection
 
 
 def test_ocr_result_rejects_unknown_fields() -> None:
@@ -57,7 +57,7 @@ def test_ocr_result_rejects_unknown_fields() -> None:
             text="hello",
             page_count=1,
             engine_name="docling",
-            extra_field="boom",  # type: ignore[call-arg]
+            extra_field="boom",  # type: ignore[call-arg]  # intentionally passes an unknown field to verify extra="forbid" rejection
         )
 
 
