@@ -396,24 +396,26 @@ Makes testing trivial — override dependencies in tests with `app.dependency_ov
 Define a small exception hierarchy:
 
 ```python
+from typing import ClassVar
+
 class ExtractionError(Exception):
     """Base."""
-    code: str
+    code: ClassVar[str] = "extraction_error"
 
 class OcrError(ExtractionError):
-    code = "ocr_engine_failed"
+    code: ClassVar[str] = "ocr_engine_failed"
 
 class OcrEmptyOutputError(OcrError):
-    code = "ocr_empty_output"
+    code: ClassVar[str] = "ocr_empty_output"
 
 class LlmError(ExtractionError):
-    code = "llm_failed"
+    code: ClassVar[str] = "llm_failed"
 
 class ContextOverflowError(LlmError):
-    code = "context_overflow"
+    code: ClassVar[str] = "context_overflow"
 
 class SchemaInvalidError(LlmError):
-    code = "schema_invalid"
+    code: ClassVar[str] = "schema_invalid"
 ```
 
 Each exception carries its error code as a class attribute. Workers catch the appropriate type, record the error on the stage, and either retry or terminate. HTTP exception handlers map the base `ExtractionError` to JSON responses — but for this service, errors live in the status object, not in HTTP responses (always 200 unless 404/429).
