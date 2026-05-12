@@ -1384,3 +1384,91 @@ Range: `e8178175` (origin/main at loop start) .. `bfa09ad` (chore/panel-review-f
 Fix count is trending DOWN (16 → 10 → 10 → 9), ship-ready Yes count is trending UP (13 → 12 → 14 → 15), filter-drops are climbing (~14 → ~16 → ~22 → ~28 — the senior-dev filter is working harder against re-flagged-by-design items). Convergence is approaching but not yet reached.
 
 **Per-cycle status line (compact):** `Cycle 4 on chore/panel-review-fixes-2026-05-12: 10 commits applied (9 fixes + this §17.22); 9 fixes (0 Critical / 4 Important / 5 Minor); 1 convergent finding (L01+L13+L17 on plan.md Task 1.3 second sync pass); 2 factual drifts introduced BY cycle-3 corrected (hypothesis floor comment, hypothesis "tracks the locked minor" phrasing); Ship-ready (pre-fix): 15/20 Yes, 5/20 With fixes (highest Yes count to date); Clean lenses: 2/20 (L15, L19); ~28 filtered out; 1 new 4b deferral (cycle-2+3 L02 force-push gate extension). Continuing — cycle 4 produced ≥1 fix, so cycle 5 follows per the auto-converge rule. NOTE: cycle 5 is the max-cap final iteration; if cycle 5 also produces ≥1 fix the loop terminates at the max cap and a new restart loop would be required per CLAUDE.md post-max-cap rule.`
+
+### 17.23. Cycle-5 on `chore/panel-review-fixes-2026-05-12` — MAX-CAP TERMINATION at 6 applied fixes
+
+Fifth and final cycle of the auto-converge loop. The loop terminates here at the max-cap (5 cycles per loop) per CLAUDE.md `§Cycle-loop mode → Max iteration cap`. Cycle 5 produced ≥1 fix, so convergence (zero-commits) was NOT achieved within the 5-cycle cap.
+
+Range: `e8178175` (origin/main at loop start) .. `0889ff9` (chore/panel-review-fixes-2026-05-12 HEAD after cycle-4's 10 commits).
+
+**Cycle-5 totals: 6 panel-derived fixes applied as 6 atomic commits + this §17.23 audit entry = 7 commits.** By severity (lens-rated): 0 Critical, 2 Important applied, 4 Minor applied.
+
+**Convergence detected (0 multi-lens same-item findings in cycle 5).** All applied fixes were single-lens-surfaced.
+
+**Cycle-5 ship-ready verdicts (panel pre-fix):** 14 × Yes, 6 × With fixes. Total: 20. Below cycle-4's 15/20 high water mark (regression of 1).
+
+**Clean lenses (zero findings):** 7 (L04, L06, L08, L09, L10, L16, L19). Up from cycle-4's 2 (L15, L19). Major increase — over a third of the panel surfaced no findings at all this cycle.
+
+**Layer A commits (6 atomic, parallel fix-dispatch across 4 agents):**
+
+- `d193d88` test(domain): drop tautological field asserts in round-trip tests — **L13 Minor**. Pydantic model equality is structural; `restored == original` subsumes the field-level checks (`restored.duration_ms == 250`, `restored.extracted == {...}`). Dropped 4 tautological asserts across 2 round-trip tests. Same pattern as cycle-1's `bf4e702` and `08cc082`.
+- `7d9ba74` chore(mypy): drop redundant docling override from ignore_missing_imports — **L12 Minor**. docling 2.93.0 ships `py.typed`; mypy resolves its types natively. The blanket `[[tool.mypy.overrides]]` entry mislead future readers. Now scoped to `["rapidocr.*", "modelscope.*"]` (the genuine stub-less packages).
+- `9b02a97` chore(deps): bump ollama floor to >=0.6 for cross-major correctness — **L12 Minor**. Pre-1.0 versioning makes minors breaking; ollama 0.4→0.5 introduced async streaming API overhaul; 0.5→0.6 revised response model types. Fresh-machine resolve could lock 0.4.x with different API surface than locked 0.6.2. Same tracks-the-locked-major convention cycles 1-3 applied to structlog/pytest-cov/ruff. uv.lock refreshed (resolved set unchanged at 0.6.2).
+- `81d78ea` docs(plan): sync §6.3 Task 1.2 RED-tests after str_coerces split — **L01 Important**. Cycle-4's `7b6fb05` split `test_stage_state_str_coerces_to_value` but the plan reference was missed. **Fourth instance of "test split + missed plan sync" pattern caught across cycles 2-5.**
+- `b7e813e` docs(plan): sync §6.3 Task 1.3 RED-tests after fail() split — **L01 Important**. Cycle-4's `8d7d4c9` split `test_stage_record_fail_*` into 5 tests but the plan reference was missed. Same pattern.
+- `6d4e943` docs(claude): fix broken Loop-mode anchor + residual pass terminology + stale phase hedge — **L17 Minor** (3 sub-findings consolidated). Cycle-2's `35be975` renamed `§Loop mode` → `§Cycle-loop mode` and updated line 267's anchor reference but missed line 303's — broken internal link until now. Plus 2 "future panel pass" residuals at lines 299/301 in `§The synthesizer pass` that cycle-3 and cycle-4 cleanups missed. Plus pre-existing stale "or in-review" hedge at lines 13/179 (Phase 1 squash-merged as PR #7; hedge no longer applies).
+
+**Layer B: this §17.23 audit entry.**
+
+**Newly-discovered drift NOT addressed in cycle 5 (deferred to a new restart loop if requested):**
+
+- A 6th `fail()` test surfaced during cycle-5 A3's plan-sync work: `test_stage_record_fail_with_default_now_uses_current_time` is in the live test file but not in Task 1.3's RED-test column. The agent correctly did NOT add it without explicit prompt instruction. This is a real plan-doc drift that a future cycle (or a follow-up commit) should sync.
+
+**Items the senior-dev filter dropped (cycle 5):**
+
+Recurring filter-drops by category (with cycle-count for each pattern that has been re-flagged):
+
+- **`match mode:` no `case _:` assert_never** (L05): explicit filter-drop per senior-dev rule. **5 cycles in a row** (cycles 1-5) the panel has flagged this; **5 cycles in a row** the filter has correctly dropped it. Canonical filter-out category working as designed.
+- **Pre-commit `rev:` tag-vs-SHA** (L10): accepted community convention per §17.9. **5 cycles** of re-flag + drop.
+- **`darwin-checks` smoke-only scope** (L15): accepted §17.10 / §17.11 deferral. **5 cycles** of re-flag + drop.
+- **Coverage gate / JUnit XML / Python version matrix absence** (L15): accepted §17.2 / §17.9 / §17.11 deferrals. **5 cycles** of re-flag + drop.
+- **L02 commit-message type corrections on already-pushed commits** (L02): force-push-of-shared-branch gate. **4 cycles** of re-flag + drop. Extends to cover cycle-3 and cycle-4 commits introduced during the loop.
+- **`OverallStatus`/`StageName` re-export with no Phase 5 caller** (L07): Phase 5 wait. **5 cycles** of re-flag + drop.
+- **ci.yml line-19 comment formatting** (L11+L20 convergent cosmetic): **3 cycles** of re-flag + drop.
+- **D pydocstyle absent, G family absent, ANN test-ignore preemption** (L08+L18): all 4a/4b deferred per §17.21.
+- **L13 default-now tests "same conceptual invariant"**, test_log_config 5-field cluster, test_settings 10-field defaults: lens-rated "cohesive invariant" / "intentional batch verification" / "meaningful cluster." **2 cycles** of re-flag + drop.
+
+**No user-decision items in cycle 5** (auto-cycle mode).
+
+**Final trend table across all 5 cycles:**
+
+| Cycle | Commits | Fixes | C / I / M | Ship-ready Yes | Clean lenses | Filter-drops | Convergence findings |
+|---|---:|---:|---|---:|---:|---:|---:|
+| 1 | 20 | 16 | 0 / 8 / 8 | 13/20 | 3 | ~14 | 1 |
+| 2 | 12 | 10 | 0 / 4 / 6 | 12/20 | 1 | ~16 | 0 |
+| 3 | 11 | 10 | 0 / 4 / 6 | 14/20 | 2 | ~22 | 3 |
+| 4 | 10 | 9 | 0 / 4 / 5 | 15/20 | 2 | ~28 | 1 |
+| 5 | 7 | **6** | 0 / 2 / 4 | 14/20 | **7** | ~30+ | 0 |
+| **Total** | **60** | **51** | **0 / 22 / 29** | — | — | **~110+** | **5** |
+
+Fix count: 16 → 10 → 10 → 9 → 6 (monotonic decrease).
+Clean lenses: 3 → 1 → 2 → 2 → 7 (sharp increase in cycle 5).
+Ship-ready Yes: 13 → 12 → 14 → 15 → 14 (peaked at cycle 4, slight regression in cycle 5 because L01+L17 split-drift findings re-introduced 2 "With fixes" verdicts).
+
+**MAX-CAP-HIT diagnosis** per CLAUDE.md (`§Cycle-loop mode → Max iteration cap`: "The most likely cause of non-convergence at that point is the filter being too loose — one or more 'filter-out' categories needs to be added based on what's being repeatedly surfaced"):
+
+Three recurring patterns produced ~5 of cycle-5's 6 fixes. The filter caught most of the noise (~110+ items filter-dropped across 5 cycles), but missed three workflow-level patterns that genuinely needed in-cycle fixing:
+
+1. **"Test split + missed plan sync" (cycles 2, 3, 4, 5 — 4 of 5 cycles):** When a same-cycle test-split commit lands BEFORE the plan-sync commit in commit ordering, the plan-sync misses the just-introduced split. **Filter or workflow fix:** pair test-split commits with immediate plan-sync commits in the SAME atomic dispatch, or add a final post-Layer-A plan-sync sweep step. The current "Layer A in parallel + sync after" pattern guarantees this drift.
+
+2. **"CLAUDE.md terminology rename leaks" (cycles 3, 4, 5 — 3 of 5 cycles):** Section renames in CLAUDE.md propagate via grep-based partial sweeps that miss less-obvious anchor references, indirect callsites, and stale hedges. **Filter or workflow fix:** when renaming any heading or terminology in CLAUDE.md, run `grep -ni '<old-term>' CLAUDE.md` and walk EVERY hit — do not rely on grep-and-replace heuristics on the visible callsites only.
+
+3. **"Prior-cycle audit-comment factual drift" (cycles 2, 3, 4 — 3 cycles):** Comments added during a cycle (e.g., the L08 cycle-2 ANN rationale, the L12 cycle-3 hypothesis WHY comment) sometimes carry factual inaccuracies that the next cycle's lens catches. **Filter or workflow fix:** when adding audit-quality comments to pyproject.toml or other live config, verify EACH factual claim against the actual config state at commit time — don't write narrative speculation as if it were established fact.
+
+These three workflow gaps explain why the loop hit the max cap rather than converging at zero. If they were filtered out OR prevented by workflow improvements, cycle 5 would have produced ~1 fix (the docling override redundancy was the only finding not in these recurring patterns), approaching or hitting zero-commits convergence.
+
+**Per-cycle status line (compact):** `Cycle 5 on chore/panel-review-fixes-2026-05-12: 7 commits applied (6 fixes + this §17.23); 6 fixes (0 Critical / 2 Important / 4 Minor); 0 convergent findings (all single-lens-surfaced); Ship-ready (pre-fix): 14/20 Yes, 6/20 With fixes; Clean lenses: 7/20 (sharp increase from cycle 4's 2/20); ~30+ filtered out; 0 new deferrals. New HEAD: <pending push>. MAX-CAP-HIT: 5 cycles produced ≥1 fix each; loop did NOT converge at zero-commits. Loop terminates per CLAUDE.md §Cycle-loop mode max-iteration-cap rule. User may request a restart loop (resets cycle counter to 1), but the recurring patterns identified in §17.23's MAX-CAP diagnosis suggest filter/workflow improvements would converge faster than another 5-cycle restart.`
+
+**Loop final summary:**
+
+- Loop start HEAD: `e8178175` (origin/main at cycle-1 start)
+- Loop end HEAD: <pending push>
+- Total cycles: 5 (max cap)
+- Total commits across loop: 60 (51 fixes + 9 audit/methodology/codification)
+- Total fixes by severity: 0 Critical / 22 Important / 29 Minor
+- Convergent findings detected and applied: 5 multi-lens findings
+- Prior-cycle deferrals reversed during loop: 2 (§17.16 pytest-cov in cycle 2; implicit cycle-1 ruff floor in cycle 3)
+- Mid-loop methodology codifications: 3 (README queue rule cycle-1; cycle-independence terminology cycle-2; cycle-loop-mode terminology residuals cycles 3/4/5)
+- Termination reason: **MAX-CAP-HIT** (not zero-commits convergence)
+
+The user drives any next-step decision: (a) request a restart loop (new 5-cycle cap, fresh cycle-1 numbering); (b) merge the PR as-is acknowledging the loop didn't fully converge; (c) implement the workflow fixes identified in the MAX-CAP diagnosis before re-running.
