@@ -112,7 +112,12 @@ class RunConfig(BaseModel):
 
 
 def load_run_config(path: Path) -> RunConfig:
-    """Parse and validate a run-config YAML file from disk."""
+    """Parse and validate a run-config YAML file from disk.
+
+    Propagates ``FileNotFoundError`` if ``path`` does not exist and
+    ``yaml.YAMLError`` on syntactically malformed YAML. Pydantic raises
+    ``ValidationError`` on schema violations (missing required fields,
+    unknown keys per ``extra="forbid"``, OCR codes in ``retry_on``)."""
     # Pin UTF-8 explicitly: a server running a non-UTF-8 locale would silently
     # mis-decode non-ASCII characters in YAML scalar values (German contract
     # field names, paths with diacritics). Matches the encoding pin on
