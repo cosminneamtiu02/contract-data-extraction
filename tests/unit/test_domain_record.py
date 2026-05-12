@@ -10,7 +10,7 @@ callers. ``ContractRecord.fresh(now)`` is the canonical factory for a record
 created by the HTTP intake handler.
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from pydantic import ValidationError
@@ -43,6 +43,21 @@ def test_fresh_contract_record_overall_status_is_in_progress() -> None:
     record = ContractRecord.fresh(now=T0)
 
     assert record.overall_status == "in_progress"
+
+
+def test_fresh_contract_record_with_default_now_uses_current_time() -> None:
+    """The production call path (``ContractRecord.fresh()`` with no argument)
+    must assign a timezone-aware datetime. A future refactor that drops the
+    ``datetime.now(UTC)`` default would silently leave ``intake.started_at``
+    at ``None`` and overall_status / current_stage would derive incorrectly.
+    Mirrors test_stage_record_start_with_default_now_uses_current_time."""
+    record = ContractRecord.fresh()
+
+    assert record.intake.state == StageState.DONE
+    assert record.intake.started_at is not None
+    assert record.intake.started_at.tzinfo is not None
+    assert record.intake.completed_at is not None
+    assert record.intake.completed_at.tzinfo is not None
 
 
 # --- overall_status derivation ----------------------------------------------
@@ -171,8 +186,6 @@ def test_contract_record_round_trips_through_model_dump_json_when_all_done() -> 
     # Exercises overall_status, current_stage, AND nested StageRecord.duration_ms
     # computed_fields through serialization. Required because the Phase 5 HTTP
     # response shape returns this exact model to the orchestrator.
-    from datetime import timedelta
-
     record = ContractRecord(
         intake=StageRecord(state=StageState.DONE, started_at=T0, completed_at=T0),
         ocr=StageRecord(
