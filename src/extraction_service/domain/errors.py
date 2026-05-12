@@ -30,7 +30,7 @@ class OcrError(ExtractionError):
     code: ClassVar[str] = "ocr_engine_failed"
 
 
-class OcrEmptyOutput(OcrError):
+class OcrEmptyOutputError(OcrError):
     """OCR returned no usable text."""
 
     code: ClassVar[str] = "ocr_empty_output"
@@ -42,13 +42,13 @@ class LlmError(ExtractionError):
     code: ClassVar[str] = "llm_failed"
 
 
-class ContextOverflow(LlmError):
+class ContextOverflowError(LlmError):
     """OCR output exceeded the LLM's context window."""
 
     code: ClassVar[str] = "context_overflow"
 
 
-class SchemaInvalid(LlmError):
+class SchemaInvalidError(LlmError):
     """LLM returned JSON that failed schema validation."""
 
     code: ClassVar[str] = "schema_invalid"

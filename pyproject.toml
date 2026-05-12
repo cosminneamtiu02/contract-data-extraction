@@ -54,9 +54,12 @@ target-version = "py313"
 
 [tool.ruff.lint]
 # EM/TRY/TCH added 2026-05-12 per Phase 1 panel review (Lens 04 + Lens 08).
+# N/S added 2026-05-12 per Phase 1 panel re-run (Lens 08 + Lens 10): N catches
+# pep8-naming drift (incl. N818 *Error suffix on exception classes — names
+# normalised in this same pass), S catches bandit security smells.
 # Defense-in-depth: zero current violations in src/; only tests need to raise
 # string-literal exceptions in pytest.raises blocks, handled below.
-select = ["E", "F", "I", "B", "UP", "ASYNC", "PIE", "SIM", "RET", "ARG", "PTH", "TID", "T20", "RUF", "C4", "FURB", "PT", "EM", "TRY", "TCH"]
+select = ["E", "F", "I", "B", "UP", "ASYNC", "PIE", "SIM", "RET", "ARG", "PTH", "TID", "T20", "RUF", "C4", "FURB", "PT", "EM", "TRY", "TCH", "N", "S"]
 ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
@@ -64,6 +67,8 @@ ignore = ["E501"]
     "ARG",      # fixtures often look unused
     "EM101",    # tests legitimately raise with string literals in pytest.raises blocks
     "TRY003",   # tests' raise messages are intentionally long-form for assertion clarity
+    "S101",     # `assert` IS the pytest assertion mechanism
+    "S108",     # /tmp paths in test YAML strings are never opened — pure-string Pydantic Path fixtures
 ]
 
 [tool.ruff.format]

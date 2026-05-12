@@ -10,12 +10,12 @@ inheritance chain — Phase 3 retry policy needs to match on base classes
 import pytest
 
 from extraction_service.domain.errors import (
-    ContextOverflow,
+    ContextOverflowError,
     ExtractionError,
     LlmError,
-    OcrEmptyOutput,
+    OcrEmptyOutputError,
     OcrError,
-    SchemaInvalid,
+    SchemaInvalidError,
 )
 
 
@@ -33,10 +33,10 @@ def test_base_extraction_error_has_sentinel_code() -> None:
     ("cls", "expected_code"),
     [
         (OcrError, "ocr_engine_failed"),
-        (OcrEmptyOutput, "ocr_empty_output"),
+        (OcrEmptyOutputError, "ocr_empty_output"),
         (LlmError, "llm_failed"),
-        (ContextOverflow, "context_overflow"),
-        (SchemaInvalid, "schema_invalid"),
+        (ContextOverflowError, "context_overflow"),
+        (SchemaInvalidError, "schema_invalid"),
     ],
 )
 def test_concrete_errors_have_expected_code(cls: type[ExtractionError], expected_code: str) -> None:
@@ -47,10 +47,10 @@ def test_concrete_errors_have_expected_code(cls: type[ExtractionError], expected
     ("subclass", "ancestors"),
     [
         (OcrError, (ExtractionError, Exception)),
-        (OcrEmptyOutput, (OcrError, ExtractionError, Exception)),
+        (OcrEmptyOutputError, (OcrError, ExtractionError, Exception)),
         (LlmError, (ExtractionError, Exception)),
-        (ContextOverflow, (LlmError, ExtractionError, Exception)),
-        (SchemaInvalid, (LlmError, ExtractionError, Exception)),
+        (ContextOverflowError, (LlmError, ExtractionError, Exception)),
+        (SchemaInvalidError, (LlmError, ExtractionError, Exception)),
     ],
 )
 def test_inheritance_chain(
@@ -61,8 +61,8 @@ def test_inheritance_chain(
 
 
 def test_raised_error_preserves_code_and_message() -> None:
-    with pytest.raises(OcrEmptyOutput) as exc_info:
-        raise OcrEmptyOutput("no text extracted")
+    with pytest.raises(OcrEmptyOutputError) as exc_info:
+        raise OcrEmptyOutputError("no text extracted")
 
     assert exc_info.value.code == "ocr_empty_output"
     assert str(exc_info.value) == "no text extracted"

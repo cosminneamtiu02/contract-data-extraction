@@ -403,16 +403,16 @@ class ExtractionError(Exception):
 class OcrError(ExtractionError):
     code = "ocr_engine_failed"
 
-class OcrEmptyOutput(OcrError):
+class OcrEmptyOutputError(OcrError):
     code = "ocr_empty_output"
 
 class LlmError(ExtractionError):
     code = "llm_failed"
 
-class ContextOverflow(LlmError):
+class ContextOverflowError(LlmError):
     code = "context_overflow"
 
-class SchemaInvalid(LlmError):
+class SchemaInvalidError(LlmError):
     code = "schema_invalid"
 ```
 
@@ -735,9 +735,9 @@ Each phase is **its own git worktree** so phases can be reviewed/merged independ
 |---|---|---|---|---|---|
 | 3.1 | Ollama client wrapper | `src/extraction_service/llm/client.py` | `test_ollama_client_calls_correct_endpoint` (use `FakeOllamaClient`) | thin wrapper over `ollama.AsyncClient`, exposes `extract(prompt, schema) -> dict` | pytest |
 | 3.2 | Prompt template rendering | `src/extraction_service/llm/prompt.py` | `test_prompt_renders_with_ocr_text_and_schema` (load sample template, substitute placeholders, assert output) | Jinja2-style or simple `str.format`-based renderer; reads template from disk once | pytest |
-| 3.3 | JSON schema validation | `src/extraction_service/llm/schema.py` | `test_valid_extracted_data_passes`, `test_invalid_extracted_data_raises_schema_invalid` | use `jsonschema.validate`; wrap exceptions in `SchemaInvalid` with details | pytest |
+| 3.3 | JSON schema validation | `src/extraction_service/llm/schema.py` | `test_valid_extracted_data_passes`, `test_invalid_extracted_data_raises_schema_invalid` | use `jsonschema.validate`; wrap exceptions in `SchemaInvalidError` with details | pytest |
 | 3.4 | Retry policy | `src/extraction_service/llm/retry.py` | `test_retry_on_listed_error_codes_until_max`, `test_does_not_retry_on_unlisted_codes` | function `retry_extraction(extract_fn, max_retries, retry_on) -> result_or_raises` | pytest |
-| 3.5 | Context overflow detection | `src/extraction_service/llm/client.py` | `test_context_overflow_raises_loudly` (FakeOllama returns 400 with overflow indication) | catch Ollama's context-length errors, raise `ContextOverflow` | pytest |
+| 3.5 | Context overflow detection | `src/extraction_service/llm/client.py` | `test_context_overflow_raises_loudly` (FakeOllama returns 400 with overflow indication) | catch Ollama's context-length errors, raise `ContextOverflowError` | pytest |
 | 3.6 | Per-attempt _debug capture (dev mode) | `src/extraction_service/llm/client.py` | `test_dev_mode_captures_raw_request_and_response` | accept `mode` param; when development, attach raw payloads to result | pytest |
 | 3.7 | LLM client timeout | `src/extraction_service/llm/client.py` | `test_llm_timeout_raises_llm_failed` | wrap call with `asyncio.wait_for`; map to `LlmError` | pytest |
 
@@ -754,7 +754,7 @@ Each phase is **its own git worktree** so phases can be reviewed/merged independ
 | 4.1 | `ResultStore` | `src/extraction_service/pipeline/result_store.py` | `test_result_store_concurrent_updates_are_safe` (spawn 100 concurrent tasks updating one record, assert no torn reads) | asyncio.Lock + dict; expose `create`, `update_stage`, `get` | pytest |
 | 4.2 | `PipelineState` | `src/extraction_service/pipeline/state.py` | `test_pipeline_state_construct` — assert queues sized from settings | dataclass with intake_queue, interstage_queue, result_store, settings | pytest |
 | 4.3 | OCR worker basic loop | `src/extraction_service/pipeline/ocr_worker.py` | `test_ocr_worker_processes_one_job` (push a ContractJob, await, assert it appears on interstage queue with `ocr.state=done`) | async generator/loop: pull → update state → call engine → update state → push | pytest |
-| 4.4 | OCR worker handles OCR error | same | `test_ocr_worker_handles_ocr_empty_output` (FakeOcr raises `OcrEmptyOutput`, assert record has `ocr.state=failed` and `data_parsing.state=pending`) | try/except OcrError, record on stage, do not push to interstage | pytest |
+| 4.4 | OCR worker handles OCR error | same | `test_ocr_worker_handles_ocr_empty_output` (FakeOcr raises `OcrEmptyOutputError`, assert record has `ocr.state=failed` and `data_parsing.state=pending`) | try/except OcrError, record on stage, do not push to interstage | pytest |
 | 4.5 | LLM worker basic loop | `src/extraction_service/pipeline/llm_worker.py` | `test_llm_worker_processes_one_job` (push ocr-completed job, await, assert record has `data_parsing.state=done` and `extracted` populated) | async loop: pull from interstage → render prompt → call LLM client (with retry) → validate schema → update record | pytest |
 | 4.6 | LLM worker respects retry policy | same | `test_llm_worker_retries_on_schema_invalid_max_times` | use retry policy from Phase 3.4 | pytest |
 | 4.7 | Two LLM workers run in parallel | `tests/pipeline/test_llm_worker.py::test_two_lanes_concurrent` | push 4 jobs, await with a FakeOllama that sleeps 100ms; assert wall time ~ 200ms (two lanes), not 400ms (serialized) | start two `llm_worker` tasks; verify in test by timing | pytest |
