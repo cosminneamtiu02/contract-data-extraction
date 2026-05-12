@@ -96,7 +96,13 @@ target-version = "py313"
 # ANN added 2026-05-12 per cycle-2 review (Lens 04): flake8-annotations catches
 # annotation gaps at lint time, complementing mypy's strict pass with faster
 # developer feedback. Zero current violations. Defense-in-depth for later phases.
-select = ["E", "F", "I", "B", "UP", "ASYNC", "PIE", "SIM", "RET", "ARG", "PTH", "TID", "T20", "RUF", "C4", "FURB", "PT", "EM", "TRY", "TCH", "N", "S", "BLE", "PL", "ANN"]
+# G added 2026-05-13 (Lens 08): flake8-logging-format catches f-string log calls
+# (`logger.info(f"...")`) and %-style logger usage that bypass lazy evaluation.
+# log_config.py wires `logging` into structlog's stdlib bridge; Phase 2-4
+# workers will emit log lines and the structlog bridge is exactly where G004
+# anti-patterns would land silently. Zero current violations — same proactive
+# pattern as BLE, ANN, PL.
+select = ["E", "F", "I", "B", "UP", "ASYNC", "PIE", "SIM", "RET", "ARG", "PTH", "TID", "T20", "RUF", "C4", "FURB", "PT", "EM", "TRY", "TCH", "N", "S", "BLE", "PL", "ANN", "G"]
 ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
