@@ -15,6 +15,13 @@ asyncio.Lock-guarded read-modify-write of §3.5 reasoning about whole records
 rather than mid-transition state. ``StageError`` is the data structure
 captured on a failed stage; the exception hierarchy that *raises* it lives
 in ``errors.py`` (Task 1.5).
+
+The transition methods are deliberately UNGUARDED against invalid orderings
+(e.g., ``start()`` on a DONE record, ``complete()`` on a PENDING record).
+Pipeline workers (Phase 4) own the state-machine sequencing under their
+asyncio.Lock; pushing the check into ``StageRecord`` would either duplicate
+the worker guard or force the worker into a two-phase try/check pattern that
+defeats the functional-transition design.
 """
 
 from datetime import UTC, datetime

@@ -38,6 +38,12 @@ RetryOnCode = Literal[
 # validator is the semantic guard.
 _OCR_RETRY_CODES_REJECTED: frozenset[str] = frozenset({"ocr_engine_failed", "ocr_empty_output"})
 
+# Matches docs/plan.md §3.3 verbatim ("by default retry `llm_failed` and
+# `schema_invalid`"). `context_overflow` is INTENTIONALLY omitted: while it is
+# an LlmError subclass, it is deterministic on (input_size, context_window) —
+# retrying without changing one of those will reproduce the failure. Operators
+# can add it explicitly to retry_on if they have a dynamic-context-window
+# strategy in Phase 3, but the default should not retry it.
 _DEFAULT_RETRY_ON: list[RetryOnCode] = ["llm_failed", "schema_invalid"]
 
 

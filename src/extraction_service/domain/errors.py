@@ -3,8 +3,9 @@
 Mirrors the structure in docs/plan.md §4.13. Each concrete exception carries
 a class-level ``code`` matching the string that Phase 4 workers will copy into
 the ``StageError`` they attach to the failed stage (§3.3). Phase 3's retry
-policy keys off the base classes (``except LlmError``) to retry the right
-subset of failures.
+policy keys off the ``code`` string against the ``RetryConfig.retry_on`` list
+(see ``config/run_config.py``), not against ``isinstance(e, LlmError)`` — the
+config drives retry decisions, not the class hierarchy.
 
 OCR errors are *deterministic on the input* (per §3.3) and therefore never
 retried — only LLM-side failures retry.
