@@ -1313,3 +1313,74 @@ Range: `e8178175` (origin/main at loop start) .. `58ad072` (chore/panel-review-f
 **No user-decision items in cycle 3** (auto-cycle mode per the user's standing instruction; synthesizer self-decides per the senior-dev filter).
 
 **Per-cycle status line (compact):** `Cycle 3 on chore/panel-review-fixes-2026-05-12: 11 commits applied (10 fixes + this §17.21); 10 fixes (0 Critical / 4 Important / 6 Minor); 3 convergent findings (L01+L13+L17 ×2 on plan.md, L07+L13 on isinstance with inter-lens-disagreement resolved); 1 prior-cycle deferral reversed (ruff floor — implicit cycle-1 deferral, same 0.x-semver logic cycle 2 used for pytest-cov); Ship-ready (pre-fix): 14/20 Yes, 6/20 With fixes; ~22 filtered out, 1 new deferral (ANN test ignores → 4a wait-for-violations), 1 new 4b (cycle-2 L02 force-push gate extension). Continuing — cycle 3 produced ≥1 fix, so cycle 4 follows per the auto-converge rule.`
+
+### 17.22. Cycle-4 on `chore/panel-review-fixes-2026-05-12` — 9 applied fixes, 1 convergent finding, fix count trending down
+
+Fourth independent cycle on the fix branch. 20 lens prompts with NO carryover context per the cycle-independence rule. The senior-dev filter and §17-awareness handled deduplication of re-flagged-by-design items.
+
+Range: `e8178175` (origin/main at loop start) .. `bfa09ad` (chore/panel-review-fixes-2026-05-12 HEAD after cycle-3's 11 commits).
+
+**Cycle-4 totals: 9 panel-derived fixes applied as 9 atomic commits + this §17.22 audit entry = 10 commits.** By severity (lens-rated): 0 Critical, 4 Important applied, 5 Minor applied. Plus 2 factual drifts introduced BY cycle-3 corrected (hypothesis comment factual error, the same kind of "fix the prior cycle's introduced inaccuracy" pattern cycles 2-3 also exhibited).
+
+**Convergence detected (1 multi-lens finding):**
+
+- **L01 + L13 + L17 (3-lens convergence):** `docs/plan.md §6.3 Task 1.3` RED-test column still references the pre-split `test_stage_record_complete_sets_completed_at_and_computes_duration_ms` (cycle-3's `0b5ba1c` split it into 4 tests). Same drift pattern cycle-3 already corrected for Task 1.1 (cycle-2 `cd851cf`) and Task 1.2 (cycle-3 `686631d`) and partially Task 1.3 (cycle-3 `ab82c32`) — Task 1.3 now needed a SECOND sync pass for the cycle-3-introduced split. Applied as commit `310f0ee` consolidating three sub-drifts (the cycle-3 complete-test split + a cycle-2 start-test add that was missed + cycle-2 StageError split tests that were silent in the plan).
+
+**Cycle-4 ship-ready verdicts (panel pre-fix):** 15 × Yes, 5 × With fixes. Total: 20. Highest ship-ready Yes count to date (cycle 1: 13 → cycle 2: 12 → cycle 3: 14 → cycle 4: 15).
+
+**Clean lenses (zero findings):** 2 (L15 CI test execution, L19 repo hygiene). Same count as cycle 3.
+
+**Layer A commits (9 atomic, parallel fix-dispatch across 6 agents — all 6 succeeded; no main-conversation recoveries needed this cycle):**
+
+- `310f0ee` docs(plan): sync §6.3 Task 1.3 RED-tests after later splits and adds — **L01 + L13 + L17 convergent Important + Minor**. Three sub-drifts addressed in one consolidated edit (cycle-3 complete split, cycle-2 start-test add, cycle-2 StageError split).
+- `e2713ca` docs(domain): clarify domain/__init__.py docstring re-export vs deep-import — **L06 Minor**. Module docstring listed `StageError` as if re-exported but it's not in `__all__`; rephrased to distinguish "defined in this package" from "re-exported at the package boundary."
+- `99b5e38` docs(pyproject): correct hypothesis floor comment factual error — **L12 Minor**. Cycle-3 `9e88eed` introduced a comment claiming "Floor tracks the locked minor (6.152.6)" but the floor is `6.115`, not `6.152`. Rewrite to accurately describe the deliberate below-locked-minor defensive floor. Same family as cycle-2's `456c7b1` and cycle-3's `834c613`/`6db38f9` corrections of prior-cycle factual drift.
+- `2fcddf1` chore(mypy): add explicit_package_bases=true for src-layout safety — **L04 Minor**. Pairs with `mypy_path = "src"` per the mypy docs' src-layout recommendation; prevents latent stdlib-shadow ambiguity in Phase 2+. Same "not implied by strict" defense-in-depth pattern as cycle-1's `warn_unreachable` addition.
+- `0c15a98` ci(pytest): explicitly set asyncio_default_test_loop_scope=function — **L14 Important**. Peer key `asyncio_default_fixture_loop_scope = "function"` was explicit; companion `asyncio_default_test_loop_scope` was unset. Given `filterwarnings = ["error::DeprecationWarning"]`, a future pytest-asyncio 1.x that warns on the unset key would break CI. Symmetric defense-in-depth.
+- `8d7d4c9` test(domain): split test_stage_record_fail_sets_state_completed_at_and_error — **L13 Important**. 5-target test split into 5 per-concern tests; mirrors the cycle-3 `complete()` split (commit `0b5ba1c`).
+- `7b6fb05` test(domain): split test_stage_state_str_coerces_to_value — **L13 Important**. 2-target test (str() vs f-string) split into per-call-path tests for behavioral isolation.
+- `f9c16d8` docs(pre-commit): add WHY comments to external-repo rev: pins — **L18 Minor**. `detect-secrets v1.5.0` and `pre-commit-hooks v6.0.0` were the only version pins in the project without WHY rationale comments. Same consistency-completion pattern cycle-3 applied to the hypothesis floor.
+- `a9af2ab` docs(claude): drop residual "pass" usage in §Project state notes — **L17 Minor**. Cycle-2's `35be975` and cycle-3's `d759b44` corrected `§Cycle-loop mode` terminology but missed `§Project state notes` (the README queue rule + the §17 audit-log directive + one residual in §Where things live). 3 substitutions made.
+
+**Layer B: this §17.22 audit entry.**
+
+**Items the senior-dev filter dropped (all filter-correct per CLAUDE.md):**
+
+- **L02 Important + Minor × 3 (commit-message type/prose issues on cycle-1, cycle-2, cycle-3 commits — 35be975 over-claim, 22262ff "cycle-3 pass-1" mixed terminology, a79a011 `docs(ci):`→`ci:`, 456c7b1 `docs(pyproject):`→`chore(pyproject):`, b7e493b double-space, d549110 "20 violations" prose imprecision):** Same force-push-of-shared-branch gate as §17.20 and §17.21's L02 deferrals. Not authorized.
+- **L03 Minor × 2 (forward-looking `warn_required_dynamic_aliases` and `asyncio_mode = "auto"` comments):** Lens-acknowledged "cosmetic framing concern only, no current cost."
+- **L05 Minor × 2 (ExtractionError chaining-contract docstring + BLE comment "zero current violations" staleness):** Both forward-looking / no current defect per lens.
+- **L07 Important (OverallStatus/StageName re-export in `domain/__init__.py` with no current caller):** Lens explicitly self-deferred to Phase 5 — "deferred — waiting on Phase 5, not to remove it now." Already-deferred per §17.7 / §17.18 / §17.20.
+- **L08 Minor × 3 (D pydocstyle absent, G family absent, ANN test ignore):** All previously filter-dropped per §17.21. Lens itself notes "filter-dropped twice already."
+- **L09 Important (main() body silently empty after pass-removal) + Minor (ANN test ignore):** First: `pass` removal was deliberate per ruff PIE790; re-adding would re-trigger the lint rule. Filter-drop. Second: previously filter-dropped per §17.21.
+- **L10 Minor × 2 (pre-commit tag-vs-SHA, darwin-checks security gate scope):** Both pre-existing §17.9 / §17.10 / §17.11 accepted deferrals. Re-versioning prior decisions for churn.
+- **L11 Minor + L20 Minor (ci.yml line-19 comment formatting):** Same convergent-but-both-cosmetic-only finding cycle-3 dropped. Not a convergence promotion.
+- **L13 Minor × 4 (default-now tests 4-5 asserts; test_log_config 5-field log payload; test_settings 10-field defaults; test_load_minimal_valid_yaml 2 fields):** Lens-acknowledged "same conceptual invariant" (default-now), "intentional batch verification" (settings), "meaningful cluster" (log payload). The 10-field settings test is borderline but the function name signals intentional batch.
+- **L15 Minor × 3 (coverage gate, JUnit XML, darwin full-suite, Python version matrix, bare pytest invocation):** All pre-existing accepted §17.2 / §17.9 / §17.11 deferrals.
+- **L16 Minor × 2 (test_log_config session-scope hazard, default-now duration_ms upper-bound):** Both lens-acknowledged "no current failure risk" / "purely theoretical hardening note."
+- **L17 Minor (§17.21 doesn't note that 0b5ba1c introduced plan-sync gap):** Retroactive editing of an audit entry. §17.22 (this entry) naturally covers the carry-forward; no retroactive edit needed.
+- **L18 Minor (CI runs tools individually vs pre-commit run --all-files):** Already documented as accepted tradeoff in §17.9 / §17.10.
+- **L20 Minor × 2 (automerge.yml single-command no-pipefail, ci.yml line-19 comment formatting):** Both lens-acknowledged "Minor polish" / "still correctly filtered-out."
+
+**Deferred items new in cycle 4:**
+
+**4b — Other reasons:**
+- **L02 cycle-2 + cycle-3 commit-message corrections (`35be975` over-claim, `22262ff` terminology, `a79a011`, `456c7b1`, `b7e493b`, `d549110`):** Extending the existing §17.20 + §17.21 L02 force-push-of-shared-branch gate.
+
+**Carrying forward from §17.19 + §17.20 + §17.21:**
+- 4a deferred (Phase 5 wiring, suite-scoped fixtures, ANN test ignores) — unchanged.
+- 4b deferred (PR #3/#4 squash type, StageError rename, pre-commit `rev:` tag-vs-SHA, codeql fetch-depth, cycle-1+2+3 L02 commit-message corrections) — extended this cycle.
+
+**No user-decision items in cycle 4** (auto-cycle mode).
+
+**Trend across cycles 1-4:**
+
+| Cycle | Commits | Fixes | C / I / M | Ship-ready Yes | Clean lenses | Filter-drops | Convergence findings |
+|---|---:|---:|---|---:|---:|---:|---:|
+| 1 | 20 | 16 | 0 / 8 / 8 | 13/20 | 3 | ~14 | 1 |
+| 2 | 12 | 10 | 0 / 4 / 6 | 12/20 | 1 | ~16 | 0 (closest L11+L20 cosmetic-only) |
+| 3 | 11 | 10 | 0 / 4 / 6 | 14/20 | 2 | ~22 | 3 |
+| 4 | 10 | **9** | 0 / 4 / 5 | **15/20** | 2 | ~28 | 1 |
+
+Fix count is trending DOWN (16 → 10 → 10 → 9), ship-ready Yes count is trending UP (13 → 12 → 14 → 15), filter-drops are climbing (~14 → ~16 → ~22 → ~28 — the senior-dev filter is working harder against re-flagged-by-design items). Convergence is approaching but not yet reached.
+
+**Per-cycle status line (compact):** `Cycle 4 on chore/panel-review-fixes-2026-05-12: 10 commits applied (9 fixes + this §17.22); 9 fixes (0 Critical / 4 Important / 5 Minor); 1 convergent finding (L01+L13+L17 on plan.md Task 1.3 second sync pass); 2 factual drifts introduced BY cycle-3 corrected (hypothesis floor comment, hypothesis "tracks the locked minor" phrasing); Ship-ready (pre-fix): 15/20 Yes, 5/20 With fixes (highest Yes count to date); Clean lenses: 2/20 (L15, L19); ~28 filtered out; 1 new 4b deferral (cycle-2+3 L02 force-push gate extension). Continuing — cycle 4 produced ≥1 fix, so cycle 5 follows per the auto-converge rule. NOTE: cycle 5 is the max-cap final iteration; if cycle 5 also produces ≥1 fix the loop terminates at the max cap and a new restart loop would be required per CLAUDE.md post-max-cap rule.`
