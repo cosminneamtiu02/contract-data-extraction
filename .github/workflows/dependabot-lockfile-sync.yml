@@ -29,7 +29,7 @@
 #   The VSCode GitHub Actions extension queries only the Actions secret
 #   store, not the Dependabot store, so `secrets.DEPENDABOT_LOCKFILE_SYNC_PAT`
 #   shows a permanent "Context access might be invalid" warning on every
-#   reference (lines 60, 76) unless a same-named secret also exists in the
+#   reference (lines 75, 91) unless a same-named secret also exists in the
 #   Actions store. As a workaround we seed a same-named placeholder secret
 #   in the Actions store. That value is NEVER read at runtime: this
 #   workflow only runs on Dependabot-triggered pull_request events, where
