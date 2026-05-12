@@ -658,7 +658,7 @@ requires-dist = [
 dev = [
     { name = "detect-secrets", specifier = ">=1.5" },
     { name = "hypothesis", specifier = ">=6.115" },
-    { name = "mypy", specifier = ">=1.13" },
+    { name = "mypy", specifier = ">=2.0" },
     { name = "pip-audit", specifier = ">=2.7" },
     { name = "pre-commit", specifier = ">=4.0" },
     { name = "pytest", specifier = ">=8.3" },
