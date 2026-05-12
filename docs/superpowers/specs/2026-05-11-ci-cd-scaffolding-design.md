@@ -955,3 +955,50 @@ Recorded after the 20-lens panel was re-run against `phase-1-domain` at `4fe4138
 **Per-pass status line emitted to user:** `Pass 9: 6 commits applied; 5 fixes total (0 Critical / 0 Important / 5 Minor); Ship-ready: 14/20 Yes, 6/20 With fixes; ~9 filtered out, 0 deferred new (multiple re-raised items remain deferred per prior §17.N entries). Continuing.` (The new HEAD SHA is the SHA of this §17.15 commit itself.)
 
 **Loop iteration plan:** Pass 9 produced commits, so the loop continues into Pass 10 against the new HEAD. Max cap remains 5 iterations (pass 13 maximum) per CLAUDE.md "Loop mode (auto-converge)".
+
+### 17.16. Phase 1 panel tenth pass (new cycle iteration 2)
+
+Recorded after the 20-lens panel was re-run against `phase-1-domain` at `cea4a94` on 2026-05-12. Iteration 2 of the second 5-iteration loop.
+
+**Pass 10 totals: 6 commits applied; 5 fixes total (0 Critical / 0 Important / 5 Minor); 1 Layer A overflow self-corrected via local soft-reset before push.** uv.lock companion regenerated within the `chore(deps)` Layer A commit itself (no separate companion commit).
+
+**Ship-ready verdicts:** 17/20 Yes, 3/20 With fixes — the BEST ratio across all ten iterations. Trend: pass 4 ~5/20 → pass 5 10/20 → pass 6 16/20 → pass 7 12/20 → pass 8 13/20 → pass 9 14/20 → **pass 10 17/20**.
+
+**Layer A (5 atomic commits — split from a parallel-dispatch overflow; see §17.16.1 below):**
+
+- `64c0f6e` docs(config): correct `load_domain_model` SchemaError example precision (Lens 05 Minor) — the docstring text I authored in pass 9 commit `4d3422b` had factually imprecise example "(e.g., a non-dict top-level value)" — JSON Schema Draft 2020-12 explicitly permits boolean schemas (`true`/`false`) at the top level. Replaced with "(e.g., an array or integer at the top level)" and added an explicit note that booleans pass meta-validation. Factual drift introduced by my own prior pass; caught next iteration.
+- `2b1141f` test(log_config): mirror autouse-reliance comment on dev-mode contextvars test (Lens 16 Minor) — the production-mode contextvars test had an explicit 3-line comment anchoring the `_reset_structlog_state` autouse-fixture guarantee; the dev-mode twin had identical protection but no comment, leaving a future single-test-auditor with no signal that the no-try/finally pattern was safe. Added the same 3-line comment with a parenthetical acknowledging the symmetry.
+- `a28c59b` chore(deps): bump pytest floor to `>=9.0` for cross-major correctness (Lens 12 Minor) — declared floor was `>=8.3` but locked version is `9.0.3` and the codebase relies on 9.x `importmode` ini-key semantics. Same cross-major-correctness pattern accepted in passes 5 (`pytest-asyncio>=1.0`) and 8 (`mypy>=2.0`); three independent floor bumps for the same reason now constitute a project convention. uv.lock regenerated within this commit because dependency-spec metadata changed (resolved version 9.0.3 unaffected).
+- `c0bb487` docs(claude): document post-max-cap loop restart semantics (Lens 17 Minor) — the loop-mode section documented the cap but was silent on "rerun after max-cap" semantics. The §17.14→§17.15 transition had the user invoke "rerun same cycle" and §17.15 interpreted that as a fresh 5-iter loop with counter reset to 1, but CLAUDE.md contained no rule. Codified the convention.
+- `2703981` chore(editorconfig): annotate TOML 4-space invariant with intent comment (Lens 19 Minor) — `[*.toml] indent_size = 4` matched the inherited `[*]` value, making the block look redundant. A future maintainer changing `[*]` to `indent_size = 2` could either delete the block (loss-of-invariant) or keep it (intent unclear). Added a 3-line comment immediately above the section header making the deliberate-override intent explicit.
+
+**Layer B (sequential, this commit):** this `§17.16` entry.
+
+#### 17.16.1. Parallel-dispatch overflow lesson (Pass 10)
+
+The Pass 10 Layer A dispatched 5 parallel agents, each instructed to touch ONLY its owned file. Two agents (L16 owning `tests/unit/test_log_config.py`, and L12 owning `pyproject.toml` + `uv.lock` companion) raced on the git index — the L12 agent staged `pyproject.toml` + `uv.lock`, then the L16 agent ran its own `git add tests/unit/test_log_config.py` and committed BEFORE the L12 agent reached its own `git commit`. Result: commit `d9c4c25` (original SHA, now history-edited away) bundled BOTH changes under the L16 commit message (`test(log_config): mirror autouse-reliance comment ...`), and the L12 agent reported "the fix is already committed" without producing its own commit.
+
+This is the same class of overflow §17.11 documented for Pass 5. The lesson there was "leave it and document". This time the recovery was different: because none of the Pass 10 commits had been pushed yet, a local `git reset --soft cea4a94 && git restore --staged .` was safe (no force-push, no destructive op against pushed state). All 5 fixes were re-committed atomically with the correct subject-vs-content alignment. The original commit SHAs (`70ddd28`, `d9c4c25`, `11aca3b`, `0046028`) are no longer reachable; the post-split SHAs (`64c0f6e`, `2b1141f`, `a28c59b`, `c0bb487`, `2703981`) are the canonical history.
+
+Going-forward methodology refinement: parallel fix agents racing on `git add`/`git commit` against a shared index is intrinsic — `git` does not partition the index per-agent. Mitigations:
+
+- **Pre-push check** (already applied in this pass): after the parallel layer returns, run `git log --oneline cea4a94..HEAD` and `git show --stat <each-sha>` to verify each commit's files match its subject. If overflow is detected AND nothing has been pushed yet, `git reset --soft <base> && git restore --staged .` + re-commit is safe.
+- **Stricter per-agent prompts**: the existing prompts already say "ONLY this file" but agents staged neighbours when the index was already dirty from a sibling. A future prompt iteration could add: "If `git status --short` shows files you do NOT own as already staged or modified, STOP and report — do not commit. The main conversation will resolve the overflow."
+- **Sequential commit gate within parallel work**: agents can still apply changes in parallel via Edit/Write, but the actual `git add` + `git commit` could be serialized in the main conversation post-return. This trades commit-step concurrency for absolute attribution correctness. For 5 agents × seconds-per-commit, the wall-clock cost is negligible.
+
+The §17.11 outcome stays valid for the case where overflow is discovered AFTER push (no rebase), but where the work is still local, the local-rebase fix is preferred.
+
+**Items the senior-dev filter dropped from the panel's recommendations:**
+
+- **L02 Minor on `72d25ba` "mirrors the ocr-failed test's structure" body wording** — historical immutable commit on shared branch; same filter as §17.14 for similar c088a6c/66862a4 historical-immutable findings.
+- **L08 informational note on `"TCH"` vs `"TC"` ruff family rename** — lens itself marked "not a defect"; `"TCH"` is a fully-working silent backward-compat alias in ruff 0.15.x with no rule-firing differences. No action.
+- **L12 Minor on `pytest-cov>=6.0` floor vs locked `7.1.0`** — `--cov` is deferred per §17.2 so pytest-cov doesn't run; same logic as §17.14's `hatchling>=N` deferral (no active install path means the floor is inert). Re-takes when `--cov` is unblocked (Phase 2+).
+- **L13 Minor on `test_stage_record_defaults_to_pending_with_no_timestamps_or_error` 5-assert bundling** — same logic as §17.13's ruling that the parallel "multi-example coverage of one logical invariant" pattern is valid. The default-constructor returns a documented default-everything record; testing that with 5 example fields is single-invariant coverage, not bundled invariants. No convergence (only L13 flagged it).
+- **L19 Minor on `.editorconfig`'s `[*.toml]` block redundancy** — applied as a comment-additionn (not a deletion) under the senior-dev filter; the redundancy is real but the deletion option would lose the future-default-change-guard invariant. Comment addition was selected as the substantive cosmetic fix; the deletion option dropped.
+- **L11 deferred `workflow_dispatch` concurrency formula** (re-raised per §17.14 deferral) — not re-opened.
+- **L16 deferred `/tmp` paths in test_run_config.py and `isolated_env` autouse promotion** (re-raised per §17.11/§17.14 deferrals) — not re-opened.
+- **L18 deferred pre-commit external-repo SHA pinning and CI-runs-tools-individually vs `pre-commit run --all-files`** (re-raised per §17.9/§17.10 deferrals) — not re-opened.
+
+**Per-pass status line emitted to user:** `Pass 10: 6 commits applied; 5 fixes total (0 Critical / 0 Important / 5 Minor); Ship-ready: 17/20 Yes, 3/20 With fixes; ~8 filtered out, 1 deferred new (L12 pytest-cov floor — naturally re-takes when --cov enforcement lands per §17.2). Continuing.` (The new HEAD SHA is the SHA of this §17.16 commit itself.)
+
+**Loop iteration plan:** Pass 10 produced commits, so the loop continues into Pass 11 against the new HEAD. Two iterations remain before the max cap (pass 11, 12, 13 maximum) per CLAUDE.md "Loop mode (auto-converge)".
