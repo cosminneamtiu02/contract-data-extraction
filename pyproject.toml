@@ -50,7 +50,12 @@ dev = [
     # 2.1.x); mypy 2.0 introduced breaking strict-mode flag semantics — same
     # cross-major-correctness pattern as the pytest-asyncio floor fix.
     "mypy>=2.0",
-    "ruff>=0.9",
+    # Floor tracks the locked minor (0.15.12); ruff uses 0.x versioning where
+    # every minor is effectively a major bump. The >=0.9 floor permitted a
+    # fresh-machine resolve to 0.9.x, which predates the PL and ANN rule
+    # families added in cycle 2 — a 0.9.x resolve would silently drop those
+    # lint gates. Same tracks-the-locked-minor convention as pytest-cov (>=7.0).
+    "ruff>=0.15",
     # Stub floors mirror the runtime floors in [project].dependencies so a
     # future lockfile regeneration on a fresh machine can't drift the stub
     # major version away from the runtime package the stubs cover.
