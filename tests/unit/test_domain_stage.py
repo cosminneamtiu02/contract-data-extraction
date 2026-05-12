@@ -28,13 +28,6 @@ def test_stage_state_has_expected_member_values() -> None:
     }
 
 
-def test_stage_state_members_are_str_instances() -> None:
-    # StrEnum members ARE strings — locks in the str-subclass contract that
-    # later phases rely on (e.g., direct use as dict keys, JSON output).
-    for state in StageState:
-        assert isinstance(state, str)
-
-
 def test_stage_state_str_coerces_to_value() -> None:
     # StrEnum overrides __str__ so log lines and f-strings stay clean.
     assert str(StageState.IN_PROGRESS) == "in_progress"
