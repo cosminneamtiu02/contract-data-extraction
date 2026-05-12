@@ -1,12 +1,22 @@
-"""Unit tests for StageState (Task 1.2) and StageRecord (Task 1.3 — next).
+"""Unit tests for StageState (Task 1.2) and StageRecord/StageError (Task 1.3).
 
 StageState is the source of truth for ContractRecord.overall_status derivation
 (docs/plan.md §3.3). Choosing StrEnum (Python 3.11+) over the older
 ``(str, Enum)`` pairing makes ``str()`` and f-string interpolation produce the
 plain value, which structlog consumes cleanly in §4.8 logging context.
+
+StageRecord uses frozen + functional transitions (rather than in-place mutation)
+so that the asyncio.Lock-guarded read-modify-write in §3.5 reasons about whole
+records, not half-transitioned ones. Transition methods accept an optional
+``now`` for deterministic tests; production callers pass nothing.
 """
 
-from extraction_service.domain.stage import StageState
+from datetime import UTC, datetime, timedelta
+
+import pytest
+from pydantic import ValidationError
+
+from extraction_service.domain.stage import StageError, StageRecord, StageState
 
 
 def test_stage_state_has_expected_member_values() -> None:
@@ -29,3 +39,86 @@ def test_stage_state_str_coerces_to_value() -> None:
     # StrEnum overrides __str__ so log lines and f-strings stay clean.
     assert str(StageState.IN_PROGRESS) == "in_progress"
     assert f"{StageState.DONE}" == "done"
+
+
+# --- StageError ----------------------------------------------------------
+
+
+def test_stage_error_constructs_with_code_and_description() -> None:
+    err = StageError(code="ocr_engine_failed", description="Docling raised IOError")
+
+    assert err.code == "ocr_engine_failed"
+    assert err.description == "Docling raised IOError"
+
+
+def test_stage_error_is_frozen() -> None:
+    err = StageError(code="ocr_engine_failed", description="x")
+
+    with pytest.raises(ValidationError):
+        err.code = "changed"  # type: ignore[misc]
+
+
+# --- StageRecord ---------------------------------------------------------
+
+
+T0 = datetime(2026, 5, 12, 12, 0, 0, tzinfo=UTC)
+
+
+def test_stage_record_defaults_to_pending_with_no_timestamps_or_error() -> None:
+    record = StageRecord()
+
+    assert record.state == StageState.PENDING
+    assert record.started_at is None
+    assert record.completed_at is None
+    assert record.error is None
+    assert record.duration_ms is None
+
+
+def test_stage_record_start_returns_new_record_with_started_at() -> None:
+    record = StageRecord()
+
+    started = record.start(now=T0)
+
+    assert started.state == StageState.IN_PROGRESS
+    assert started.started_at == T0
+    assert started.completed_at is None
+    # Original record is untouched (frozen + functional).
+    assert record.state == StageState.PENDING
+    assert record.started_at is None
+
+
+def test_stage_record_complete_sets_completed_at_and_computes_duration_ms() -> None:
+    record = StageRecord().start(now=T0)
+
+    finished = record.complete(now=T0 + timedelta(milliseconds=250))
+
+    assert finished.state == StageState.DONE
+    assert finished.completed_at == T0 + timedelta(milliseconds=250)
+    assert finished.duration_ms == 250
+
+
+def test_stage_record_fail_sets_state_completed_at_and_error() -> None:
+    error = StageError(code="ocr_empty_output", description="no text extracted")
+    record = StageRecord().start(now=T0)
+
+    failed = record.fail(error=error, now=T0 + timedelta(milliseconds=120))
+
+    assert failed.state == StageState.FAILED
+    assert failed.completed_at == T0 + timedelta(milliseconds=120)
+    assert failed.error == error
+    assert failed.duration_ms == 120
+
+
+def test_stage_record_duration_ms_is_none_until_both_timestamps_set() -> None:
+    pending = StageRecord()
+    in_progress = pending.start(now=T0)
+
+    assert pending.duration_ms is None
+    assert in_progress.duration_ms is None
+
+
+def test_stage_record_is_frozen() -> None:
+    record = StageRecord()
+
+    with pytest.raises(ValidationError):
+        record.state = StageState.DONE  # type: ignore[misc]

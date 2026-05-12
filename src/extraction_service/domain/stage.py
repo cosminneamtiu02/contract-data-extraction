@@ -8,9 +8,19 @@ the table in docs/plan.md §3.3.
 Using ``StrEnum`` (Python 3.11+) rather than the older ``class X(str, Enum)``
 form makes ``str()`` and f-string interpolation return the plain value, which
 keeps log lines and JSON-coerced output clean for structlog (§4.8).
+
+``StageRecord`` is frozen and uses functional transitions (``start``,
+``complete``, ``fail``) that return new instances. This keeps the
+asyncio.Lock-guarded read-modify-write of §3.5 reasoning about whole records
+rather than mid-transition state. ``StageError`` is the data structure
+captured on a failed stage; the exception hierarchy that *raises* it lives
+in ``errors.py`` (Task 1.5).
 """
 
+from datetime import UTC, datetime
 from enum import StrEnum
+
+from pydantic import BaseModel, ConfigDict, computed_field
 
 
 class StageState(StrEnum):
@@ -20,3 +30,55 @@ class StageState(StrEnum):
     IN_PROGRESS = "in_progress"
     DONE = "done"
     FAILED = "failed"
+
+
+class StageError(BaseModel):
+    """Structured error info attached to a failed stage."""
+
+    model_config = ConfigDict(frozen=True)
+
+    code: str
+    description: str
+
+
+class StageRecord(BaseModel):
+    """Timing + state for a single pipeline stage. Frozen; use transition methods."""
+
+    model_config = ConfigDict(frozen=True)
+
+    state: StageState = StageState.PENDING
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    error: StageError | None = None
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def duration_ms(self) -> int | None:
+        if self.started_at is None or self.completed_at is None:
+            return None
+        return int((self.completed_at - self.started_at).total_seconds() * 1000)
+
+    def start(self, now: datetime | None = None) -> "StageRecord":
+        return self.model_copy(
+            update={
+                "state": StageState.IN_PROGRESS,
+                "started_at": now if now is not None else datetime.now(UTC),
+            }
+        )
+
+    def complete(self, now: datetime | None = None) -> "StageRecord":
+        return self.model_copy(
+            update={
+                "state": StageState.DONE,
+                "completed_at": now if now is not None else datetime.now(UTC),
+            }
+        )
+
+    def fail(self, error: StageError, now: datetime | None = None) -> "StageRecord":
+        return self.model_copy(
+            update={
+                "state": StageState.FAILED,
+                "completed_at": now if now is not None else datetime.now(UTC),
+                "error": error,
+            }
+        )
