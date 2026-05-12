@@ -403,11 +403,97 @@ The cosmetic-always-apply rule above guards against complacency on small fixes t
 2. Dispatch all 20 lenses in a single message with `run_in_background: true`, prompts unchanged from single-pass.
 3. Wait for all 20 to return.
 4. Synthesize internally: apply filter, partition into Objective / Headbutting / 4a / 4b / (self-decided user-decision).
-5. Apply all Objective + Headbutting + self-decided-apply items as atomic commits.
+5. Apply fixes via the [§ Parallel fix-dispatch pattern](#parallel-fix-dispatch-pattern) below — non-overlapping fixes fire in parallel via `Agent` subagents, file-conflicting fixes serialize across layers.
 6. Run the full local verification gate.
 7. Push.
 8. Compact status line: "Pass N: M commits applied, K filtered out, deferred D items. New HEAD: <sha>. Continuing." OR "Pass N: 0 commits. CONVERGED."
 9. If converged or pass count == 5, emit the final 6-section report. Else loop.
+
+### Parallel fix-dispatch pattern
+
+The 20-lens panel already runs in parallel. The fix-application phase that follows it also parallelizes — non-overlapping fixes are independent units of work and should not be applied serially when a single message with multiple `Agent` calls can land them concurrently. This is the same Superpowers worktree-dispatch pattern used for phase development (see [§ Phase development methodology](#phase-development-methodology--go-to-strategy)), reused for review-derived fixes.
+
+**Step 1 — Partition the synthesized fix list by file overlap.**
+
+For each fix in the Objective + Headbutting + self-decided buckets, list the files it touches. Two fixes conflict if they share at least one file. Build the conflict graph and produce **layers**:
+
+- **Layer A** = the maximal set of fixes where no two fixes share a file. Every fix in Layer A is independent of every other fix in Layer A.
+- **Layer B** = fixes whose required files overlap with at least one Layer A fix — they wait until Layer A's commits land.
+- **Layer C+** = same logic; each layer's files may overlap with prior layers but not with peers in the same layer.
+
+Single-file fixes that don't appear elsewhere are trivially in Layer A.
+
+The §17 spec deviation log entry is **always its own layer (last)** because it summarizes the other fixes — it depends on every other commit's SHA being known.
+
+**Step 2 — Within each layer, dispatch parallel agents.**
+
+Send a single assistant message containing one `Agent` tool call per fix. Each agent gets a self-contained prompt covering:
+
+- The lens that surfaced the finding (so the agent has rationale context).
+- The exact files it owns (read + write).
+- The files it must NOT touch (Layer A peers' files; commits to them would race).
+- The concrete fix to apply (file:line + old text + new text).
+- The commit message body (subject + 5-15 line body explaining WHY, with the standard `Co-Authored-By` footer).
+- The rule that the agent commits ONLY its own files. It does NOT push (the main conversation pushes the assembled branch after all layers land).
+
+Use `subagent_type: general-purpose`, `model: sonnet`, `run_in_background: false` (the main conversation needs results before the next layer can dispatch). All `Agent` tool calls in **a single assistant message** so they execute concurrently.
+
+**Step 3 — After each layer, run the full local verification gate.**
+
+The gate is unchanged ([§ Verification gate](#verification-gate-all-must-pass-before-commit)). If a layer's commits collectively break the gate, fix in the main conversation before dispatching the next layer (the conflict surfaces immediately, not after several layers of compounded changes).
+
+**Step 4 — Repeat for each remaining layer.**
+
+After all layers commit, perform the §17.N spec deviation entry as the final commit (sequentially, in the main conversation) — it references every preceding commit's SHA.
+
+**When to NOT parallelize.**
+
+- **Tiny passes (≤2 fixes).** The dispatch overhead exceeds the parallelism benefit. Apply serially in the main conversation.
+- **All fixes touch the same file.** Dispatching one agent per fix would race on the same file. Apply serially.
+- **Subagents would need to read each other's outputs.** If fix B depends on fix A's text content (rare in review-derived fixes; common only when a renaming cascade is in flight), serialize.
+- **First pass with the user.** If the user hasn't seen the methodology in action yet, run the first iteration serially so they can verify the partitioning logic before delegating to subagents.
+
+**Why this matters.** A pass with 14 fixes spread across 8 files, if applied serially, takes the wall-clock sum of every fix. Partitioned into 3-4 layers with ~4 parallel agents per layer, the wall-clock collapses to the layer count × the slowest agent — typically 4-6× faster. The git history is identical (same atomic per-concern commits), the verification gate runs identically (after each layer), and the §17.N entry is identical (it just lists SHAs).
+
+**Per-pass agent prompt template (fix-application):**
+
+```
+You are implementing one panel-derived fix for the contract-data-extraction
+project's Phase 1 review pass-N. Working directory:
+/Users/cosminneamtiu/Work/contract-data-extraction. Current branch:
+phase-1-domain (or whichever branch the loop is running against).
+
+**Lens that surfaced this finding:** {LENS_NUMBER} — {LENS_NAME}, severity
+{Critical | Important | Minor}. The lens flagged: {one-line summary of the
+finding}.
+
+**Files you OWN (read + write):**
+{FILES_OWNED — concrete paths}
+
+**Files you must NOT touch** (other agents own them this layer; commits to
+them would race):
+{FILES_FORBIDDEN — concrete paths}
+
+**The fix:**
+{Exact text edits, file:line specific. Old → new. No ambiguity.}
+
+**Workflow:**
+1. Read the owned file(s) to confirm the current state matches what's expected.
+2. Apply the edit(s) with Edit tool.
+3. Run a narrow verification for your owned files only (e.g.,
+   `unset VIRTUAL_ENV && uv run pytest <your-test-file>` if tests, or
+   `unset VIRTUAL_ENV && uv run ruff check <your-file>` for source).
+4. `git add` ONLY your owned files; do not `git add -A` or `git add .`.
+5. Commit with the message below (HEREDOC, with Co-Authored-By footer).
+6. Do NOT push — the main conversation pushes the whole branch at pass end.
+
+**Commit message (use HEREDOC verbatim):**
+{full subject + body + footer}
+
+**Return:** brief report (≤120 words) — the commit SHA you produced and any
+deviation from this prompt with a one-line rationale. If you couldn't make
+the change, report the blocker and DO NOT commit partial work.
+```
 
 **Final report emitted only after termination** includes the per-pass commit log (so the user can see what shipped across the whole loop), the standard 6 sections rolled up over all passes, and a "Loop convergence" footer noting iteration count and the reason for termination (zero-changes or max-cap-hit).
 
