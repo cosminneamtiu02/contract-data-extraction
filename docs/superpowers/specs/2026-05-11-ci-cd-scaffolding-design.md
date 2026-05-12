@@ -1249,3 +1249,67 @@ Range: `e8178175` (origin/main at cycle-1 start) .. `16506e0` (chore/panel-revie
 **No user-decision items in cycle 2** (auto-cycle mode per the user's standing instruction → synthesizer self-decides per the senior-dev filter). The L02 commit-message type corrections — which would normally be a borderline filter case — were specifically dropped due to the destructive-operation gate.
 
 **Per-cycle status line (compact):** `Cycle 2 on chore/panel-review-fixes-2026-05-12: 12 commits applied (10 fixes + 1 methodology codification + this §17.20); 10 fixes (0 Critical / 4 Important / 6 Minor); 1 prior-cycle deferral reversed (§17.16 pytest-cov floor); Ship-ready (pre-fix): 12/20 Yes, 8/20 With fixes; ~16 filtered out, 1 new deferral (L02 force-push gate). Continuing — cycle 2 produced ≥1 fix, so cycle 3 follows per the auto-converge rule.`
+
+### 17.21. Cycle-3 on `chore/panel-review-fixes-2026-05-12` — 10 applied fixes, multiple convergent findings, 1 prior-cycle deferral reversed
+
+Third independent cycle on the fix branch. 20 lens prompts with NO carryover context per the cycle-independence rule (codified in `§17.20` and CLAUDE.md `§Cycle-loop mode`). The senior-dev filter and §17-awareness handled deduplication of re-flagged-by-design items.
+
+Range: `e8178175` (origin/main at loop start) .. `58ad072` (chore/panel-review-fixes-2026-05-12 HEAD after cycle-2's 12 commits).
+
+**Cycle-3 totals: 10 panel-derived fixes applied as 10 atomic commits + this §17.21 audit entry = 11 commits.** By severity (lens-rated): 0 Critical, 4 Important applied, 6 Minor applied. Plus 1 reversal of a prior-cycle deferral on better reasoning (the `ruff` floor bump — same 0.x-semver logic that cycle 2 used for `pytest-cov`).
+
+**Convergence detected (3 multi-lens findings):**
+
+- **L01 + L13 + L17 (3-lens convergence):** `docs/plan.md §6.3` Task 1.2 and Task 1.3 RED-test columns reference deleted/split test names from cycle 1 — same drift pattern cycle 2 corrected for Task 1.1 (commit `cd851cf`), but Tasks 1.2 and 1.3 were missed in that batch. Applied as commits `686631d` (Task 1.2) and `ab82c32` (Task 1.3).
+- **L07 + L13 (2-lens convergence on item, inter-lens disagreement on remedy):** `tests/unit/test_domain_job.py:test_contract_job_stores_contract_id` has 2 assertions (`== contract_id` + `isinstance(..., UUID)`). L07 said "split into 2 tests OR drop the tautology"; L13 said "drop the tautology (it's redundant with mypy + Pydantic field-type validation)." **Synthesizer picked L13's remedy** — same logic that justified cycle 1's `bf4e702` removal of `isinstance(run_config, RunConfig)`. Applied as commit `08cc082`.
+- **L11 + L20 (2-lens convergence, both lenses flagged cosmetic-only):** Both flagged the ci.yml line-19 comment formatting (workflow_dispatch concurrency carve-out). Both rated cosmetic. Filter-drop — NOT a convergence promotion since both lenses themselves declared cosmetic-only severity.
+
+**Cycle-3 ship-ready verdicts (panel pre-fix):** 14 × Yes (L03, L05, L06, L09, L10, L11, L14, L15, L16, L19, L20, plus L07/L13/L17 with applied fixes), 6 × With fixes (L01, L02, L04, L08, L12, L18). Total: 20.
+
+**Layer A commits (10 atomic, parallel fix-dispatch across 5 agents + 2 main-conversation recoveries):**
+
+- `08cc082` test(domain): drop tautological isinstance check in test_contract_job_stores_contract_id — **L07 + L13 convergent Minor**. Applied as main-conversation fix after the A1 agent hit a transient working-directory error.
+- `0b5ba1c` test(domain): split test_stage_record_complete_sets_*_and_computes_* — **L13 Minor**. Pre-existing 4-target test; same class as cycle-2's `5a23e53` split. Applied as main-conversation fix after the A2 agent hit the same working-directory error. Tests count: 25 → 28 (+3) in this file.
+- `834c613` docs(pyproject): correct ANN rationale comment factual error — **L08 Minor**. Cycle-2's `29d1008` introduced a comment claiming ANN guards "mypy `--no-strict-optional` pockets" — false; project has `strict = true` which enables `strict_optional`. Replaced with accurate "lint-time complement to mypy strict." Same family as cycle-2's `456c7b1` pydantic-mypy comment correction.
+- `6db38f9` docs(pyproject): drop dangling EM101 reference from BLE rationale — **L08 Minor**. BLE comment's last sentence ("only tests need to raise string-literal exceptions in `pytest.raises` blocks, handled below") described EM101, not BLE. Dropped the dangling reference.
+- `9e88eed` docs(pyproject): add WHY comment to hypothesis floor — **L12 Minor**. `hypothesis>=6.115` was the only dev-dep floor without a WHY comment; every other tracked-major floor (pytest, pytest-asyncio, pytest-cov, mypy) has one. Substantive cosmetic for consistency.
+- `5a825d5` feat(types): enable pydantic-mypy init_typed=true — **L04 Important**. Without `init_typed`, plugin-generated `__init__` signatures use `Any` for all parameters — `ContractJob(contract_id="not-a-uuid", ...)` would pass mypy. With `init_typed=true`, generated `__init__` carries actual field types, catching mismatches at static-check time. Same family as cycle-1's `65a8132` `init_forbid_extra` addition. `mypy src tests` clean (no callsite was relying on `Any`).
+- `590610c` chore(deps): bump ruff floor to >=0.15 for cross-major correctness — **L18 Important; REVERSES the implicit cycle-1 deferral that left `ruff>=0.9`**. ruff is a 0.x-versioned tool where every minor is a major bump per conventional 0.x semver. The previous floor permitted a fresh-machine resolve to ruff 0.9.x, which would silently omit the ANN/PL families added in cycles 1+2. Same tracks-the-locked-major convention cycle-2 applied to pytest-cov (`d9ebdfc`) and cycle-1 to structlog (`1e94611`). uv.lock refreshed (resolved set unchanged at 0.15.12).
+- `d759b44` docs(claude): drop residual "pass" usage in §Cycle-loop mode — **L17 Minor** (3 sub-findings consolidated). Cycle-2's `35be975` renamed `§Loop mode` → `§Cycle-loop mode` and added the clean-prompts rule, but missed sub-sections (per-pass mechanics step list, per-pass agent prompt template, final-report paragraph) that still used "pass" terminology. 14 substitutions made; carefully scoped to avoid changing legitimate "pass" usages in other contexts (CI checks pass, "single-pass mode" as a contrast term, historical references to prior actual review cycles, branch-naming conventions).
+- `686631d` docs(plan): sync §6.3 Task 1.2 RED-tests after redundant test drop — **L01 + L13 + L17 convergent Important**. Removed `test_stage_state_members_are_str_instances` (deleted by cycle-1 `343cc05`).
+- `ab82c32` docs(plan): sync §6.3 Task 1.3 RED-tests after multi-assertion splits — **L01 + L13 + L17 convergent Important**. Replaced two pre-split names with the 8 live test names produced by cycle-1's `b7e493b` (5 per-field defaults tests) and `dc4d595`/cycle-2's `5a23e53` (3 focused start tests).
+
+**Items the senior-dev filter dropped (all filter-correct per CLAUDE.md):**
+
+- **L02 Important (`docs(ci):` on cycle-2 `a79a011` should be `ci:`) + Minor (`docs(pyproject):` on cycle-2 `456c7b1` should be `chore(pyproject):`):** Same force-push-of-shared-branch gate as §17.20's cycle-1 deferrals. Cycle-2 commits are now also on the pushed branch; rewriting requires force-push, not authorized.
+- **L03 Minor × 2 (`warn_required_dynamic_aliases` "forward-looking for Phase 5" + asyncio_mode "forward-looking for Phase 2-4" comments):** Lens itself rated cosmetic, no current cost. Filter-drop as comment-inflation on already-accurate annotations.
+- **L05 Minor × 2 (`dependabot-automerge.yml` single-command no-pipefail; `log_config.py match mode:` no `case _:`):** Lens itself: "noted for completeness only" / "not a current defect, mentioned only so the future Phase 5 reviewer..."
+- **L06 Minor × 2 (StageError naming reserved for exceptions; `test_load_minimal_valid_yaml_returns_run_config` name mildly stale):** First is already-deferred to Phase 4 per §17.10; second is borderline cosmetic naming preference (function still returns RunConfig).
+- **L07 Minor (`__main__.py` `main()` body now empty after `0221021` removed `pass`):** Lens itself: "Filtered out as ceremonial concern."
+- **L08 Minor × 2 (D pydocstyle family absent; G family absent rationale):** D would add 14 cosmetic auto-fix violations; lens itself defers. G comment is comment-inflation.
+- **L09 + L18 convergent Minor (ANN per-file-ignore for tests):** Convergent recommendation but both lenses argued for **preemptive add-suppression** with no current violation. The project's pattern is "add suppression when violations appear, with rationale" (PLR2004/PLC0415/ARG/S101/S108 were all added with concrete violations as evidence). Routed to deferred-4a — wait for Phase 2+ test helpers that actually trigger ANN.
+- **L10 Minor × 2 (pre-commit `rev:` tag-vs-SHA; lockfile-sync commit-metadata echo):** First is accepted community convention per §17.9 / re-versioning prior decisions; second is "extremely low risk, not actionable."
+- **L11 + L20 convergent Minor (ci.yml line-19 comment formatting):** Both lenses cosmetic-only — NOT a convergence promotion.
+- **L13 Minor × 2 (duplicate T0 constant; isinstance drop comment hygiene):** Lens itself "no isolation defect" / "not a meaningful gap."
+- **L14 Yes (zero findings).**
+- **L15 Minor × 5 (coverage gate, JUnit XML, darwin full-suite, Python version matrix, bare `uv run pytest -q`):** All accepted §17.2/§17.9/§17.11 deferrals or preemptive tightenings.
+- **L16 Minor × 3 (test_log_config session-scope concern, default-now clock skew, uuid4-inline-per-test):** All flagged by lens as "no current failure risk" / "latent ordering hazard rather than current defect."
+- **L17 Important (README Layout drift):** Already routed to `docs/readme-changes-pending.md` in cycle-1 (`a2502b3`). Already-resolved via queue routing.
+- **L17 Minor (plan-doc historical snapshot tag refs):** Plan file is by definition a historical snapshot; adding "see live file" pointers re-versions a snapshot. Filter-drop.
+- **L20 Important (severity rating of `2c59d30`):** Lens argued the workflow_dispatch concurrency fix was "theoretical, not practical" because github.ref values differ between pull_request and workflow_dispatch. Lens itself: "No change needed to the YAML — the fix is correct defense-in-depth." Filter-drop as re-versioning prior decisions for churn.
+
+**Deferred items new in cycle 3:**
+
+**4a — Waiting on later-phase code:**
+- **L09 + L18 convergent Minor (ANN per-file-ignore for tests)** — wait for Phase 2+ test helpers that actually trigger ANN violations; add the suppression with violations as evidence at that time.
+
+**4b — Other reasons:**
+- **L02 cycle-2 commit-message type corrections (`a79a011`, `456c7b1`)** — same force-push-of-shared-branch gate as §17.20's cycle-1 commit-message deferrals.
+
+**Carrying forward from §17.19 + §17.20:**
+- 4a deferred (Phase 5 wiring, suite-scoped fixtures) — unchanged.
+- 4b deferred (PR #3/#4 squash type, StageError rename, pre-commit `rev:` tag-vs-SHA, codeql fetch-depth, cycle-1 L02 commit-message corrections, cycle-2 L02 commit-message corrections) — unchanged.
+
+**No user-decision items in cycle 3** (auto-cycle mode per the user's standing instruction; synthesizer self-decides per the senior-dev filter).
+
+**Per-cycle status line (compact):** `Cycle 3 on chore/panel-review-fixes-2026-05-12: 11 commits applied (10 fixes + this §17.21); 10 fixes (0 Critical / 4 Important / 6 Minor); 3 convergent findings (L01+L13+L17 ×2 on plan.md, L07+L13 on isinstance with inter-lens-disagreement resolved); 1 prior-cycle deferral reversed (ruff floor — implicit cycle-1 deferral, same 0.x-semver logic cycle 2 used for pytest-cov); Ship-ready (pre-fix): 14/20 Yes, 6/20 With fixes; ~22 filtered out, 1 new deferral (ANN test ignores → 4a wait-for-violations), 1 new 4b (cycle-2 L02 force-push gate extension). Continuing — cycle 3 produced ≥1 fix, so cycle 4 follows per the auto-converge rule.`
