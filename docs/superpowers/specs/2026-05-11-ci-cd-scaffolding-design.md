@@ -1002,3 +1002,31 @@ The §17.11 outcome stays valid for the case where overflow is discovered AFTER 
 **Per-pass status line emitted to user:** `Pass 10: 6 commits applied; 5 fixes total (0 Critical / 0 Important / 5 Minor); Ship-ready: 17/20 Yes, 3/20 With fixes; ~8 filtered out, 1 deferred new (L12 pytest-cov floor — naturally re-takes when --cov enforcement lands per §17.2). Continuing.` (The new HEAD SHA is the SHA of this §17.16 commit itself.)
 
 **Loop iteration plan:** Pass 10 produced commits, so the loop continues into Pass 11 against the new HEAD. Three iterations remain before the max cap (pass 11, 12, 13 maximum) per CLAUDE.md "Loop mode (auto-converge)".
+
+### 17.17. Phase 1 panel eleventh pass (new cycle iteration 3)
+
+Recorded after the 20-lens panel was re-run against `phase-1-domain` at `eb1961a` on 2026-05-12. Iteration 3 of the second 5-iteration loop. The dispatch had a transient runtime issue: the FIRST attempt at Pass 11 (4 initial lens agents) all stalled at the 10-minute watchdog without producing output. The user authorized a full re-dispatch of all 20 lenses, which then ran cleanly — all 20 lens reports returned. The stall appears to have been a transient runtime hiccup, not a content issue (Pass 9 and Pass 10 ran the same prompt structure cleanly; the retry of identical prompts succeeded).
+
+**Pass 11 totals: 3 commits applied; 3 fixes total (0 Critical / 0 Important / 3 Minor) across 2 Layer A commits + this Layer B entry.** No uv.lock companion needed.
+
+**Ship-ready verdicts:** 17/20 Yes, 3/20 With fixes — same as pass 10, maintaining the high-water mark. Trend across the full second cycle: pass 9 14/20 Yes → pass 10 17/20 Yes → **pass 11 17/20 Yes**. The 3 "With fixes" verdicts are: L05 (the OSError-enumeration fix below applied), L17 (the §17.16-drift fix below applied), and standing "With fixes" reflecting accepted deferrals.
+
+**Layer A (2 atomic commits):**
+
+- `66cc9e6` docs(config): enumerate OSError/PermissionError in loader docstrings (Lens 05 Minor) — `load_domain_model` and `load_run_config` docstrings each enumerated their propagated exceptions but neither mentioned `OSError` subclasses (`PermissionError`, etc.) that fire when `path.open()` hits an unreadable-but-present file. `PermissionError` is NOT a subclass of `FileNotFoundError`, so a Phase 5 lifespan startup handler reader had an incomplete propagation contract. Added an `OSError` bullet/clause to both docstrings in the local docstring style of each (bullet list in `domain_model.py`, comma-separated prose in `run_config.py`). Same factual-completeness pattern as pass 10 commit `64c0f6e`.
+- `bd2a84b` docs(spec): fix factual drift in §17.16 (iteration count + typo) (Lens 17 Minor × 2) — §17.16 had two self-introduced errors in the pass-10 commit `eb1961a`: (a) the "Loop iteration plan" prose said "Two iterations remain" but the parenthetical correctly enumerated "pass 11, 12, 13" = three; the new cycle started at pass 9 (iter 1), pass 10 (iter 2), leaving passes 11/12/13 = iters 3/4/5. (b) Typo "comment-additionn" (double n) → "comment-addition". Both errors were caught by Lens 17 on the next iteration — same self-correcting pattern as pass 10 commit `64c0f6e` (which fixed factual drift in my own pass-9 docstring). Two consecutive passes where my own prior commit's text was the source of the finding is the asymptotic-convergence floor §17.14 documented.
+
+**Layer B (sequential, this commit):** this `§17.17` entry.
+
+**Items the senior-dev filter dropped from the panel's recommendations:**
+
+- **L09 Minor re-raising `hatchling exclude = ["**/__pycache__"]` ceremony argument** — §17.14 already explicitly deferred this with "reverting now adds churn for zero functional gain." No new evidence. Not re-opened.
+- **L18 Minor re-raising the pip-audit double-invocation comment** — the lens itself acknowledged "the §17.12/§17.14 filter rationale remains sound" and explained it was only filing because asked. Not re-opened.
+- **L20 Minor re-raising the `starlette` pattern in fastapi-stack** — §17.14 deferred this as "intentional defense-in-depth." No new evidence. Not re-opened.
+- **L04 Minor on bare `Literal[...]` vs PEP 695 `type` statement** — lens self-marked "functionally correct, no linter flags it, purely future-readability." Matches the senior-dev filter's "preemptive tightening with no current violation" drop category.
+- **L13 Minor on `test_load_round_trips_to_an_independent_dict` testing `json.load` behavior** — lens self-marked "single-lens finding with no convergence" and "well within the senior-dev filter's 'ceremonial' category" (Testing third-party library behavior is a canonical filter-drop).
+- **L16 re-raised /tmp paths** (§17.11 deferred), **L18 re-raised external-repo SHA pinning** (§17.9-§17.11 deferred), **L11 re-raised workflow_dispatch concurrency formula** (§17.14 deferred) — all not re-opened.
+
+**Per-pass status line emitted to user:** `Pass 11: 3 commits applied; 3 fixes total (0 Critical / 0 Important / 3 Minor); Ship-ready: 17/20 Yes, 3/20 With fixes; ~7 filtered out, 0 deferred new. New HEAD: this §17.17 commit. Continuing.`
+
+**Loop iteration plan:** Pass 11 produced commits, so the loop continues into Pass 12. Two iterations remain before the max cap (pass 12, 13 maximum). Convergence trend across this cycle: 5 → 5 → 3 fixes per pass. The next pass is expected to produce ≤3 substantive fixes; if it produces 0 commits, the loop converges naturally.
