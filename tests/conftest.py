@@ -5,7 +5,7 @@ test-isolation hazard surfaced by the Phase 1 panel review (convergent
 finding from Lens 14 "Pytest infrastructure" and Lens 16 "Test isolation
 & determinism"):
 
-- ``extraction_service.logging.configure_logging`` mutates the
+- ``extraction_service.log_config.configure_logging`` mutates the
   module-level structlog configuration. Without an autouse reset, the
   renderer / stream from one test leaks into the next.
 - ``structlog.contextvars.bind_contextvars`` writes to a global

@@ -14,7 +14,7 @@ import json
 
 import structlog
 
-from extraction_service.logging import configure_logging
+from extraction_service.log_config import configure_logging
 
 
 def test_configure_logging_production_emits_json_with_event_and_kwargs() -> None:

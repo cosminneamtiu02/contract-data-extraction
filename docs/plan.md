@@ -467,7 +467,7 @@ extraction-service/
 │       ├── __init__.py
 │       ├── __main__.py          # `python -m extraction_service` entrypoint
 │       ├── settings.py          # pydantic-settings Settings class
-│       ├── logging.py           # structlog config
+│       ├── log_config.py        # structlog config (renamed from logging.py to avoid stdlib shadowing)
 │       │
 │       ├── domain/
 │       │   ├── __init__.py
@@ -522,7 +522,7 @@ extraction-service/
 │   │   ├── test_domain_model.py
 │   │   ├── test_domain_record.py
 │   │   ├── test_domain_stage.py
-│   │   ├── test_logging.py
+│   │   ├── test_log_config.py
 │   │   ├── test_settings.py
 │   │   ├── test_run_config.py
 │   │   ├── test_prompt_render.py
@@ -705,7 +705,7 @@ Each phase is **its own git worktree** so phases can be reviewed/merged independ
 | 1.6 | `Settings` (pydantic-settings) | `src/extraction_service/settings.py` | `test_settings_defaults` (set env vars via monkeypatch, assert parsed values); `test_settings_required_run_config` (assert missing EXTRACTION_RUN_CONFIG raises) | Section 4.7 settings class | pytest |
 | 1.7 | Run config loader | `src/extraction_service/config/run_config.py` | `test_run_config_load_valid_yaml` (write sample yaml, parse it); `test_run_config_missing_required_field` raises | YAML parser → Pydantic `RunConfig` model with fields for ocr, llm, retry, paths | pytest |
 | 1.8 | Domain model loader | `src/extraction_service/config/domain_model.py` | `test_domain_model_load_valid_schema` (write a JSON schema, load and validate it parses); `test_invalid_schema_raises` | uses `jsonschema` library to validate the schema is itself a valid JSON schema | pytest |
-| 1.9 | Structlog config | `src/extraction_service/logging.py` | `test_logging_emits_json_in_production_mode`; `test_logging_pretty_in_dev` | configure_logging(mode) sets renderers | pytest |
+| 1.9 | Structlog config | `src/extraction_service/log_config.py` (renamed from `logging.py` to avoid stdlib shadowing) | `test_logging_emits_json_in_production_mode`; `test_logging_pretty_in_dev` | configure_logging(mode) sets renderers | pytest |
 
 **Exit criteria:** all unit tests pass, mypy strict clean. Commit, merge.
 
