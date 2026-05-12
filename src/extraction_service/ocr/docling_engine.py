@@ -29,8 +29,12 @@ flag never requires a code change — it flows from YAML → ``OcrConfig`` →
 
 from __future__ import annotations
 
+import asyncio
+from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+from extraction_service.ocr.base import OcrResult
 
 if TYPE_CHECKING:
     # All imports below are annotation-only.  ``from __future__ import
@@ -43,7 +47,11 @@ if TYPE_CHECKING:
     from docling.document_converter import DocumentConverter  # no stubs for docling
 
     from extraction_service.config.run_config import OcrConfig
-    from extraction_service.ocr.base import OcrResult
+
+# Engine identifier copied into every OcrResult so downstream code (Phase 4
+# pipeline; Phase 5 HTTP status responses) can tell which engine produced the
+# text. Matches the Literal value on OcrConfig.engine (run_config.py).
+_ENGINE_NAME = "docling"
 
 
 def _build_default_converter(ocr_config: OcrConfig) -> DocumentConverter:
@@ -130,10 +138,35 @@ class DoclingOcrEngine:
         self._converter: DocumentConverter = factory(ocr_config)
 
     async def extract(self, pdf_bytes: bytes) -> OcrResult:
-        """Extract OCR text from a PDF.  Implemented in Task 2.4.
+        """Extract OCR text from a PDF byte buffer (plan §6.4 task 2.4).
 
-        Raises:
-            NotImplementedError: Always — body is deferred to Task 2.4.
+        Docling's ``DocumentConverter.convert`` is synchronous and CPU-bound
+        (it runs the full OCR pipeline: PDF rasterisation → layout analysis →
+        RapidOCR/PP-OCRv5 inference → markdown export). Wrapping it in
+        ``loop.run_in_executor`` keeps the event loop free for other work —
+        critical for Phase 4 where the OCR worker is one of several concurrent
+        asyncio tasks driving the pipeline.
+
+        The bytes are wrapped in a ``DocumentStream`` (Docling's in-memory
+        input type) so no temp file ever touches the filesystem. ``name`` is
+        a synthetic ``contract.pdf`` placeholder because Docling uses it only
+        for the input descriptor — actual content is determined by the bytes.
+
+        Error wrapping (empty output → ``OcrEmptyOutputError``; converter
+        exceptions → ``OcrError``) is added in Task 2.9.
         """
-        msg = "extract() body deferred to Task 2.4"
-        raise NotImplementedError(msg)
+        # Local import to keep cold-start light when no extraction runs (the
+        # Docling import chain is heavyweight — see _build_default_converter).
+        from docling.datamodel.base_models import DocumentStream
+
+        stream = DocumentStream(name="contract.pdf", stream=BytesIO(pdf_bytes))
+
+        loop = asyncio.get_running_loop()
+        result = await loop.run_in_executor(None, self._converter.convert, stream)
+
+        document = result.document
+        return OcrResult(
+            text=document.export_to_markdown(),
+            page_count=len(document.pages),
+            engine_name=_ENGINE_NAME,
+        )
