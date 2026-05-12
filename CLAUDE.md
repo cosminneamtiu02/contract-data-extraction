@@ -396,7 +396,31 @@ The cosmetic-always-apply rule above guards against complacency on small fixes t
 - After filter, both the Objective bucket AND the (now-self-decided) User-decision bucket are empty (or all entries are "defer with rationale" — no actual code/doc changes).
 - The deferred section may still have entries (real later-phase blockers); those don't block termination.
 
-**Max iteration cap: 5 cycles.** If the auto-cycle hasn't converged in 5 cycles, stop and report. The most likely cause of non-convergence at that point is the filter being too loose — one or more "filter-out" categories needs to be added based on what's being repeatedly surfaced.
+**Max iteration cap: 5 cycles.** If the auto-cycle hasn't converged in 5 cycles, stop and report a MAX-CAP-HIT termination. The most likely cause of non-convergence at that point is EITHER the filter being too loose (one or more "filter-out" categories needs to be added) OR a workflow gap that introduces drift faster than the cycle catches it.
+
+**MAX-CAP-HIT diagnosis procedure.** At the terminal cycle (whether zero-commits or max-cap), if the loop hit the max-cap without converging, the synthesizer MUST analyze which patterns of findings recurred across cycles and route them to one of three categories:
+
+- **Filter-gap items** — items the senior-dev filter should have caught but didn't. The fix is to add a new "filter-out" category here in CLAUDE.md and to [[feedback-senior-dev-filter]].
+- **Workflow-gap items** — items that arise from HOW the cycle executes (e.g., test splits committed without a paired plan sync; renaming sweeps that miss callsites; comment additions with unchecked factual claims). The fix is a workflow rule, NOT a filter category — see the [§ Known workflow gaps from prior loops](#known-workflow-gaps-from-prior-loops) subsection below.
+- **Real bugs that needed those cycles to surface** — genuine code/doc defects that no filter or workflow change would have prevented. These are the loop's actual value; no diagnosis change needed.
+
+The terminal report's "MAX-CAP diagnosis" section must enumerate which category each recurring pattern falls into and propose the corresponding fix (filter category addition, workflow rule addition, or no-fix-needed).
+
+### Known workflow gaps from prior loops
+
+Three workflow patterns were diagnosed at the end of the 2026-05-12 5-cycle loop (recorded in `docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md §17.23`). Future loops should prevent these IN-cycle rather than relying on the next cycle to catch them:
+
+1. **Test split + missed plan sync** (caught in 4 of 5 cycles of the 2026-05-12 loop). When a same-cycle commit splits a test (e.g., `test_X` → `test_X_part_a` + `test_X_part_b`), the plan-sync commit for `docs/plan.md §6.3` task tables must reference the post-split test names. The failure mode: plan-sync agent ran BEFORE the test-split agent in parallel Layer A dispatch, so the plan-sync missed the just-introduced split.
+   - **Workflow rule:** when a Layer A includes both a plan-sync agent AND a test-split agent on the same task row, dispatch the test-split agent in Layer A and the plan-sync agent in **Layer B** (sequential after Layer A completes), so the plan-sync always sees the post-split state.
+   - **Alternative:** after Layer A completes and before §17.N audit, run a final `grep -n <pre-split-test-name> docs/plan.md` for every split test in the cycle; sync any drift in a follow-up commit before the audit entry.
+
+2. **CLAUDE.md terminology rename leaks** (caught in 3 of 5 cycles). When renaming a heading or terminology in CLAUDE.md (e.g., `§Loop mode` → `§Cycle-loop mode`), partial grep-and-replace sweeps leave broken anchor references, indirect callsites, and stale hedges.
+   - **Workflow rule:** when renaming a heading or coining a new term in CLAUDE.md, AFTER applying the rename, run `grep -ni '<old-term>' CLAUDE.md` and walk EVERY hit, classifying each as "needs update" or "legitimate other-context usage" (e.g., "single-pass mode" as a contrast term, "CI checks pass" as imperative verb). Don't rely on grep-and-replace heuristics on the visible callsites only. Also grep for the anchor form: `grep -ni '#<old-heading-slug>' CLAUDE.md`.
+
+3. **Prior-cycle audit-comment factual drift** (caught in 3 cycles). Audit-quality comments added during a cycle (e.g., a new `[tool.pydantic-mypy]` rationale comment) sometimes carry factual inaccuracies (claims about "every model uses X" that aren't true, or "tracks the locked Y" arithmetic that doesn't match) that the next cycle's lens catches.
+   - **Workflow rule:** when adding audit-quality comments to `pyproject.toml`, `.pre-commit-config.yaml`, or any other live config file during a fix-dispatch, verify EACH factual claim against the actual config/code state at commit time. Don't write narrative speculation as if it were established fact. Specifically: if a comment says "every X uses Y," grep to confirm; if a comment says "tracks the locked minor `A.B.C`," verify the floor specifier matches `>=A.B`.
+
+If a future loop's MAX-CAP diagnosis identifies a NEW recurring pattern beyond these three, add it as a numbered item here. Treat these workflow rules as binding for any auto-converge loop run in this project.
 
 **Post-max-cap restart semantics.** If the user requests a review re-run after max-cap termination ("rerun same loop", "loop again", "rerun the loop", or similar), treat it as a NEW 5-cycle loop with the iteration counter reset to 1 (not as an extension of the prior cap). The new loop starts a fresh cycle-N numbering against the current branch HEAD and applies the same termination conditions (zero-commits convergence OR 5-cycle max cap). The senior-dev filter rationale paragraph above still applies: if the new loop also hits the cap without converging, the most likely cause is filter looseness, and the right response is to tighten the filter rather than start yet another loop. Record each restart's cycle range and termination reason in `docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md §17.N` so the cumulative audit trail is unambiguous.
 
@@ -411,15 +435,19 @@ The cosmetic-always-apply rule above guards against complacency on small fixes t
 5. Apply fixes via the [§ Parallel fix-dispatch pattern](#parallel-fix-dispatch-pattern) below — non-overlapping fixes fire in parallel via `Agent` subagents, file-conflicting fixes serialize across layers.
 6. Run the full local verification gate.
 7. Push.
-8. **Compact status line** with mandatory components (in this order):
-   - `Cycle N: M commits applied` (raw count of commits landed this cycle, includes the §17.N audit entry but not lockfile-companion commits)
-   - `M fixes total (X Critical / Y Important / Z Minor)` — severity-bucketed count of distinct lens-derived findings applied, using the lens's own severity ratings as reported in the panel output
-   - `Ship-ready: A/20 Yes, B/20 With fixes` (count of lens verdicts across the 20 panel agents; if any lens stalled, note it separately as `C stalled`)
-   - `K filtered out, D deferred` (counts of items routed to filter-skip and Deferred-4a/4b respectively)
-   - `New HEAD: <sha>. Continuing.` OR `New HEAD unchanged. CONVERGED.` (the convergence signal)
-   - Optional one-line callout if any item was promoted from a previous Deferred entry or reverses a prior-cycle decision.
+8. **Compact status line emitted to chat at the end of every cycle** (mandatory; user-requested 2026-05-12 — *"how i want it to display at the end of a cycle with the number of findings importance clean lanes etc"*). Required fields, in this order:
+   - **Cycle N closed.** (one-line header so the user can grep for cycle-N boundaries)
+   - **Commits applied: M** (raw count of commits landed this cycle, includes the §17.N audit entry; note any methodology-codification or mid-cycle commits separately)
+   - **Fixes by severity: 0 Critical / X Important / Y Minor** — severity-bucketed count of distinct lens-derived findings applied (lens-rated severity, not synthesizer-rated)
+   - **Convergence: N multi-lens findings** (count of items where ≥2 lenses agreed; explicitly note inter-lens-disagreement-resolved cases) or "none"
+   - **Ship-ready (pre-fix): A/20 Yes, B/20 With fixes** (count of lens verdicts across the 20 panel agents)
+   - **Clean lenses (0 findings or all filter-drop): C/20** (the user's specifically-requested "clean lanes" signal — counts lenses whose output had zero apply-bucket items after filter)
+   - **Filtered out: ~F findings** (rough count of items the senior-dev filter dropped)
+   - **Deferred new this cycle: D** (entries added to 4a wait-for-later-phase + 4b other-reasons buckets)
+   - **Prior-cycle deferrals reversed: R** (with one-line callout per reversal, citing the §17.N entry being reversed and the new evidence)
+   - **New HEAD: \<sha\>. Continuing.** (≥1 fix → next cycle runs) OR **New HEAD: \<sha\>. CONVERGED.** (0 fixes after filter → loop terminates with zero-commits convergence) OR **New HEAD: \<sha\>. MAX-CAP-HIT.** (cycle count == 5 with ≥1 fix → loop terminates at max-cap)
 
-   This compact line is the user's only between-cycle output; do not emit the full 6-section synthesis report between cycles — that is reserved for the terminal cycle (zero-commits or max-cap-hit).
+   This compact line is the user's only between-cycle output. Do NOT emit the full 6-section synthesis report between cycles — that is reserved for the terminal cycle (zero-commits or max-cap-hit).
 9. If converged or cycle count == 5, emit the final 6-section report. Else loop.
 
 ### Parallel fix-dispatch pattern
