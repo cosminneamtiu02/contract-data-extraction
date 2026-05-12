@@ -467,9 +467,9 @@ After all layers commit, perform the §17.N spec deviation entry as the final co
 
 ```
 You are implementing one panel-derived fix for the contract-data-extraction
-project's Phase 1 review pass-N. Working directory:
+project's Phase N review pass-N. Working directory:
 /Users/cosminneamtiu/Work/contract-data-extraction. Current branch:
-phase-1-domain (or whichever branch the loop is running against).
+<phase-branch> (e.g. phase-N-<slug>).
 
 **Lens that surfaced this finding:** {LENS_NUMBER} — {LENS_NAME}, severity
 {Critical | Important | Minor}. The lens flagged: {one-line summary of the
