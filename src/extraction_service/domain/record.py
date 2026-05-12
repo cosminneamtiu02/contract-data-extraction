@@ -18,6 +18,10 @@ from pydantic import BaseModel, Field, computed_field
 
 from extraction_service.domain.stage import StageRecord, StageState
 
+# These two Literal aliases are returned by ContractRecord's computed_fields,
+# so they ARE part of this module's public surface. Phase 5's HTTP response
+# models (src/extraction_service/http/responses.py, not yet created) will
+# re-export them as part of the locked status shape.
 OverallStatus = Literal["in_progress", "done", "failed"]
 StageName = Literal["intake", "ocr", "data_parsing"]
 

@@ -31,10 +31,12 @@ def configure_logging(
     """Install the structlog processor chain for the chosen mode."""
     output = stream if stream is not None else sys.stdout
 
-    if mode == "production":
-        renderer: structlog.types.Processor = structlog.processors.JSONRenderer()
-    else:
-        renderer = structlog.dev.ConsoleRenderer(colors=False)
+    renderer: structlog.types.Processor
+    match mode:
+        case "production":
+            renderer = structlog.processors.JSONRenderer()
+        case "development":
+            renderer = structlog.dev.ConsoleRenderer(colors=False)
 
     structlog.configure(
         processors=[

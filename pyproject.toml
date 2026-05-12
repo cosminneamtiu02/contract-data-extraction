@@ -35,8 +35,11 @@ dev = [
     "hypothesis>=6.115",
     "mypy>=1.13",
     "ruff>=0.9",
-    "types-pyyaml",
-    "types-jsonschema",
+    # Stub floors mirror the runtime floors in [project].dependencies so a
+    # future lockfile regeneration on a fresh machine can't drift the stub
+    # major version away from the runtime package the stubs cover.
+    "types-pyyaml>=6.0",
+    "types-jsonschema>=4.23",
     "pre-commit>=4.0",
     "pip-audit>=2.7",
     "detect-secrets>=1.5",

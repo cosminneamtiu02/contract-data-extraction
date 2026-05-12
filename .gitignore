@@ -32,6 +32,9 @@ dist/
 Thumbs.db
 .idea/
 .vscode/*
+# extensions.json + settings.json are intentionally shared: the team standardises
+# on the same VS Code extension set and on a workspace-pinned Python interpreter
+# (.venv/bin/python) so first-run dev experience matches CI.
 !.vscode/extensions.json
 !.vscode/settings.json
 *.swp
