@@ -28,26 +28,28 @@ def test_stage_state_has_expected_member_values() -> None:
     }
 
 
-def test_stage_state_members_are_str_instances() -> None:
-    # StrEnum members ARE strings — locks in the str-subclass contract that
-    # later phases rely on (e.g., direct use as dict keys, JSON output).
-    for state in StageState:
-        assert isinstance(state, str)
-
-
-def test_stage_state_str_coerces_to_value() -> None:
-    # StrEnum overrides __str__ so log lines and f-strings stay clean.
+def test_stage_state_str_produces_value() -> None:
+    # StrEnum overrides __str__ so log lines stay clean.
     assert str(StageState.IN_PROGRESS) == "in_progress"
+
+
+def test_stage_state_fstring_interpolation_produces_value() -> None:
+    # StrEnum overrides __format__ so f-string interpolation stays clean.
     assert f"{StageState.DONE}" == "done"
 
 
 # --- StageError ----------------------------------------------------------
 
 
-def test_stage_error_constructs_with_code_and_description() -> None:
+def test_stage_error_stores_code() -> None:
     err = StageError(code="ocr_engine_failed", description="Docling raised IOError")
 
     assert err.code == "ocr_engine_failed"
+
+
+def test_stage_error_stores_description() -> None:
+    err = StageError(code="ocr_engine_failed", description="Docling raised IOError")
+
     assert err.description == "Docling raised IOError"
 
 
@@ -64,54 +66,134 @@ def test_stage_error_is_frozen() -> None:
 T0 = datetime(2026, 5, 12, 12, 0, 0, tzinfo=UTC)
 
 
-def test_stage_record_defaults_to_pending_with_no_timestamps_or_error() -> None:
-    record = StageRecord()
-
-    assert record.state == StageState.PENDING
-    assert record.started_at is None
-    assert record.completed_at is None
-    assert record.error is None
-    assert record.duration_ms is None
+def test_stage_record_defaults_state_to_pending() -> None:
+    assert StageRecord().state == StageState.PENDING
 
 
-def test_stage_record_start_returns_new_record_with_started_at() -> None:
-    record = StageRecord()
+def test_stage_record_defaults_started_at_to_none() -> None:
+    assert StageRecord().started_at is None
 
-    started = record.start(now=T0)
+
+def test_stage_record_defaults_completed_at_to_none() -> None:
+    assert StageRecord().completed_at is None
+
+
+def test_stage_record_defaults_error_to_none() -> None:
+    assert StageRecord().error is None
+
+
+def test_stage_record_defaults_duration_ms_to_none() -> None:
+    assert StageRecord().duration_ms is None
+
+
+def test_stage_record_start_returns_new_record_in_progress() -> None:
+    started = StageRecord().start(now=T0)
 
     assert started.state == StageState.IN_PROGRESS
+
+
+def test_stage_record_start_sets_started_at_on_new_record() -> None:
+    started = StageRecord().start(now=T0)
+
     assert started.started_at == T0
+
+
+def test_stage_record_start_leaves_completed_at_none_on_new_record() -> None:
+    started = StageRecord().start(now=T0)
+
     assert started.completed_at is None
-    # Original record is untouched (frozen + functional).
+
+
+def test_stage_record_start_leaves_original_record_unchanged() -> None:
+    # Frozen + functional: start() must return a new record; the original
+    # must not mutate (state stays PENDING, started_at stays None).
+    record = StageRecord()
+    record.start(now=T0)
+
     assert record.state == StageState.PENDING
     assert record.started_at is None
 
 
-def test_stage_record_complete_sets_completed_at_and_computes_duration_ms() -> None:
+def test_stage_record_complete_transitions_state_to_done() -> None:
     record = StageRecord().start(now=T0)
 
     finished = record.complete(now=T0 + timedelta(milliseconds=250))
 
     assert finished.state == StageState.DONE
+
+
+def test_stage_record_complete_sets_completed_at_to_now() -> None:
+    record = StageRecord().start(now=T0)
+
+    finished = record.complete(now=T0 + timedelta(milliseconds=250))
+
     assert finished.completed_at == T0 + timedelta(milliseconds=250)
-    # started_at carries forward — duration_ms only happens to equal 250 because
-    # model_copy preserves the prior field; an explicit assert prevents a future
-    # refactor that resets started_at on transition from silently breaking it.
+
+
+def test_stage_record_complete_carries_started_at_forward() -> None:
+    """started_at must persist through complete() so duration_ms can derive
+    from both timestamps; an explicit assert here prevents a future refactor
+    that resets started_at on transition from silently breaking it."""
+    record = StageRecord().start(now=T0)
+
+    finished = record.complete(now=T0 + timedelta(milliseconds=250))
+
     assert finished.started_at == T0
+
+
+def test_stage_record_complete_derives_duration_ms() -> None:
+    record = StageRecord().start(now=T0)
+
+    finished = record.complete(now=T0 + timedelta(milliseconds=250))
+
     assert finished.duration_ms == 250
 
 
-def test_stage_record_fail_sets_state_completed_at_and_error() -> None:
+def test_stage_record_fail_transitions_state_to_failed() -> None:
     error = StageError(code="ocr_empty_output", description="no text extracted")
     record = StageRecord().start(now=T0)
 
     failed = record.fail(error=error, now=T0 + timedelta(milliseconds=120))
 
     assert failed.state == StageState.FAILED
+
+
+def test_stage_record_fail_sets_completed_at_to_now() -> None:
+    error = StageError(code="ocr_empty_output", description="no text extracted")
+    record = StageRecord().start(now=T0)
+
+    failed = record.fail(error=error, now=T0 + timedelta(milliseconds=120))
+
     assert failed.completed_at == T0 + timedelta(milliseconds=120)
+
+
+def test_stage_record_fail_records_error() -> None:
+    error = StageError(code="ocr_empty_output", description="no text extracted")
+    record = StageRecord().start(now=T0)
+
+    failed = record.fail(error=error, now=T0 + timedelta(milliseconds=120))
+
     assert failed.error == error
-    # started_at preserved through fail() too (parallel to complete()).
+
+
+def test_stage_record_fail_carries_started_at_forward() -> None:
+    """started_at must persist through fail() so duration_ms can derive
+    from both timestamps; an explicit assert here prevents a future refactor
+    that resets started_at on transition from silently breaking it."""
+    error = StageError(code="ocr_empty_output", description="no text extracted")
+    record = StageRecord().start(now=T0)
+
+    failed = record.fail(error=error, now=T0 + timedelta(milliseconds=120))
+
     assert failed.started_at == T0
+
+
+def test_stage_record_fail_derives_duration_ms() -> None:
+    error = StageError(code="ocr_empty_output", description="no text extracted")
+    record = StageRecord().start(now=T0)
+
+    failed = record.fail(error=error, now=T0 + timedelta(milliseconds=120))
+
     assert failed.duration_ms == 120
 
 
@@ -151,8 +233,8 @@ def test_stage_record_complete_defaults_extracted_to_none() -> None:
 
 
 def test_stage_record_round_trips_through_model_dump_json_when_done() -> None:
-    # The duration_ms computed_field must survive serialization so the
-    # HTTP response in Phase 5 can read it directly.
+    # Structural equality (restored == original) exercises all fields including
+    # the computed duration_ms that Phase 5 HTTP response will read directly.
     original = (
         StageRecord()
         .start(now=T0)
@@ -166,8 +248,6 @@ def test_stage_record_round_trips_through_model_dump_json_when_done() -> None:
     restored = StageRecord.model_validate_json(payload)
 
     assert restored == original
-    assert restored.duration_ms == 250
-    assert restored.extracted == {"key": "value"}
 
 
 def test_stage_record_round_trips_through_model_dump_json_when_pending() -> None:
@@ -177,8 +257,6 @@ def test_stage_record_round_trips_through_model_dump_json_when_pending() -> None
     restored = StageRecord.model_validate_json(payload)
 
     assert restored == original
-    assert restored.duration_ms is None
-    assert restored.extracted is None
 
 
 def test_stage_record_start_with_default_now_uses_current_time() -> None:

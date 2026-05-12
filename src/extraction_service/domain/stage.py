@@ -26,7 +26,7 @@ defeats the functional-transition design.
 
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Any
+from typing import Any, Self
 
 from pydantic import BaseModel, ConfigDict, computed_field
 
@@ -80,7 +80,7 @@ class StageRecord(BaseModel):
             return None
         return int((self.completed_at - self.started_at).total_seconds() * 1000)
 
-    def start(self, now: datetime | None = None) -> "StageRecord":
+    def start(self, now: datetime | None = None) -> Self:
         """Return a new record transitioned to IN_PROGRESS with ``started_at`` set.
 
         ``now`` is injectable for deterministic tests; production callers pass
@@ -97,7 +97,7 @@ class StageRecord(BaseModel):
         now: datetime | None = None,
         *,
         extracted: dict[str, Any] | None = None,
-    ) -> "StageRecord":
+    ) -> Self:
         """Return a new record transitioned to DONE with ``completed_at`` set.
 
         ``extracted`` is the data-parsing payload — Phase 4's LLM worker
@@ -112,7 +112,7 @@ class StageRecord(BaseModel):
             }
         )
 
-    def fail(self, now: datetime | None = None, *, error: StageError) -> "StageRecord":
+    def fail(self, now: datetime | None = None, *, error: StageError) -> Self:
         """Return a new record transitioned to FAILED with ``completed_at`` and ``error`` set.
 
         Signature mirrors ``complete()``: ``now`` first (optional), domain

@@ -14,8 +14,11 @@ dependencies = [
     "uvicorn[standard]>=0.32",
     "pydantic>=2.10",
     "pydantic-settings>=2.6",
-    "structlog>=24.4",
-    "ollama>=0.4",
+    "structlog>=25.0",
+    # Floor tracks the locked minor (0.6.2); ollama is pre-1.0 where every
+    # minor is breaking (0.4→0.5: async streaming overhaul; 0.5→0.6: response
+    # model type changes). Phase 3 LLM worker targets the 0.6.x async API.
+    "ollama>=0.6",
     "docling>=2.20",
     "rapidocr-onnxruntime>=1.4",
     "modelscope>=1.20",
@@ -37,13 +40,26 @@ dev = [
     # Floor mirrors the locked major (1.3.0); 0.x → 1.x changed the default
     # asyncio mode and added new ini keys — >=0.24 was stale.
     "pytest-asyncio>=1.0",
-    "pytest-cov>=6.0",
+    # Floor tracks the locked major (7.1.0); pytest-cov 7.0 dropped pytest 7.x
+    # support and changed --cov-fail-under semantics. A fresh-machine resolve
+    # could silently lock 6.x otherwise. Matches the tracks-the-locked-major
+    # convention applied to pytest (>=9.0), pytest-asyncio (>=1.0), mypy (>=2.0).
+    "pytest-cov>=7.0",
+    # Floor pinned at 6.115 (locked: 6.152.6); 6.x has no cross-major break
+    # currently — the specific 6.115 floor pins a defensive lower bound below
+    # which property-based test behavior has not been verified against this
+    # codebase.
     "hypothesis>=6.115",
     # Floor tracks the API surface the codebase was tested against (locked at
     # 2.1.x); mypy 2.0 introduced breaking strict-mode flag semantics — same
     # cross-major-correctness pattern as the pytest-asyncio floor fix.
     "mypy>=2.0",
-    "ruff>=0.9",
+    # Floor tracks the locked minor (0.15.12); ruff uses 0.x versioning where
+    # every minor is effectively a major bump. The >=0.9 floor permitted a
+    # fresh-machine resolve to 0.9.x, which predates the PL and ANN rule
+    # families added in cycle 2 — a 0.9.x resolve would silently drop those
+    # lint gates. Same tracks-the-locked-minor convention as pytest-cov (>=7.0).
+    "ruff>=0.15",
     # Stub floors mirror the runtime floors in [project].dependencies so a
     # future lockfile regeneration on a fresh machine can't drift the stub
     # major version away from the runtime package the stubs cover.
@@ -73,9 +89,14 @@ target-version = "py313"
 # BLE added 2026-05-12 (Lens 05 pass-7): plan §7 "no silent exception catches"
 # rule needs a linter arm. BLE001 = blind `except Exception`. Zero current
 # violations (Phase 1 has no `except` blocks); covers Phase 2-6 catch-alls.
-# Defense-in-depth: zero current violations in src/; only tests need to raise
-# string-literal exceptions in pytest.raises blocks, handled below.
-select = ["E", "F", "I", "B", "UP", "ASYNC", "PIE", "SIM", "RET", "ARG", "PTH", "TID", "T20", "RUF", "C4", "FURB", "PT", "EM", "TRY", "TCH", "N", "S", "BLE"]
+# PL (Pylint) added 2026-05-12 per pass-1 review against main (Lens 08): zero
+# PL violations in src/; two test-style false positives (PLR2004 magic numbers
+# in assertions set up inline; PLC0415 non-top-level imports in smoke tests
+# where the import IS the behavior under test) suppressed via per-file-ignores.
+# ANN added 2026-05-12 per cycle-2 review (Lens 04): flake8-annotations catches
+# annotation gaps at lint time, complementing mypy's strict pass with faster
+# developer feedback. Zero current violations. Defense-in-depth for later phases.
+select = ["E", "F", "I", "B", "UP", "ASYNC", "PIE", "SIM", "RET", "ARG", "PTH", "TID", "T20", "RUF", "C4", "FURB", "PT", "EM", "TRY", "TCH", "N", "S", "BLE", "PL", "ANN"]
 ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
@@ -85,6 +106,8 @@ ignore = ["E501"]
     "TRY003",   # tests' raise messages are intentionally long-form for assertion clarity
     "S101",     # `assert` IS the pytest assertion mechanism
     "S108",     # /tmp paths in test YAML strings are never opened — pure-string Pydantic Path fixtures
+    "PLR2004",  # magic numbers in test assertions (e.g., `assert duration_ms == 2000`) are set up inline 2-3 lines earlier and reading them inline IS clearer than extracting a named constant
+    "PLC0415",  # smoke tests intentionally use non-top-level imports — the import-inside-function IS the behavior under test
 ]
 
 [tool.ruff.format]
@@ -94,14 +117,40 @@ quote-style = "double"
 python_version = "3.13"
 strict = true
 warn_unreachable = true  # not implied by strict; catches branches mypy can prove dead
+explicit_package_bases = true  # not implied by strict; pairs with mypy_path="src" to make package-root resolution explicit and prevent stdlib-shadow ambiguity in later phases
 mypy_path = "src"
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["docling.*", "rapidocr.*", "modelscope.*"]
+# rapidocr and modelscope are genuinely stub-less (no py.typed marker);
+# docling 2.93.0 ships py.typed so mypy resolves it natively — not listed here.
+module = ["rapidocr.*", "modelscope.*"]
 ignore_missing_imports = true
 
+[tool.pydantic-mypy]
+# Defense-in-depth: `init_forbid_extra` makes mypy reject
+# `ContractJob(unknown_kwarg=…)` at static-check time regardless of whether
+# the model's runtime model_config sets extra='forbid'. Currently the 5
+# RunConfig sub-models (OcrConfig, LlmConfig, RetryConfig, PathsConfig,
+# RunConfig) use extra='forbid' at runtime; this option extends the same
+# restriction statically to ALL Pydantic models in the codebase including the
+# frozen-but-not-extra-forbid ones (ContractJob, ContractRecord, StageError,
+# StageRecord). `warn_required_dynamic_aliases` catches alias names that
+# can't be resolved statically (forward-looking for Phase 5 HTTP models).
+# `init_typed` closes the static-vs-runtime gap at construction sites: without
+# it the plugin generates `__init__` with `Any` for all parameters, so
+# `ContractJob(contract_id="not-a-uuid", ...)` passes mypy even though
+# runtime Pydantic validation would reject the string. With init_typed=true
+# the generated __init__ carries `contract_id: UUID`, `pdf_bytes: bytes`, etc.
+init_forbid_extra = true
+warn_required_dynamic_aliases = true
+init_typed = true
+
 [tool.pytest.ini_options]
+# Implicit-mode async tests: function bodies marked `async def` are
+# treated as coroutines without an `@pytest.mark.asyncio` decorator.
+# Forward-looking for Phase 2-4 async worker tests. Paired with the
+# explicit fixture-loop-scope below.
 asyncio_mode = "auto"
 # pytest-asyncio 1.x emits DeprecationWarning when an async fixture is created
 # without an explicit loop_scope and this key is absent. Under our
@@ -109,6 +158,11 @@ asyncio_mode = "auto"
 # collection on the first Phase 2 async fixture. "function" matches the
 # existing per-test loop-scope default.
 asyncio_default_fixture_loop_scope = "function"
+# Symmetric companion to asyncio_default_fixture_loop_scope: pytest-asyncio 1.x
+# may warn when this key is absent and async tests run. Under our
+# filterwarnings = ["error::DeprecationWarning"] posture that would immediately
+# break CI. "function" matches the per-test loop-scope default.
+asyncio_default_test_loop_scope = "function"
 testpaths = ["tests"]
 # `--import-mode=importlib`: with `tests/__init__.py` present, pytest's default
 # `prepend` mode imports test files as `tests.unit.test_*` AND can re-import

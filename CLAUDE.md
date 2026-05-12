@@ -10,7 +10,7 @@ Read [docs/plan.md](docs/plan.md) for the full architecture and phase-by-phase p
 
 ## Phase development methodology — go-to strategy (Superpowers flow)
 
-**When the user asks for phase work** — phrases like "implement Phase N", "begin phase X", "let's do phase Y", "next phase", or "what's next" when the answer is the next phase per the plan — use the full **Superpowers flow** below. It applies to every phase in [docs/plan.md §6](docs/plan.md) from **Phase 2 onward**; Phase 0, Phase 0.5, and Phase 1 are already complete or in-review.
+**When the user asks for phase work** — phrases like "implement Phase N", "begin phase X", "let's do phase Y", "next phase", or "what's next" when the answer is the next phase per the plan — use the full **Superpowers flow** below. It applies to every phase in [docs/plan.md §6](docs/plan.md) from **Phase 2 onward**; Phase 0, Phase 0.5, and Phase 1 are already complete.
 
 The flow has **two phases**, both automatic:
 
@@ -176,7 +176,7 @@ These survive across phases and override the plan text where they conflict with 
 - **Phases with only 1–2 independent tasks** — parallel-subagent overhead exceeds the coordination cost. Fall back to serial-in-main-conversation TDD inside the worktree.
 - **One-off fixes outside a phase** — direct branch (no worktree, no subagents), no TDD ceremony for trivial doc/config changes.
 - **Panel-review-fix branches for standalone "review against main" runs** — those follow the [Code review methodology](#code-review-methodology--go-to-strategy) flow (`chore/panel-review-fixes` naming, atomic per-concern commits). Loop-mode phase-PR self-reviews use the [§ Parallel fix-dispatch pattern](#parallel-fix-dispatch-pattern) on the current phase branch instead.
-- **Phase 0, Phase 0.5, Phase 1** — already complete or in-review.
+- **Phase 0, Phase 0.5, Phase 1** — already complete.
 
 For everything matching "implement phase N" where N ≥ 2 — default to this full Superpowers flow.
 
@@ -264,7 +264,7 @@ Apply the superpowers reviewer rubric (Plan alignment / Code quality / Architect
 Rules: Don't stretch outside your lens. Don't pad findings. Don't manufacture Critical. Bootstrap scaffolding is mostly Minor.
 ```
 
-- **Multi-pass reviews:** for a pass-N review (re-running the panel after a previous round's fixes merged), each prompt gets an additional context block: *"This is pass-N. PR #X merged hardening from the prior review. Accepted deviations are recorded in spec §17. Note specifically what is STILL outstanding, NEWLY problematic, or accepted-deferred. Don't re-flag items §17 acknowledges."* Output format adds a "Delta from pass N-1" section with Resolved / Persisting / New.
+- **Multi-cycle reviews (auto-converge loop):** Per the 2026-05-12 user clarification documented in [§Cycle-loop mode](#cycle-loop-mode-auto-converge--the-default-for-review-re-runs), each new review cycle gets CLEAN lens prompts with NO carryover context — no "this is cycle-N", no "§17 accepts X", no "delta from cycle-N-1". Lenses are pure stateless reviewers of the current branch state. The synthesizer's senior-dev filter and §17-awareness do the dedup between cycles. The historical "Multi-pass reviews" paragraph that previously lived here (which DID inject pass-N context into lens prompts) is superseded.
 
 ### The synthesizer pass — never delegate
 
@@ -296,11 +296,11 @@ After all 20 lens reports return, **the synthesis is done in the main conversati
 
    **4a. Deferred — waiting on a later phase.** Findings that will naturally resurface when the dependent phase code lands, and applying them now means inventing scaffolding (fake consumers, hypothetical threat models, unused config knobs) with no real callsite. Each gets a 3–4 sentence justification, but the justification should name the specific later phase / specific dependency that unblocks the item. These items have a built-in re-trigger.
 
-   **4b. Deferred — other reasons.** Findings deferred because the cost-benefit doesn't work today, the synthesizer can't resolve them without out-of-band info (e.g., a `gh api` call), they're cosmetic and non-load-bearing, or they conflict with a project rule (e.g., "prefer new commit over amend on shared branches"). Each gets a 3–4 sentence justification walking through the specific cost-benefit. **These items will NOT auto-resurface** — a future panel pass needs to explicitly decide to re-take them, so the justification is more load-bearing than for 4a.
+   **4b. Deferred — other reasons.** Findings deferred because the cost-benefit doesn't work today, the synthesizer can't resolve them without out-of-band info (e.g., a `gh api` call), they're cosmetic and non-load-bearing, or they conflict with a project rule (e.g., "prefer new commit over amend on shared branches"). Each gets a 3–4 sentence justification walking through the specific cost-benefit. **These items will NOT auto-resurface** — a future review cycle needs to explicitly decide to re-take them, so the justification is more load-bearing than for 4a.
 
-   For both 4a and 4b: not a one-liner; not "Phase 5 will handle it" as a bare statement. The paragraph IS the deferred item's audit trail — a future panel pass that re-flags the same item should be able to read this paragraph and either agree with the deferral or explicitly counter it.
+   For both 4a and 4b: not a one-liner; not "Phase 5 will handle it" as a bare statement. The paragraph IS the deferred item's audit trail — a future review cycle that re-flags the same item should be able to read this paragraph and either agree with the deferral or explicitly counter it.
 
-   **5. For user decision (last).** Findings where the project-context judgment call belongs to the user — subjective design choices, naming preferences, scope renegotiations, anything where I could decide either way and reasonable readers could disagree with my call. For each item, include my recommendation based on project context. In **single-pass mode**, explicitly ASK the user: "do you want to decide each of these, or are you OK with me deciding based on project context?" — do NOT decide unilaterally; do NOT skip the ask. In **[§ Loop mode](#loop-mode-auto-converge--the-default-for-review-re-runs)** the synthesizer self-decides per the [§ Senior-developer judgment filter](#senior-developer-judgment-filter) and the recommendation IS the decision — no ask between passes.
+   **5. For user decision (last).** Findings where the project-context judgment call belongs to the user — subjective design choices, naming preferences, scope renegotiations, anything where I could decide either way and reasonable readers could disagree with my call. For each item, include my recommendation based on project context. In **single-pass mode**, explicitly ASK the user: "do you want to decide each of these, or are you OK with me deciding based on project context?" — do NOT decide unilaterally; do NOT skip the ask. In **[§ Cycle-loop mode](#cycle-loop-mode-auto-converge--the-default-for-review-re-runs)** the synthesizer self-decides per the [§ Senior-developer judgment filter](#senior-developer-judgment-filter) and the recommendation IS the decision — no ask between cycles.
 
    The order is non-negotiable: **1. Verdicts → 2. Objective → 3. Headbutting → 4a. Deferred (later phase) → 4b. Deferred (other reasons) → 5. For user decision.** Verdicts first because they're the at-a-glance signal. Objective is largest and most skimmable. Headbutting is the synthesizer's real value-add. Deferred-4a items have a built-in re-trigger; deferred-4b items don't, so the justification carries more weight. User-decision is last because it pauses the flow.
 
@@ -372,52 +372,83 @@ The cosmetic-always-apply rule above guards against complacency on small fixes t
 - 🪨 **Tests for absence-of-behavior the plan doesn't claim.** "Add a test that `complete().start()` silently returns IN_PROGRESS" locks in a non-guarantee.
 - 🪨 **Doc snapshots that drift from a live source-of-truth.** Better to add a "see live file" pointer than copy-paste-and-re-drift the live config.
 - 🪨 **Re-versioning prior-pass decisions just for churn.** If §17.N accepted a tradeoff, reverting it requires new evidence — not just a new lens that has a different stylistic opinion.
-- 🪨 **README rewrites** — README is user-restricted (per [§ Project state notes](#project-state-notes-project-specific-guardrails)); flag drift, never rewrite.
+- 🪨 **README rewrites** — README is user-restricted (per [§ Project state notes](#project-state-notes-project-specific-guardrails)). Never edit `README.md` directly. Instead, append the proposed change to [`docs/readme-changes-pending.md`](docs/readme-changes-pending.md) using the format documented at the top of that file; the queue file gets applied by the user in one pass when they're ready. Routing a README finding to the queue is the apply-equivalent action for this category — do NOT bucket it as "deferred" or "for user decision."
 
 **Convergence overrides the filter.** If ≥2 lenses independently flag the same item, treat it as load-bearing regardless of whether the item *looks* ceremonial. Convergence is the strongest signal multi-agent review produces; the filter is a per-finding judgment, but convergence is a structural signal that overrides the judgment.
 
 **Canonical example from this project (Phase 1 third-pass review):** Lens 04 endorsed an `assert_never` on a 2-arm Literal as "correct and tight"; Lens 07 called it ceremony with no payoff. The synthesizer picked Lens 07 and removed it. The decision is recorded in `9a7c66b` (original add) and `ad1755d` (removal); the §17.9 entry documents the headbutting resolution. This is the kind of judgment the filter codifies.
 
-### Loop mode (auto-converge) — the default for review re-runs
+### Cycle-loop mode (auto-converge) — the default for review re-runs
 
-**When invoked:** Any review re-run after the first pass uses loop mode by default. Trigger phrases: "rerun the review", "rerun in a loop", "review again", "loop the review", "loop until converged", "keep reviewing", or any "review" command following a prior review pass on the same branch with no merge between.
+> **2026-05-12 user clarification (binding):** Each panel re-run is **a NEW INDEPENDENT REVIEW CYCLE**, NOT a "pass within a single cycle." No cycle knows about the one before it — the lens prompts for cycle N+1 receive CLEAN prompts with no "this is pass N", no "§17.N acknowledges", no "delta from pass N-1" framing. The senior-dev filter is the only mechanism that prevents thrash on re-flagged-by-design items; lenses are pure stateless reviewers of current branch state. The "pass-N" terminology that appears in legacy paragraphs below should be read as "cycle-N." See [[feedback-cycle-independence]] memory file. Trigger phrases: "rerun the review", "rerun in a loop", "review again", "loop the review", "loop until converged", "keep reviewing", or any "review" command following a prior review cycle on the same branch with no merge between.
 
-**What changes vs. single-pass mode:**
+**What changes vs. a stand-alone single-cycle invocation:**
 
-1. **Section 5 (User decision) collapses into synthesizer decision.** Items that would route to "for user decision" in single-pass mode are decided by the synthesizer in loop mode, applying the [§ Senior-developer judgment filter](#senior-developer-judgment-filter) the same way Objective + Headbutting items are. The user is not asked between passes.
-2. **The user-decision-item recommendation IS the decision.** The single-pass rule "include my recommendation, then ask the user" becomes "make the decision, apply it, record it in §17.N". If the recommendation was "defer", record the defer with rationale (no commit needed); if "apply", make the commit.
-3. **Per-pass output is compact.** Loop mode does NOT emit the full 6-section synthesis report between passes. After each pass, emit a 1-paragraph status (pass N: K fixes applied + commit SHAs + filtered/dropped count) so the user can interrupt mid-loop if they want. The full 6-section report is reserved for the final pass (termination).
+1. **Section 5 (User decision) collapses into synthesizer decision.** Items that would route to "for user decision" in a single isolated cycle are decided by the synthesizer when cycling-to-converge, applying the [§ Senior-developer judgment filter](#senior-developer-judgment-filter) the same way Objective + Headbutting items are. The user is not asked between cycles.
+2. **The user-decision-item recommendation IS the decision.** The single-cycle rule "include my recommendation, then ask the user" becomes "make the decision, apply it, record it in §17.N". If the recommendation was "defer", record the defer with rationale (no commit needed); if "apply", make the commit.
+3. **Per-cycle output is compact.** While auto-cycling, do NOT emit the full 6-section synthesis report between cycles. After each cycle, emit a 1-paragraph status (cycle N: K fixes applied + commit SHAs + filtered/dropped count) so the user can interrupt mid-loop if they want. The full 6-section report is reserved for the terminal cycle.
+4. **Lens prompts carry NO carryover context.** Each cycle's 20 lens prompts must be clean of any reference to prior cycles, prior §17.N entries, "delta from pass N-1" sections, "don't re-flag items §17 acknowledges" hints, etc. The lenses see ONLY the current branch state. The synthesizer's §17-aware filter does the dedup work between cycles.
 
-**Termination condition.** The loop terminates when a panel pass produces zero commits to the branch. Specifically:
+**Termination condition.** The auto-cycle terminates when a cycle produces zero commits to the branch. Specifically:
 
-- 20 lenses run.
+- 20 lenses run on the current branch state.
 - Synthesizer applies the senior-dev filter.
 - After filter, both the Objective bucket AND the (now-self-decided) User-decision bucket are empty (or all entries are "defer with rationale" — no actual code/doc changes).
 - The deferred section may still have entries (real later-phase blockers); those don't block termination.
 
-**Max iteration cap: 5 passes.** If the loop hasn't converged in 5 passes, stop and report. The most likely cause of non-convergence at that point is the filter being too loose — one or more "filter-out" categories needs to be added based on what's being repeatedly surfaced.
+**Max iteration cap: 5 cycles.** If the auto-cycle hasn't converged in 5 cycles, stop and report a MAX-CAP-HIT termination. The most likely cause of non-convergence at that point is EITHER the filter being too loose (one or more "filter-out" categories needs to be added) OR a workflow gap that introduces drift faster than the cycle catches it.
 
-**Post-max-cap restart semantics.** If the user requests a review re-run after max-cap termination ("rerun same cycle", "loop again", "rerun the loop", or similar), treat it as a NEW 5-iteration loop with the iteration counter reset to 1 (not as an extension of the prior cap). The new loop starts a fresh pass-N numbering against the current branch HEAD and applies the same termination conditions (zero-commits convergence OR 5-iteration max cap). The senior-dev filter rationale paragraph above still applies: if the new loop also hits the cap without converging, the most likely cause is filter looseness, and the right response is to tighten the filter rather than start yet another cycle. Record each cycle's pass range and termination reason in `docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md §17.N` so the cumulative audit trail is unambiguous.
+**MAX-CAP-HIT diagnosis procedure.** At the terminal cycle (whether zero-commits or max-cap), if the loop hit the max-cap without converging, the synthesizer MUST analyze which patterns of findings recurred across cycles and route them to one of three categories:
 
-**Per-pass mechanics within the loop:**
+- **Filter-gap items** — items the senior-dev filter should have caught but didn't. The fix is to add a new "filter-out" category here in CLAUDE.md and to [[feedback-senior-dev-filter]].
+- **Workflow-gap items** — items that arise from HOW the cycle executes (e.g., test splits committed without a paired plan sync; renaming sweeps that miss callsites; comment additions with unchecked factual claims). The fix is a workflow rule, NOT a filter category — see the [§ Known workflow gaps from prior loops](#known-workflow-gaps-from-prior-loops) subsection below.
+- **Real bugs that needed those cycles to surface** — genuine code/doc defects that no filter or workflow change would have prevented. These are the loop's actual value; no diagnosis change needed.
 
-1. Pass starts: get current `HEAD_SHA`, capture in pass log.
-2. Dispatch all 20 lenses in a single message with `run_in_background: true`, prompts unchanged from single-pass.
+The terminal report's "MAX-CAP diagnosis" section must enumerate which category each recurring pattern falls into and propose the corresponding fix (filter category addition, workflow rule addition, or no-fix-needed).
+
+### Known workflow gaps from prior loops
+
+Three workflow patterns were diagnosed at the end of the 2026-05-12 5-cycle loop (recorded in `docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md §17.23`). Future loops should prevent these IN-cycle rather than relying on the next cycle to catch them:
+
+1. **Test split + missed plan sync** (caught in 4 of 5 cycles of the 2026-05-12 loop). When a same-cycle commit splits a test (e.g., `test_X` → `test_X_part_a` + `test_X_part_b`), the plan-sync commit for `docs/plan.md §6.3` task tables must reference the post-split test names. The failure mode: plan-sync agent ran BEFORE the test-split agent in parallel Layer A dispatch, so the plan-sync missed the just-introduced split.
+   - **Workflow rule:** when a Layer A includes both a plan-sync agent AND a test-split agent on the same task row, dispatch the test-split agent in Layer A and the plan-sync agent in **Layer B** (sequential after Layer A completes), so the plan-sync always sees the post-split state.
+   - **Alternative:** after Layer A completes and before §17.N audit, run a final `grep -n <pre-split-test-name> docs/plan.md` for every split test in the cycle; sync any drift in a follow-up commit before the audit entry.
+
+2. **CLAUDE.md terminology rename leaks** (caught in 3 of 5 cycles). When renaming a heading or terminology in CLAUDE.md (e.g., `§Loop mode` → `§Cycle-loop mode`), partial grep-and-replace sweeps leave broken anchor references, indirect callsites, and stale hedges.
+   - **Workflow rule:** when renaming a heading or coining a new term in CLAUDE.md, AFTER applying the rename, run `grep -ni '<old-term>' CLAUDE.md` and walk EVERY hit, classifying each as "needs update" or "legitimate other-context usage" (e.g., "single-pass mode" as a contrast term, "CI checks pass" as imperative verb). Don't rely on grep-and-replace heuristics on the visible callsites only. Also grep for the anchor form: `grep -ni '#<old-heading-slug>' CLAUDE.md`.
+
+3. **Prior-cycle audit-comment factual drift** (caught in 3 cycles). Audit-quality comments added during a cycle (e.g., a new `[tool.pydantic-mypy]` rationale comment) sometimes carry factual inaccuracies (claims about "every model uses X" that aren't true, or "tracks the locked Y" arithmetic that doesn't match) that the next cycle's lens catches.
+   - **Workflow rule:** when adding audit-quality comments to `pyproject.toml`, `.pre-commit-config.yaml`, or any other live config file during a fix-dispatch, verify EACH factual claim against the actual config/code state at commit time. Don't write narrative speculation as if it were established fact. Specifically: if a comment says "every X uses Y," grep to confirm; if a comment says "tracks the locked minor `A.B.C`," verify the floor specifier matches `>=A.B`.
+
+If a future loop's MAX-CAP diagnosis identifies a NEW recurring pattern beyond these three, add it as a numbered item here. Treat these workflow rules as binding for any auto-converge loop run in this project.
+
+**Post-max-cap restart semantics.** If the user requests a review re-run after max-cap termination ("rerun same loop", "loop again", "rerun the loop", or similar), treat it as a NEW 5-cycle loop with the iteration counter reset to 1 (not as an extension of the prior cap). The new loop starts a fresh cycle-N numbering against the current branch HEAD and applies the same termination conditions (zero-commits convergence OR 5-cycle max cap). The senior-dev filter rationale paragraph above still applies: if the new loop also hits the cap without converging, the most likely cause is filter looseness, and the right response is to tighten the filter rather than start yet another loop. Record each restart's cycle range and termination reason in `docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md §17.N` so the cumulative audit trail is unambiguous.
+
+**HEAD/BASE target rule (carries over from §17.19 pass-target rule, restated for cycle terminology):** The first cycle of a fresh review against `main` targets `origin/main` (HEAD=origin/main). Every subsequent cycle on the same fix branch targets the **current fix branch HEAD** (with prior cycles' commits on top), NOT `origin/main` again. BASE_SHA stays at the cycle-1 origin/main SHA so each cycle sees the full cumulative body of work since main as if seeing it fresh.
+
+**Per-cycle mechanics within the auto-converge loop:**
+
+1. Cycle starts: get current `HEAD_SHA`, capture in cycle log.
+2. Dispatch all 20 lenses in a single message with `run_in_background: true`, prompts unchanged from a stand-alone single-cycle invocation.
 3. Wait for all 20 to return.
 4. Synthesize internally: apply filter, partition into Objective / Headbutting / 4a / 4b / (self-decided user-decision).
 5. Apply fixes via the [§ Parallel fix-dispatch pattern](#parallel-fix-dispatch-pattern) below — non-overlapping fixes fire in parallel via `Agent` subagents, file-conflicting fixes serialize across layers.
 6. Run the full local verification gate.
 7. Push.
-8. **Compact status line** with mandatory components (in this order):
-   - `Pass N: M commits applied` (raw count of commits landed this pass, includes the §17.N audit entry but not lockfile-companion commits)
-   - `M fixes total (X Critical / Y Important / Z Minor)` — severity-bucketed count of distinct lens-derived findings applied, using the lens's own severity ratings as reported in the panel output
-   - `Ship-ready: A/20 Yes, B/20 With fixes` (count of lens verdicts across the 20 panel agents; if any lens stalled, note it separately as `C stalled`)
-   - `K filtered out, D deferred` (counts of items routed to filter-skip and Deferred-4a/4b respectively)
-   - `New HEAD: <sha>. Continuing.` OR `New HEAD unchanged. CONVERGED.` (the convergence signal)
-   - Optional one-line callout if any item was promoted from a previous Deferred entry or reverses a prior-pass decision.
+8. **Compact status line emitted to chat at the end of every cycle** (mandatory; user-requested 2026-05-12 — *"how i want it to display at the end of a cycle with the number of findings importance clean lanes etc"*). Required fields, in this order:
+   - **Cycle N closed.** (one-line header so the user can grep for cycle-N boundaries)
+   - **Commits applied: M** (raw count of commits landed this cycle, includes the §17.N audit entry; note any methodology-codification or mid-cycle commits separately)
+   - **Fixes by severity: 0 Critical / X Important / Y Minor** — severity-bucketed count of distinct lens-derived findings applied (lens-rated severity, not synthesizer-rated)
+   - **Convergence: N multi-lens findings** (count of items where ≥2 lenses agreed; explicitly note inter-lens-disagreement-resolved cases) or "none"
+   - **Ship-ready (pre-fix): A/20 Yes, B/20 With fixes** (count of lens verdicts across the 20 panel agents)
+   - **Clean lenses (0 findings or all filter-drop): C/20** (the user's specifically-requested "clean lanes" signal — counts lenses whose output had zero apply-bucket items after filter)
+   - **Filtered out: ~F findings** (rough count of items the senior-dev filter dropped)
+   - **Deferred new this cycle: D** (entries added to 4a wait-for-later-phase + 4b other-reasons buckets)
+   - **Prior-cycle deferrals reversed: R** (with one-line callout per reversal, citing the §17.N entry being reversed and the new evidence)
+   - **New HEAD: \<sha\>. Continuing.** (≥1 fix → next cycle runs) OR **New HEAD: \<sha\>. CONVERGED.** (0 fixes after filter → loop terminates with zero-commits convergence) OR **New HEAD: \<sha\>. MAX-CAP-HIT.** (cycle count == 5 with ≥1 fix → loop terminates at max-cap)
 
-   This compact line is the user's only between-pass output; do not emit the full 6-section synthesis report between passes — that is reserved for the terminal pass (zero-commits or max-cap-hit).
-9. If converged or pass count == 5, emit the final 6-section report. Else loop.
+   This compact line is the user's only between-cycle output. Do NOT emit the full 6-section synthesis report between cycles — that is reserved for the terminal cycle (zero-commits or max-cap-hit).
+9. If converged or cycle count == 5, emit the final 6-section report. Else loop.
 
 ### Parallel fix-dispatch pattern
 
@@ -465,11 +496,11 @@ After all layers commit, perform the §17.N spec deviation entry as the final co
 
 **Why this matters.** A pass with 14 fixes spread across 8 files, if applied serially, takes the wall-clock sum of every fix. Partitioned into 3-4 layers with ~4 parallel agents per layer, the wall-clock collapses to the layer count × the slowest agent — typically 4-6× faster. The git history is identical (same atomic per-concern commits), the verification gate runs identically (after each layer), and the §17.N entry is identical (it just lists SHAs).
 
-**Per-pass agent prompt template (fix-application):**
+**Per-cycle agent prompt template (fix-application):**
 
 ```
 You are implementing one panel-derived fix for the contract-data-extraction
-project's Phase N review pass-N. Working directory:
+project's Phase N review cycle-N. Working directory:
 /Users/cosminneamtiu/Work/contract-data-extraction. Current branch:
 <phase-branch> (e.g. phase-N-<slug>).
 
@@ -495,7 +526,7 @@ them would race):
    `unset VIRTUAL_ENV && uv run ruff check <your-file>` for source).
 4. `git add` ONLY your owned files; do not `git add -A` or `git add .`.
 5. Commit with the message below (HEREDOC, with Co-Authored-By footer).
-6. Do NOT push — the main conversation pushes the whole branch at pass end.
+6. Do NOT push — the main conversation pushes the whole branch at cycle end.
 
 **Commit message (use HEREDOC verbatim):**
 {full subject + body + footer}
@@ -505,7 +536,7 @@ deviation from this prompt with a one-line rationale. If you couldn't make
 the change, report the blocker and DO NOT commit partial work.
 ```
 
-**Final report emitted only after termination** includes the per-pass commit log (so the user can see what shipped across the whole loop), the standard 6 sections rolled up over all passes, and a "Loop convergence" footer noting iteration count and the reason for termination (zero-changes or max-cap-hit).
+**Final report emitted only after termination** includes the per-cycle commit log (so the user can see what shipped across the whole loop), the standard 6 sections rolled up over all cycles, and a "Loop convergence" footer noting iteration count and the reason for termination (zero-changes or max-cap-hit).
 
 **The default: review runs on the CURRENT branch — everything built in the current phase. Fixes land on the CURRENT branch.** This is true for both the auto-fired phase-PR self-review and any manual "review this PR" / "review the branch" invocation. The diff under review is `origin/main..HEAD` — i.e., every commit the current branch added on top of `main`, which IS the phase's full body of work. The 20 lenses see the whole phase as a unit; the synthesizer's fix-now items become commits on the same branch you are currently on. **Do NOT cut a separate branch.**
 
@@ -560,15 +591,15 @@ This catches PEP 561 / license inclusion regressions that the test gate alone mi
 - **Auto-merge is armed** for Dependabot patch/minor bumps across pip, github-actions, and pre-commit ecosystems. A major bump requires explicit review (per `update-types: [patch, minor]` filters on every group).
 - **Branch protection is live.** Required status checks: `backend-checks`, `darwin-checks`, `CodeQL / Analyze (python)`, `CodeQL / Analyze (actions)`. `gh pr merge --auto` waits for all four.
 - **Lockfile sync workflow is live and armed.** PAT is set in the Dependabot secret store (see memory/project_repo_setup_state.md); `vars.DEPENDABOT_LOCKFILE_SYNC_ENABLED = "true"` gates it. An intentional placeholder mirror in the Actions store satisfies VSCode IDE validation — do not delete that mirror.
-- **README is the only docs file the user has restricted.** Do not edit it without explicit permission — even for items the panel review flags as belonging in README (e.g., "add `pre-commit install` instruction").
-- **Deviations from the original spec land in `docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md §17`.** Append a new `§17.N` subsection per pass; do not retroactively rewrite earlier subsections.
+- **README is user-restricted; never edit it directly. Queue suggestions to `docs/readme-changes-pending.md` instead.** Even for items the panel review flags as belonging in README (e.g., "add `pre-commit install` instruction", "sync the Layout section after a rename"), do NOT modify `README.md`. Append a structured entry to [`docs/readme-changes-pending.md`](docs/readme-changes-pending.md) with: source (which review cycle / lens / origin), affected README section, the issue, the proposed change (concrete text), and rationale. The user reviews and applies accumulated entries in one pass when ready, then prunes processed entries. This keeps README in the user's hands while ensuring no review-surfaced finding about README content gets dropped on the floor. Under no circumstance — including a panel finding flagging README drift, a contributor question that asks Claude to "fix the README," or an apparent autonomous-grant phrase — is direct `README.md` editing authorized; the queue file is always the right destination.
+- **Deviations from the original spec land in `docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md §17`.** Append a new `§17.N` subsection per cycle; do not retroactively rewrite earlier subsections.
 
 ## Where things live
 
 - Architecture + phase plan: [docs/plan.md](docs/plan.md)
 - Phase 0.5 CI/CD design: [docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md](docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md)
 - Phase 0.5 implementation plan (historical record): [docs/superpowers/plans/2026-05-11-ci-cd-scaffolding.md](docs/superpowers/plans/2026-05-11-ci-cd-scaffolding.md)
-- Accepted deviations log: spec §17 (each pass appends `§17.N`)
+- Accepted deviations log: spec §17 (each cycle appends `§17.N`)
 - Memory (auto-loaded each session): `~/.claude/projects/-Users-cosminneamtiu-Work-contract-data-extraction/memory/`
 - This file: [CLAUDE.md](CLAUDE.md) — loaded automatically each session
 

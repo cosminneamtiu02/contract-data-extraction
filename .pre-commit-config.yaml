@@ -33,12 +33,17 @@ repos:
         pass_filenames: false
         always_run: true
 
+  # rev: v1.5.0 — pinned to match the `detect-secrets>=1.5` pip floor in
+  # [dependency-groups.dev] and the `.secrets.baseline` format version;
+  # Dependabot pre-commit ecosystem auto-updates patch/minor.
   - repo: https://github.com/Yelp/detect-secrets
     rev: v1.5.0
     hooks:
       - id: detect-secrets
         args: ['--baseline', '.secrets.baseline']
 
+  # rev: v6.0.0 — current stable; Dependabot pre-commit ecosystem
+  # auto-updates patch/minor (major bumps gated per update-types filter).
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
@@ -47,6 +52,7 @@ repos:
       - id: check-yaml
       - id: check-json
       - id: check-toml
+      - id: check-merge-conflict
       - id: check-added-large-files
         args: ["--maxkb=500"]
       - id: detect-private-key

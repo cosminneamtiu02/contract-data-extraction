@@ -21,6 +21,10 @@
 *.pth binary
 *.bin binary
 
+# Plain-text data formats (explicit LF-pin for consistency; mirrors *.jsonl).
+*.json text eol=lf
+*.toml text eol=lf
+
 # Tabular fixtures (text but should not be normalized aggressively).
 *.csv text eol=lf
 *.jsonl text eol=lf
