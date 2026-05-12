@@ -66,6 +66,21 @@ def test_overall_status_is_failed_when_ocr_failed() -> None:
     assert record.overall_status == "failed"
 
 
+def test_overall_status_is_failed_when_intake_failed() -> None:
+    """Although ``fresh()`` marks intake DONE so the failed-intake path is
+    rare in production, the ``overall_status`` derivation must still report
+    ``failed`` if a result-store bug or a Phase 5 short-circuit produces
+    a record with intake in the FAILED state."""
+    err = StageError(code="extraction_error", description="intake guard failed")
+    record = ContractRecord(
+        intake=StageRecord(state=StageState.FAILED, error=err),
+        ocr=StageRecord(),
+        data_parsing=StageRecord(),
+    )
+
+    assert record.overall_status == "failed"
+
+
 def test_overall_status_is_failed_when_parsing_failed_even_after_ocr_done() -> None:
     err = StageError(code="schema_invalid", description="missing field")
     record = ContractRecord(
