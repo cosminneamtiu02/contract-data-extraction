@@ -50,11 +50,18 @@ line-length = 100
 target-version = "py313"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP", "ASYNC", "PIE", "SIM", "RET", "ARG", "PTH", "TID", "T20", "RUF", "C4", "FURB", "PT"]
+# EM/TRY/TCH added 2026-05-12 per Phase 1 panel review (Lens 04 + Lens 08).
+# Defense-in-depth: zero current violations in src/; only tests need to raise
+# string-literal exceptions in pytest.raises blocks, handled below.
+select = ["E", "F", "I", "B", "UP", "ASYNC", "PIE", "SIM", "RET", "ARG", "PTH", "TID", "T20", "RUF", "C4", "FURB", "PT", "EM", "TRY", "TCH"]
 ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["ARG"]
+"tests/**/*.py" = [
+    "ARG",      # fixtures often look unused
+    "EM101",    # tests legitimately raise with string literals in pytest.raises blocks
+    "TRY003",   # tests' raise messages are intentionally long-form for assertion clarity
+]
 
 [tool.ruff.format]
 quote-style = "double"
