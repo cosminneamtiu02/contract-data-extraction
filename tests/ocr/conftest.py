@@ -51,7 +51,12 @@ def _resolve_samples_dir() -> Path | None:
     raw = os.environ.get(SAMPLES_DIR_ENV_VAR)
     if not raw:
         return None
-    path = Path(raw).expanduser()
+    # `.resolve()` canonicalises symlinks AND relative-path components so a
+    # subsequent `.is_dir()` / `glob` operates on an absolute, link-followed
+    # path; without it a developer pointing the env var at a symlink to a
+    # directory outside the project would proceed silently — defense in depth
+    # against future multi-developer / multi-machine setups.
+    path = Path(raw).expanduser().resolve()
     if not path.is_dir():
         return None
     return path
@@ -75,31 +80,23 @@ def ocr_samples_dir() -> Path:
     or points to a missing directory. The skip reason names the env var so a
     developer running the OCR tests for the first time learns exactly which
     variable to set.
+
+    Note: this fixture is session-scoped and reads ``os.environ`` directly.
+    The top-level ``isolated_env`` fixture in tests/conftest.py clears every
+    ``EXTRACTION_*`` var (including this one) for tests that request it.
+    Do NOT request both ``isolated_env`` AND ``ocr_samples_dir`` in the same
+    test function — the clear would race with the session-fixture's already-
+    resolved value and produce confusing skip behaviour. No current test
+    composes them; this comment exists to prevent that future trap.
     """
     resolved = _resolve_samples_dir()
     if resolved is None:
         pytest.skip(
             f"OCR sample directory not configured. "
             f"Set ${SAMPLES_DIR_ENV_VAR} to the path containing your local "
-            f"sample PDFs (see docs/superpowers/specs/2026-05-12-phase-2-ocr-spec-deviations.md)."
+            f"sample PDFs (see docs/superpowers/specs/2026-05-12-phase-2-ocr-spec-deviations.md §17.3)."
         )
     return resolved
-
-
-@pytest.fixture(scope="session")
-def ocr_sample_pdfs(ocr_samples_dir: Path) -> list[Path]:
-    """Return the list of sample PDFs in the configured directory.
-
-    Skips when the directory is empty so a misconfigured env var (pointing
-    at an unrelated dir) doesn't silently produce zero parametrised cases.
-    """
-    pdfs = _enumerate_pdfs(ocr_samples_dir)
-    if not pdfs:
-        pytest.skip(
-            f"OCR samples directory ${SAMPLES_DIR_ENV_VAR}={ocr_samples_dir} "
-            f"contains no *.pdf files."
-        )
-    return pdfs
 
 
 def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
@@ -129,7 +126,7 @@ def baseline_for() -> Callable[[Path], str | None]:
     Yields None when the baseline file does not exist — the caller then
     falls back to a weaker smoke assertion rather than failing the test.
     Baselines are produced by Claude reading each PDF directly (plan
-    deviation §17.N); they are never committed to git.
+    deviation §17.3); they are never committed to git.
     """
 
     def _load(pdf_path: Path) -> str | None:
