@@ -43,7 +43,7 @@ class ContractRecord(BaseModel):
             intake=StageRecord(state=StageState.DONE, started_at=t, completed_at=t),
         )
 
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field  # type: ignore[prop-decorator]  # pydantic.mypy doesn't model @computed_field + @property stacking; pattern is Pydantic-recommended.
     @property
     def overall_status(self) -> OverallStatus:
         """Derived top-level status. ``failed`` if any stage failed, ``done`` only
@@ -56,7 +56,7 @@ class ContractRecord(BaseModel):
             return "done"
         return "in_progress"
 
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field  # type: ignore[prop-decorator]  # pydantic.mypy doesn't model @computed_field + @property stacking; pattern is Pydantic-recommended.
     @property
     def current_stage(self) -> StageName | None:
         """The first non-DONE stage in pipeline order, or None if all done.

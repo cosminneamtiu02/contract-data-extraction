@@ -44,7 +44,7 @@ def test_contract_job_is_frozen() -> None:
     )
 
     with pytest.raises(ValidationError):
-        job.pdf_bytes = b"replaced"  # type: ignore[misc]
+        job.pdf_bytes = b"replaced"  # type: ignore[misc]  # intentional frozen-model mutation to verify ValidationError fires.
 
 
 def test_contract_job_round_trips_through_model_dump_json() -> None:
@@ -68,7 +68,7 @@ def test_contract_job_raises_when_required_field_missing() -> None:
         ContractJob()  # type: ignore[call-arg]  # intentionally invalid for the test
 
     with pytest.raises(ValidationError):
-        ContractJob(contract_id=uuid4())  # type: ignore[call-arg]
+        ContractJob(contract_id=uuid4())  # type: ignore[call-arg]  # intentionally missing pdf_bytes to verify required-field rejection.
 
     with pytest.raises(ValidationError):
-        ContractJob(pdf_bytes=b"%PDF-1.4")  # type: ignore[call-arg]
+        ContractJob(pdf_bytes=b"%PDF-1.4")  # type: ignore[call-arg]  # intentionally missing contract_id to verify required-field rejection.

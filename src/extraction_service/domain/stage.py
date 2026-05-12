@@ -64,7 +64,7 @@ class StageRecord(BaseModel):
     error: StageError | None = None
     extracted: dict[str, Any] | None = None
 
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field  # type: ignore[prop-decorator]  # pydantic.mypy doesn't model @computed_field + @property stacking; pattern is Pydantic-recommended.
     @property
     def duration_ms(self) -> int | None:
         """Elapsed wall time in milliseconds, or ``None`` if the stage has not

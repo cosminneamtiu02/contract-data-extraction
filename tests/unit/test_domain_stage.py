@@ -55,7 +55,7 @@ def test_stage_error_is_frozen() -> None:
     err = StageError(code="ocr_engine_failed", description="x")
 
     with pytest.raises(ValidationError):
-        err.code = "changed"  # type: ignore[misc]
+        err.code = "changed"  # type: ignore[misc]  # intentional frozen-model mutation to verify ValidationError fires.
 
 
 # --- StageRecord ---------------------------------------------------------
@@ -121,7 +121,7 @@ def test_stage_record_is_frozen() -> None:
     record = StageRecord()
 
     with pytest.raises(ValidationError):
-        record.state = StageState.DONE  # type: ignore[misc]
+        record.state = StageState.DONE  # type: ignore[misc]  # intentional frozen-model mutation to verify ValidationError fires.
 
 
 def test_stage_record_complete_accepts_extracted_payload() -> None:
