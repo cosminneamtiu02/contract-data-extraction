@@ -123,7 +123,8 @@ plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
 # rapidocr and modelscope are genuinely stub-less (no py.typed marker);
-# docling 2.93.0 ships py.typed so mypy resolves it natively — not listed here.
+# docling ships py.typed (verified at the locked version) so mypy resolves
+# it natively — not listed here.
 module = ["rapidocr.*", "modelscope.*"]
 ignore_missing_imports = true
 
