@@ -118,6 +118,10 @@ init_forbid_extra = true
 warn_required_dynamic_aliases = true
 
 [tool.pytest.ini_options]
+# Implicit-mode async tests: function bodies marked `async def` are
+# treated as coroutines without an `@pytest.mark.asyncio` decorator.
+# Forward-looking for Phase 2-4 async worker tests. Paired with the
+# explicit fixture-loop-scope below.
 asyncio_mode = "auto"
 # pytest-asyncio 1.x emits DeprecationWarning when an async fixture is created
 # without an explicit loop_scope and this key is absent. Under our
