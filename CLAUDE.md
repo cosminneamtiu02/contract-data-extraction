@@ -300,7 +300,7 @@ After all 20 lens reports return, **the synthesis is done in the main conversati
 
    For both 4a and 4b: not a one-liner; not "Phase 5 will handle it" as a bare statement. The paragraph IS the deferred item's audit trail — a future panel pass that re-flags the same item should be able to read this paragraph and either agree with the deferral or explicitly counter it.
 
-   **5. For user decision (last).** Findings where the project-context judgment call belongs to the user — subjective design choices, naming preferences, scope renegotiations, anything where I could decide either way and reasonable readers could disagree with my call. For each item, include my recommendation based on project context. Then **explicitly ASK the user**: "do you want to decide each of these, or are you OK with me deciding based on project context?" Do NOT decide unilaterally on user-decision items. Do NOT skip the ask.
+   **5. For user decision (last).** Findings where the project-context judgment call belongs to the user — subjective design choices, naming preferences, scope renegotiations, anything where I could decide either way and reasonable readers could disagree with my call. For each item, include my recommendation based on project context. In **single-pass mode**, explicitly ASK the user: "do you want to decide each of these, or are you OK with me deciding based on project context?" — do NOT decide unilaterally; do NOT skip the ask. In **[§ Loop mode](#loop-mode-auto-converge--the-default-for-review-re-runs)** the synthesizer self-decides per the [§ Senior-developer judgment filter](#senior-developer-judgment-filter) and the recommendation IS the decision — no ask between passes.
 
    The order is non-negotiable: **1. Verdicts → 2. Objective → 3. Headbutting → 4a. Deferred (later phase) → 4b. Deferred (other reasons) → 5. For user decision.** Verdicts first because they're the at-a-glance signal. Objective is largest and most skimmable. Headbutting is the synthesizer's real value-add. Deferred-4a items have a built-in re-trigger; deferred-4b items don't, so the justification carries more weight. User-decision is last because it pauses the flow.
 
@@ -324,7 +324,7 @@ This is the **most opinionated** part of the methodology and where the prior sin
 
 - ✅ **Convergent findings** (≥2 lenses agree)
 - ✅ **Active risks today** (auto-merge gaps, security holes, supply-chain pins, broken plumbing)
-- ✅ **EVERY cosmetic fix, without exception, no matter how small.** Doc sync, typos in spec/plan, sample/canonical-reference updates after live divergence, new spec deviation-log sections, version-comment annotations on pinned SHAs, missing one-line code comments, type-alias re-export hints, dependency version-floor additions even if the lockfile pins exact versions today, additional pre-commit hooks that duplicate the verification gate, style refactors of 2-arm `if/else` to `match` statements. **A one-character typo or a one-line annotation IS worth fixing — code quality is non-negotiable and the change being minimal is not a reason to defer.** See [memory/feedback_cosmetic_fixes_apply.md](../../.claude/projects/-Users-cosminneamtiu-Work-contract-data-extraction/memory/feedback_cosmetic_fixes_apply.md). Cosmetic items NEVER appear in the Deferred section of a synthesis report; if a synthesizer routes a cosmetic item to Deferred it has made a categorization error.
+- ✅ **EVERY substantive cosmetic fix, no matter how small** — subject to the [§ Senior-developer judgment filter](#senior-developer-judgment-filter) below. Doc sync after a live divergence, typos in spec/plan, stale class-name references after a rename, missing one-line WHY comments at a hidden constraint, dependency version-floor additions, new spec deviation-log sections, version-comment annotations on pinned SHAs. **A one-character typo or a one-line annotation IS worth fixing — code quality is non-negotiable and the change being minimal is not a reason to defer.** See [memory/feedback_cosmetic_fixes_apply.md](../../.claude/projects/-Users-cosminneamtiu-Work-contract-data-extraction/memory/feedback_cosmetic_fixes_apply.md). Substantive cosmetic items NEVER appear in the Deferred section. The senior-dev filter below distinguishes substantive cosmetic from *ceremonial* cosmetic; only the latter is allowed to be dropped.
 - ✅ **Defense-in-depth tightenings** even if the lens called them "not a current defect" (e.g., explicit `permissions: {}` blocks, preventive ruff/mypy rules that don't false-positive on current code)
 - ✅ **Reversing prior-round fixes** when a later lens shows them wrong
 
@@ -346,12 +346,70 @@ This is the **most opinionated** part of the methodology and where the prior sin
 
 **Do NOT defer:**
 
-- ❌ "Doc hygiene" / "cosmetic" / "low-priority" — these are fix-now.
-- ❌ "Premature" preemptive tightenings whose current cost is 1–3 lines — fix-now.
-- ❌ "Not a current defect" defense-in-depth — fix-now.
+- ❌ "Doc hygiene" / "cosmetic" / "low-priority" — these are fix-now (subject to the filter below).
+- ❌ "Premature" preemptive tightenings whose current cost is 1–3 lines AND that close a plausible future hole — fix-now (subject to the filter below).
+- ❌ "Not a current defect" defense-in-depth that mirrors an established project pattern — fix-now.
 - ❌ "Will land naturally with the next phase anyway" — if it's a 1-line fix today, fix it today.
 
-### Implementation flow
+### Senior-developer judgment filter
+
+The cosmetic-always-apply rule above guards against complacency on small fixes that ARE real. The senior-dev filter guards against the opposite failure mode: *ceremony posing as quality*. Apply this filter to every finding the panel surfaces BEFORE auto-applying it. The filter is what separates substantive cosmetic from ceremonial cosmetic. See [memory/feedback_senior_dev_filter.md](../../.claude/projects/-Users-cosminneamtiu-Work-contract-data-extraction/memory/feedback_senior_dev_filter.md).
+
+**For each finding, ask:**
+
+1. Is this a real defect, project-rule violation, factual drift, or convergent finding? → **apply**
+2. Or is this ceremony / preemption / over-specification with no current need? → **filter out**
+3. Does the cost-benefit make sense given the project's actual scope and stage? If the cost is 3 lines + an import + a misleading comment for a benefit that mypy/ruff/tests already provide, the cost-benefit is upside-down.
+4. Would a senior dev push back on this in code review? If yes, drop it; if no, apply.
+
+**Filter-out (ceremonial) categories — explicit drop list:**
+
+- 🪨 **Exhaustiveness guards on closed Literals where the type system already enforces it.** `assert_never` on a 2-arm `Literal["development", "production"]` is the canonical example — mypy enforces exhaustiveness without the guard; the `case _` arm cannot execute for typed callers; the unused import + misleading "mypy-visible guard" comment is pure ceremony. The guard EARNS ITS KEEP on large / growing Literals; drop it on closed small ones.
+- 🪨 **Defensive code paths that cannot trigger under typed/internal callers.** `if x is None: raise X` on a parameter typed `X` (not `X | None`) where every caller is internal is dead code dressed as paranoia.
+- 🪨 **Preemptive tightenings with no current violation AND no plausible future violation in scope.** Adding a `>=` floor on `hatchling` in `[build-system].requires` when `uv.lock` pins the version and `pip install` is not a supported install path is closing a path no one uses.
+- 🪨 **Comment inflation on unambiguous config.** `asyncio_mode = "auto"` doesn't need a comment for pytest-asyncio users; over-commenting buries the genuinely-warranted comments (`markers = []` pre-empting a footgun).
+- 🪨 **Testing third-party library behavior.** "Add a test that env-vars-override-.env precedence works" is testing pydantic-settings, not our code.
+- 🪨 **Tests for absence-of-behavior the plan doesn't claim.** "Add a test that `complete().start()` silently returns IN_PROGRESS" locks in a non-guarantee.
+- 🪨 **Doc snapshots that drift from a live source-of-truth.** Better to add a "see live file" pointer than copy-paste-and-re-drift the live config.
+- 🪨 **Re-versioning prior-pass decisions just for churn.** If §17.N accepted a tradeoff, reverting it requires new evidence — not just a new lens that has a different stylistic opinion.
+- 🪨 **README rewrites** — README is user-restricted (per [§ Project state notes](#project-state-notes-project-specific-guardrails)); flag drift, never rewrite.
+
+**Convergence overrides the filter.** If ≥2 lenses independently flag the same item, treat it as load-bearing regardless of whether the item *looks* ceremonial. Convergence is the strongest signal multi-agent review produces; the filter is a per-finding judgment, but convergence is a structural signal that overrides the judgment.
+
+**Canonical example from this project (Phase 1 third-pass review):** Lens 04 endorsed an `assert_never` on a 2-arm Literal as "correct and tight"; Lens 07 called it ceremony with no payoff. The synthesizer picked Lens 07 and removed it. The decision is recorded in `9a7c66b` (original add) and `ad1755d` (removal); the §17.9 entry documents the headbutting resolution. This is the kind of judgment the filter codifies.
+
+### Loop mode (auto-converge) — the default for review re-runs
+
+**When invoked:** Any review re-run after the first pass uses loop mode by default. Trigger phrases: "rerun the review", "rerun in a loop", "review again", "loop the review", "loop until converged", "keep reviewing", or any "review" command following a prior review pass on the same branch with no merge between.
+
+**What changes vs. single-pass mode:**
+
+1. **Section 5 (User decision) collapses into synthesizer decision.** Items that would route to "for user decision" in single-pass mode are decided by the synthesizer in loop mode, applying the [§ Senior-developer judgment filter](#senior-developer-judgment-filter) the same way Objective + Headbutting items are. The user is not asked between passes.
+2. **The user-decision-item recommendation IS the decision.** The single-pass rule "include my recommendation, then ask the user" becomes "make the decision, apply it, record it in §17.N". If the recommendation was "defer", record the defer with rationale (no commit needed); if "apply", make the commit.
+3. **Per-pass output is compact.** Loop mode does NOT emit the full 6-section synthesis report between passes. After each pass, emit a 1-paragraph status (pass N: K fixes applied + commit SHAs + filtered/dropped count) so the user can interrupt mid-loop if they want. The full 6-section report is reserved for the final pass (termination).
+
+**Termination condition.** The loop terminates when a panel pass produces zero commits to the branch. Specifically:
+
+- 20 lenses run.
+- Synthesizer applies the senior-dev filter.
+- After filter, both the Objective bucket AND the (now-self-decided) User-decision bucket are empty (or all entries are "defer with rationale" — no actual code/doc changes).
+- The deferred section may still have entries (real later-phase blockers); those don't block termination.
+
+**Max iteration cap: 5 passes.** If the loop hasn't converged in 5 passes, stop and report. The most likely cause of non-convergence at that point is the filter being too loose — one or more "filter-out" categories needs to be added based on what's being repeatedly surfaced.
+
+**Per-pass mechanics within the loop:**
+
+1. Pass starts: get current `HEAD_SHA`, capture in pass log.
+2. Dispatch all 20 lenses in a single message with `run_in_background: true`, prompts unchanged from single-pass.
+3. Wait for all 20 to return.
+4. Synthesize internally: apply filter, partition into Objective / Headbutting / 4a / 4b / (self-decided user-decision).
+5. Apply all Objective + Headbutting + self-decided-apply items as atomic commits.
+6. Run the full local verification gate.
+7. Push.
+8. Compact status line: "Pass N: M commits applied, K filtered out, deferred D items. New HEAD: <sha>. Continuing." OR "Pass N: 0 commits. CONVERGED."
+9. If converged or pass count == 5, emit the final 6-section report. Else loop.
+
+**Final report emitted only after termination** includes the per-pass commit log (so the user can see what shipped across the whole loop), the standard 6 sections rolled up over all passes, and a "Loop convergence" footer noting iteration count and the reason for termination (zero-changes or max-cap-hit).
 
 **The default: review runs on the CURRENT branch — everything built in the current phase. Fixes land on the CURRENT branch.** This is true for both the auto-fired phase-PR self-review and any manual "review this PR" / "review the branch" invocation. The diff under review is `origin/main..HEAD` — i.e., every commit the current branch added on top of `main`, which IS the phase's full body of work. The 20 lenses see the whole phase as a unit; the synthesizer's fix-now items become commits on the same branch you are currently on. **Do NOT cut a separate branch.**
 
