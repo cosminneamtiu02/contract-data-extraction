@@ -402,25 +402,25 @@ The cosmetic-always-apply rule above guards against complacency on small fixes t
 
 **HEAD/BASE target rule (carries over from §17.19 pass-target rule, restated for cycle terminology):** The first cycle of a fresh review against `main` targets `origin/main` (HEAD=origin/main). Every subsequent cycle on the same fix branch targets the **current fix branch HEAD** (with prior cycles' commits on top), NOT `origin/main` again. BASE_SHA stays at the cycle-1 origin/main SHA so each cycle sees the full cumulative body of work since main as if seeing it fresh.
 
-**Per-pass mechanics within the loop:**
+**Per-cycle mechanics within the auto-converge loop:**
 
-1. Pass starts: get current `HEAD_SHA`, capture in pass log.
-2. Dispatch all 20 lenses in a single message with `run_in_background: true`, prompts unchanged from single-pass.
+1. Cycle starts: get current `HEAD_SHA`, capture in cycle log.
+2. Dispatch all 20 lenses in a single message with `run_in_background: true`, prompts unchanged from a stand-alone single-cycle invocation.
 3. Wait for all 20 to return.
 4. Synthesize internally: apply filter, partition into Objective / Headbutting / 4a / 4b / (self-decided user-decision).
 5. Apply fixes via the [§ Parallel fix-dispatch pattern](#parallel-fix-dispatch-pattern) below — non-overlapping fixes fire in parallel via `Agent` subagents, file-conflicting fixes serialize across layers.
 6. Run the full local verification gate.
 7. Push.
 8. **Compact status line** with mandatory components (in this order):
-   - `Pass N: M commits applied` (raw count of commits landed this pass, includes the §17.N audit entry but not lockfile-companion commits)
+   - `Cycle N: M commits applied` (raw count of commits landed this cycle, includes the §17.N audit entry but not lockfile-companion commits)
    - `M fixes total (X Critical / Y Important / Z Minor)` — severity-bucketed count of distinct lens-derived findings applied, using the lens's own severity ratings as reported in the panel output
    - `Ship-ready: A/20 Yes, B/20 With fixes` (count of lens verdicts across the 20 panel agents; if any lens stalled, note it separately as `C stalled`)
    - `K filtered out, D deferred` (counts of items routed to filter-skip and Deferred-4a/4b respectively)
    - `New HEAD: <sha>. Continuing.` OR `New HEAD unchanged. CONVERGED.` (the convergence signal)
-   - Optional one-line callout if any item was promoted from a previous Deferred entry or reverses a prior-pass decision.
+   - Optional one-line callout if any item was promoted from a previous Deferred entry or reverses a prior-cycle decision.
 
-   This compact line is the user's only between-pass output; do not emit the full 6-section synthesis report between passes — that is reserved for the terminal pass (zero-commits or max-cap-hit).
-9. If converged or pass count == 5, emit the final 6-section report. Else loop.
+   This compact line is the user's only between-cycle output; do not emit the full 6-section synthesis report between cycles — that is reserved for the terminal cycle (zero-commits or max-cap-hit).
+9. If converged or cycle count == 5, emit the final 6-section report. Else loop.
 
 ### Parallel fix-dispatch pattern
 
@@ -468,11 +468,11 @@ After all layers commit, perform the §17.N spec deviation entry as the final co
 
 **Why this matters.** A pass with 14 fixes spread across 8 files, if applied serially, takes the wall-clock sum of every fix. Partitioned into 3-4 layers with ~4 parallel agents per layer, the wall-clock collapses to the layer count × the slowest agent — typically 4-6× faster. The git history is identical (same atomic per-concern commits), the verification gate runs identically (after each layer), and the §17.N entry is identical (it just lists SHAs).
 
-**Per-pass agent prompt template (fix-application):**
+**Per-cycle agent prompt template (fix-application):**
 
 ```
 You are implementing one panel-derived fix for the contract-data-extraction
-project's Phase N review pass-N. Working directory:
+project's Phase N review cycle-N. Working directory:
 /Users/cosminneamtiu/Work/contract-data-extraction. Current branch:
 <phase-branch> (e.g. phase-N-<slug>).
 
@@ -498,7 +498,7 @@ them would race):
    `unset VIRTUAL_ENV && uv run ruff check <your-file>` for source).
 4. `git add` ONLY your owned files; do not `git add -A` or `git add .`.
 5. Commit with the message below (HEREDOC, with Co-Authored-By footer).
-6. Do NOT push — the main conversation pushes the whole branch at pass end.
+6. Do NOT push — the main conversation pushes the whole branch at cycle end.
 
 **Commit message (use HEREDOC verbatim):**
 {full subject + body + footer}
@@ -508,7 +508,7 @@ deviation from this prompt with a one-line rationale. If you couldn't make
 the change, report the blocker and DO NOT commit partial work.
 ```
 
-**Final report emitted only after termination** includes the per-pass commit log (so the user can see what shipped across the whole loop), the standard 6 sections rolled up over all passes, and a "Loop convergence" footer noting iteration count and the reason for termination (zero-changes or max-cap-hit).
+**Final report emitted only after termination** includes the per-cycle commit log (so the user can see what shipped across the whole loop), the standard 6 sections rolled up over all cycles, and a "Loop convergence" footer noting iteration count and the reason for termination (zero-changes or max-cap-hit).
 
 **The default: review runs on the CURRENT branch — everything built in the current phase. Fixes land on the CURRENT branch.** This is true for both the auto-fired phase-PR self-review and any manual "review this PR" / "review the branch" invocation. The diff under review is `origin/main..HEAD` — i.e., every commit the current branch added on top of `main`, which IS the phase's full body of work. The 20 lenses see the whole phase as a unit; the synthesizer's fix-now items become commits on the same branch you are currently on. **Do NOT cut a separate branch.**
 
