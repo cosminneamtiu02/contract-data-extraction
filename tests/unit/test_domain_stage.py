@@ -28,9 +28,13 @@ def test_stage_state_has_expected_member_values() -> None:
     }
 
 
-def test_stage_state_str_coerces_to_value() -> None:
-    # StrEnum overrides __str__ so log lines and f-strings stay clean.
+def test_stage_state_str_produces_value() -> None:
+    # StrEnum overrides __str__ so log lines stay clean.
     assert str(StageState.IN_PROGRESS) == "in_progress"
+
+
+def test_stage_state_fstring_interpolation_produces_value() -> None:
+    # StrEnum overrides __format__ so f-string interpolation stays clean.
     assert f"{StageState.DONE}" == "done"
 
 
