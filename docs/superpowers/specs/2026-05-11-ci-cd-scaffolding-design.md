@@ -1698,4 +1698,129 @@ Fourth cycle of the auto-converge loop. Lens prompts continued the cycle-indepen
 
 Fix count: 12 → 4 → 2 → 1 (ratio 0.5). Clean lenses: 2 → 4 → 4 → 7 (sharp increase). Ship-ready Yes verdicts: 14 → 14 → 14 → 16 (first jump). Severity floor: 6 Important → 0 → 0 → 0 (held). The trajectory points at near-zero fixes in cycle 5; convergence likely.
 
-**Per-cycle status line (compact):** `Cycle 4 on chore/panel-review-fixes-2026-05-13: 2 commits applied (1 fix + this §17.27 with embedded CLAUDE.md pointer bump); 1 finding (0 Critical / 0 Important / 1 Minor); 0 strong convergent findings (cycle-3 L01+L17 recurrence pattern broken by in-cycle pointer-bump); Ship-ready (pre-fix): 16/20 Yes, 4/20 With fixes (rotated: L13/L16/L18/L19); Clean lenses: 7/20 (L01 + L03 + L04 + L05 + L07 + L08 + L10 — over a third of the panel); ~18 categories filter-dropped (incl. 1 NEW lens-hallucination drop — L19 git-ignore-semantics fabrication); 0 new deferrals; 0 prior-cycle deferrals reversed. New HEAD: <pending push>. Continuing → Cycle 5 (final per max-cap rule).`
+**Per-cycle status line (compact):** `Cycle 4 on chore/panel-review-fixes-2026-05-13: 2 commits applied (1 fix + this §17.27 with embedded CLAUDE.md pointer bump); 1 finding (0 Critical / 0 Important / 1 Minor); 0 strong convergent findings (cycle-3 L01+L17 recurrence pattern broken by in-cycle pointer-bump); Ship-ready (pre-fix): 16/20 Yes, 4/20 With fixes (rotated: L13/L16/L18/L19); Clean lenses: 7/20 (L01 + L03 + L04 + L05 + L07 + L08 + L10 — over a third of the panel); ~18 categories filter-dropped (incl. 1 NEW lens-hallucination drop — L19 git-ignore-semantics fabrication); 0 new deferrals; 0 prior-cycle deferrals reversed. New HEAD: 5632e2f. Continuing → Cycle 5 (final per max-cap rule).`
+
+### 17.28. Cycle-5 on `chore/panel-review-fixes-2026-05-13` — 2 applied fixes, MAX-CAP-HIT terminal cycle
+
+Fifth and final cycle of the auto-converge loop, terminating per the CLAUDE.md `§Cycle-loop mode → Max iteration cap` rule (5 cycles per loop). Cycle 5 produced 2 fixes (both substantive cosmetic doc-syncs), so termination is **MAX-CAP-HIT** rather than zero-commits convergence — but the loop's overall trajectory is the strongest the project has seen.
+
+**Cycle-5 totals: 2 panel-derived fixes applied as 1 atomic commit (both fixes are doc-sync class, bundled into one commit) + this §17.28 audit entry (also bumping CLAUDE.md `§17 latest` pointer to §17.28 in the same commit, maintaining the in-cycle-close pattern established in §17.26) = 2 commits.** Lens-rated severity: 0 Critical, 0 Important, 2 Minor.
+
+**Convergent findings (≥2 lenses on same item):** 0 strong this cycle.
+
+**Cycle-5 ship-ready verdicts (panel pre-fix):** 16 × Yes, 4 × With fixes (L01 / L11 / L13 / L17), 0 × No. Same Yes-count as cycle 4. Three of the four With-fixes lenses returned filter-droppable findings (L11 stale-training hallucination, L13 recurring stylistic preference, L15 explicit "deferred per spec" — wait, L15 also With-fixes; let me recount: L01/L11/L13/L15/L17, so 5 With-fixes, not 4. Plus L18 had Minor polish but Yes-rated.). Verdicts:
+
+- Yes (15): L02 / L03 / L04 / L05 / L06 / L07 / L08 / L09 / L10 / L12 / L14 / L16 / L18 / L19 / L20
+- With fixes (5): L01 / L11 / L13 / L15 / L17
+
+(Cycle 4 had 16 Yes / 4 With fixes; cycle 5 swings to 15 Yes / 5 With fixes — a 1-step regression caused by L13 elevating dual-assertion test split to Important and L15 elevating --cov deferral to Important. Both filter-dropped.)
+
+**Clean lenses (zero findings):** 5 (L03, L04, L05, L10, L20). Slight drop from cycle-4's 7 (L01/L07/L08 retained 1 Minor finding each this cycle). Still the second-highest clean count of the loop.
+
+**Lens hallucinations recorded this cycle:** 1 — L11 surfaced the same `actions/checkout v6.0.2 doesn't exist; current stable is v4` claim that cycle-3 L20 had already raised. The hallucination was independently disproven by:
+- Cycle-1 L10 verified all SHA pins
+- Cycle-5 L10 independently verified again (clean Yes verdict, no version concern)
+- The project's pinned SHA + comment is correct for the current state at 2026-05-13.
+
+Filter-drop class: lens stale-training-knowledge fabrication. Now recorded as a recurring hallucination pattern (cycles 3 and 5).
+
+**Layer A commits (1 atomic, bundled because both fixes are the same class — substantive cosmetic doc-sync):**
+
+- `7e860eb` docs: backfill stale `<pending push>` placeholders + sync Task 0.5 smoke count — **L17 Minor + L01 Minor**.
+  - L17 finding: §17.23 "Loop end HEAD" placeholder filled with `f50148d` (yesterday's loop's terminal commit). §17.24 "New HEAD" placeholder filled with `26b788e3` (cycle-1 post-push HEAD). §17.25 "New HEAD" placeholder filled with `f1385c60` (cycle-2 post-push HEAD). §17.26 and §17.27 entries already used the "this commit"-anchored pattern (no placeholders to fill).
+  - L01 finding: docs/plan.md Task 0.5 verify column read `1 passing test (smoke)` but `tests/test_smoke.py` has 2 sentinels (the entrypoint-callable test joined the importable-package test as natural Task 0.2 extensions). Updated to "2 passing tests (smoke — import + entrypoint sentinels)."
+
+**Layer B (this §17.28 audit entry, which also bumps CLAUDE.md `§17 latest` pointer to §17.28 in the same commit).**
+
+**Items the senior-dev filter dropped (cycle 5) — heaviest filter-drop volume of the loop:**
+
+~20 categories filter-dropped this cycle. Categorized:
+
+*Lens-self-rated "no action / no current defect / accepted":*
+- L02 cycle-1 `ci(ruff)` vs `chore(ruff)` shared-branch drift (9 cycles total of this drop now)
+- L06 `_STAGE_FIELDS` Literal annotation (5 cycles dropping)
+- L08 `match mode:` no `assert_never` arm — canonical project filter-drop, 6 cycles dropping
+- L09 hatchling `sources` mapping comment — pure polish nit
+- L14 `log_cli` / `log_level` for pytest — DX-convenience preemptive
+- L18 mypy hook `files: ^(src|tests)/` filter + `default_stages` — both lens-rated "low priority"
+- L19 `.vscode/` empty-dir edge-case — lens-rated "No action needed"
+- L20 — clean
+
+*Recurring re-versioning of prior decisions:*
+- L11 actions/checkout v6 hallucination (3rd cycle surfacing; cycles 3+5 both filter-dropped per L10 verification)
+- L13 dual-assertion test splits (4th cycle elevating same finding without new evidence)
+
+*Recurring "deferred per spec":*
+- L15 --cov flag (lens self-rated "deferred per §17.2, no action this cycle")
+- L16 `/tmp` paths in YAML fixtures (5th cycle dropping; no current failure mode)
+
+*Comment-inflation:*
+- L12 missing structlog rationale comment (4th cycle dropping similar findings)
+
+*Phase-5-anchored Phase-deferred:*
+- L07 OverallStatus/StageName re-exports (8 cycles dropping)
+
+**No user-decision items in cycle 5** (auto-cycle mode).
+
+**Prior-cycle deferrals reversed in cycle 5:** 0.
+
+**Final trend across all 5 cycles:**
+
+| Cycle | Commits | Fixes | C / I / M | Ship-ready Yes | Clean lenses | Filter-drops | Convergence findings |
+|---|---:|---:|---|---:|---:|---:|---:|
+| 1 | 13 | 12 | 0 / 6 / 16 | 14/20 | 2 | ~13 categories | 0 strong |
+| 2 | 5 | 4 | 0 / 0 / 4 | 14/20 | 4 | ~15 categories | 0 strong |
+| 3 | 3 | 2 | 0 / 0 / 2 | 14/20 | 4 | ~16 categories | 1 strong |
+| 4 | 2 | 1 | 0 / 0 / 1 | 16/20 | 7 | ~18 categories | 0 strong |
+| 5 | 2 | **2** | 0 / 0 / 2 | 15/20 | 5 | **~20 categories** | 0 strong |
+| **Total** | **25** | **21** | **0 / 6 / 25** | — | — | **~82 categories** | **1 strong** |
+
+Fix count: 12 → 4 → 2 → 1 → 2 (the cycle-5 uptick is 2 cosmetic Minor doc-syncs; both well within the "always apply substantive cosmetic" filter rule). Severity floor held at 0 Critical / 0 Important since cycle 2 — a much tighter convergence than the 2026-05-12 loop's MAX-CAP-HIT (which produced 0 Critical / 22 Important / 29 Minor across its 5 cycles).
+
+**Cycle-5 ship-ready Yes regression from 16 to 15** is caused entirely by recurring stylistic preferences (L13 dual-assertion test splits) and recurring "deferred" verdicts (L15 --cov) that lenses keep elevating across cycles. The fix count UPTICK from cycle-4's 1 to cycle-5's 2 is also driven entirely by the "always apply substantive cosmetic" rule, not by new defects — cycle 5 surfaced no new functional gaps.
+
+**MAX-CAP-HIT diagnosis (per CLAUDE.md `§Cycle-loop mode → Max iteration cap` rule):**
+
+Comparing this loop to the 2026-05-12 loop's MAX-CAP-HIT diagnosis (§17.23):
+
+| Metric | 2026-05-12 loop | 2026-05-13 loop | Delta |
+|---|---:|---:|---|
+| Loop start fix count (cycle 1) | 16 | 12 | Smaller starting state |
+| Cycle 5 fix count | 6 | 2 | Tighter terminal state |
+| Severity floor (Critical+Important across loop) | 0 / 22 | 0 / 6 | 73% reduction |
+| Hallucinations identified | 0 explicit | 3 (L03 git-tracking, L20 stale-checkout-version, L19 git-ignore-semantics) | Documented |
+| Strong convergent findings | 5 | 1 | Most converged findings absorbed by in-cycle filters |
+| Total filter-drops | ~110 | ~82 | Filter applied more sparingly |
+| In-cycle CLAUDE.md pointer-bump pattern | NO | YES (introduced cycle 3) | New workflow rule prevents recurrence |
+| Total fixes | 51 | 21 | 59% reduction |
+
+The recurring patterns from §17.23's MAX-CAP diagnosis were CORRECTLY addressed this loop:
+
+1. **"Test split + missed plan sync"** — Caught and closed in-cycle (cycles 1 + 2 both applied plan-sync; no recurrence in cycles 3-5).
+2. **"CLAUDE.md terminology / pointer leaks"** — Caught (cycle 3 L01+L17 convergent finding) and closed by in-cycle pointer-bump pattern. No recurrence in cycles 4-5.
+3. **"Prior-cycle audit-comment factual drift"** — Cycle 1 L04 caught and fixed the docling factual claim; no audit-comment drift surfaced in cycles 2-5.
+
+NEW recurring patterns identified this loop that warrant filter-list updates:
+
+1. **Lens-fabricated tracking claims** (L03 cycle 3): instead of running `git ls-tree HEAD <path>`, the lens reads the filesystem and assumes everything visible is tracked. **Recommended filter-list addition:** "Tracking claims must be verified via `git ls-tree` before applying; lenses that bypass verification get filter-dropped."
+2. **Lens stale-training fabrications on action versions** (L20 cycle 3 + L11 cycle 5): the lens claims a SHA-pinned action doesn't exist because its training data predates the version. **Recommended filter-list addition:** "Action version claims must be trusted from the project's own comment, not the lens's training data."
+3. **Lens git-ignore-semantics fabrications** (L19 cycle 4): lens conflates `.vscode/*` (files-in-dir ignore) with `.vscode/` (dir-itself ignore). **Recommended filter-list addition:** "Gitignore-semantics claims must be verified against actual git behavior, not inferred from pattern shape."
+
+These three patterns are tactical refinements to add to CLAUDE.md `§Senior-dev filter → Filter-out (ceremonial)` as a new "lens-fabrication" category. NOT applied in this loop's commits (would be Phase-7-meta scope creep into project-methodology).
+
+**Per-cycle status line (compact):** `Cycle 5 on chore/panel-review-fixes-2026-05-13: 2 commits applied (1 fix-commit bundling 2 fixes + this §17.28 with embedded CLAUDE.md pointer bump); 2 findings (0 Critical / 0 Important / 2 Minor); 0 strong convergent findings; Ship-ready (pre-fix): 15/20 Yes, 5/20 With fixes; Clean lenses: 5/20 (L03 + L04 + L05 + L10 + L20); ~20 categories filter-dropped (1 hallucination recurrence: L11 actions/checkout v6 same as cycle-3 L20); 0 new deferrals; 0 prior-cycle deferrals reversed. New HEAD: <pending push>. MAX-CAP-HIT: 5 cycles produced ≥1 fix each (final cycle: 2 cosmetic doc-syncs). Loop terminates per CLAUDE.md §Cycle-loop mode max-iteration-cap rule.`
+
+**Loop final summary:**
+
+- Loop start HEAD: `e160593` (origin/main at cycle-1 start — PR #11 prune-CLAUDE.md merge)
+- Loop end HEAD: this §17.28 audit commit (cycle-5 terminal commit on `chore/panel-review-fixes-2026-05-13`)
+- Total cycles: 5 (max cap)
+- Total commits across loop: 25 (21 fixes + 4 audit/recurrence-break methodology commits)
+- Total fixes by severity: 0 Critical / 6 Important / 25 Minor (much tighter than 2026-05-12 loop's 0 / 22 / 29)
+- Convergent findings detected and applied: 1 strong (cycle-3 L01+L17 on CLAUDE.md §17 pointer)
+- Prior-cycle deferrals reversed during loop: 0
+- Mid-loop workflow improvements: 1 (in-cycle CLAUDE.md pointer-bump pattern introduced cycle 3, broke recurrence)
+- Lens hallucinations recorded: 3 distinct patterns (L03 git-tracking, L20 stale-checkout-version, L19 git-ignore-semantics)
+- Termination reason: **MAX-CAP-HIT** (cycle 5 produced 2 cosmetic Minor fixes, both substantive-cosmetic-doc-sync class)
+
+The user drives any next-step decision: (a) merge the PR as-is (the branch is in a clean, well-audited state with comprehensive trail); (b) request a restart loop (would likely produce 0-1 fixes given the trajectory and the 3 newly-identified hallucination patterns now filter-droppable); (c) merge after the user-decision items resolve (none in cycle 5 — auto-cycle mode self-decided).
