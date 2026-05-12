@@ -15,7 +15,10 @@ dependencies = [
     "pydantic>=2.10",
     "pydantic-settings>=2.6",
     "structlog>=25.0",
-    "ollama>=0.4",
+    # Floor tracks the locked minor (0.6.2); ollama is pre-1.0 where every
+    # minor is breaking (0.4→0.5: async streaming overhaul; 0.5→0.6: response
+    # model type changes). Phase 3 LLM worker targets the 0.6.x async API.
+    "ollama>=0.6",
     "docling>=2.20",
     "rapidocr-onnxruntime>=1.4",
     "modelscope>=1.20",
