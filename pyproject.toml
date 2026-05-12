@@ -92,14 +92,30 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-addopts = ["--strict-markers", "--strict-config", "-ra"]
+# `--import-mode=importlib`: with `tests/__init__.py` present, pytest's default
+# `prepend` mode imports test files as `tests.unit.test_*` AND can re-import
+# them under the filesystem path when a file is run directly with
+# `pytest path/to/test.py`. The dual-import causes silent fixture-identity bugs.
+# `importlib` mode imports each test module once under a stable name. Passed via
+# addopts because pytest 9.x doesn't accept `import_mode` as an ini option.
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "-ra",
+    "--import-mode=importlib",
+]
 # Pre-empt --strict-markers footgun: register the empty marker list so the
 # first custom marker added in a later phase fails loudly until it's listed.
 markers = []
 # DeprecationWarnings are errors by default — a Phase 2/3 dependency that
 # starts emitting deprecation noise will surface before it silently rots the
 # test signal. Specific noisy deps can add narrow ignores when needed.
-filterwarnings = ["error::DeprecationWarning"]
+# PytestUnraisableExceptionWarning errors out on leaked exceptions from async
+# tasks — forward-looking for Phase 2-4 worker code that owns asyncio.Tasks.
+filterwarnings = [
+    "error::DeprecationWarning",
+    "error::pytest.PytestUnraisableExceptionWarning",
+]
 
 [tool.coverage.run]
 source = ["src/extraction_service"]

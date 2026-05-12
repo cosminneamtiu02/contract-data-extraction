@@ -18,6 +18,7 @@ so it tolerates both forward-leaks (prior test left state) and
 backward-leaks (current test raised before its own cleanup).
 """
 
+import os
 from collections.abc import Iterator
 
 import pytest
@@ -37,23 +38,15 @@ def _reset_structlog_state() -> Iterator[None]:
 # (Lens 14 + Lens 16 convergent finding): isolating EXTRACTION_* env vars is a
 # project-wide concern, not a Settings-specific one. Future tests that
 # construct Settings (Phase 5 app startup) can request `isolated_env` directly.
-_EXTRACTION_ENV_VARS = (
-    "EXTRACTION_MODE",
-    "EXTRACTION_PORT",
-    "EXTRACTION_MODEL",
-    "EXTRACTION_NUM_PARALLEL",
-    "EXTRACTION_NUM_CTX",
-    "EXTRACTION_INTAKE_QUEUE_SIZE",
-    "EXTRACTION_INTERSTAGE_QUEUE_SIZE",
-    "EXTRACTION_IDLE_SHUTDOWN_SECONDS",
-    "EXTRACTION_MAX_RETRIES",
-    "EXTRACTION_RUN_CONFIG",
-)
+_EXTRACTION_ENV_PREFIX = "EXTRACTION_"
 
 
 @pytest.fixture
 def isolated_env(monkeypatch: pytest.MonkeyPatch) -> pytest.MonkeyPatch:
-    """Clears all EXTRACTION_* env vars at test entry; auto-restores at exit."""
-    for var in _EXTRACTION_ENV_VARS:
+    """Clears every ``EXTRACTION_*`` env var at test entry; monkeypatch auto-
+    restores at exit. Scans ``os.environ`` dynamically rather than holding a
+    static name list, so a Phase 5+ Settings field addition auto-extends the
+    clear set without conftest maintenance."""
+    for var in [k for k in os.environ if k.startswith(_EXTRACTION_ENV_PREFIX)]:
         monkeypatch.delenv(var, raising=False)
     return monkeypatch
