@@ -11,11 +11,18 @@ The schema uses ``extra="forbid"`` on every sub-model so a misspelled key like
 
 from pathlib import Path
 from textwrap import dedent
+from typing import get_args
 
 import pytest
+import yaml
 from pydantic import ValidationError
 
-from extraction_service.config.run_config import RunConfig, load_run_config
+from extraction_service.config.run_config import (
+    RetryOnCode,
+    RunConfig,
+    load_run_config,
+)
+from extraction_service.domain import errors as errors_module
 
 
 def _write_yaml(tmp_path: Path, body: str) -> Path:
@@ -174,7 +181,8 @@ def test_load_yaml_rejects_retry_on_code_that_is_not_a_known_error_code(
         load_run_config(cfg)
 
 
-def test_load_yaml_accepts_all_documented_retry_codes(tmp_path: Path) -> None:
+def test_load_yaml_accepts_all_documented_llm_retry_codes(tmp_path: Path) -> None:
+    """All three LLM-side codes are valid retry triggers (plan §3.3)."""
     cfg = _write_yaml(
         tmp_path,
         """\
@@ -182,8 +190,6 @@ def test_load_yaml_accepts_all_documented_retry_codes(tmp_path: Path) -> None:
           prompt_template_path: /tmp/prompt.txt
         retry:
           retry_on:
-            - ocr_engine_failed
-            - ocr_empty_output
             - llm_failed
             - context_overflow
             - schema_invalid
@@ -195,9 +201,79 @@ def test_load_yaml_accepts_all_documented_retry_codes(tmp_path: Path) -> None:
     run_config = load_run_config(cfg)
 
     assert run_config.retry.retry_on == [
-        "ocr_engine_failed",
-        "ocr_empty_output",
         "llm_failed",
         "context_overflow",
         "schema_invalid",
     ]
+
+
+def test_load_yaml_rejects_ocr_engine_failed_in_retry_on(tmp_path: Path) -> None:
+    """OCR errors are deterministic on the input — never retry-eligible (plan §3.3)."""
+    cfg = _write_yaml(
+        tmp_path,
+        """\
+        llm:
+          prompt_template_path: /tmp/prompt.txt
+        retry:
+          retry_on:
+            - ocr_engine_failed
+        paths:
+          domain_model_path: /tmp/schema.json
+        """,
+    )
+
+    with pytest.raises(ValidationError):
+        load_run_config(cfg)
+
+
+def test_load_yaml_rejects_ocr_empty_output_in_retry_on(tmp_path: Path) -> None:
+    cfg = _write_yaml(
+        tmp_path,
+        """\
+        llm:
+          prompt_template_path: /tmp/prompt.txt
+        retry:
+          retry_on:
+            - ocr_empty_output
+        paths:
+          domain_model_path: /tmp/schema.json
+        """,
+    )
+
+    with pytest.raises(ValidationError):
+        load_run_config(cfg)
+
+
+def test_load_yaml_raises_on_malformed_yaml(tmp_path: Path) -> None:
+    """Syntactically broken YAML must raise — Phase 5 startup should see this
+    as a boot-time failure, not a runtime surprise on first request."""
+    cfg = tmp_path / "broken.yaml"
+    cfg.write_text("llm: prompt_template_path: /tmp/p\n  invalid_indent: }: {\n")
+
+    with pytest.raises(yaml.YAMLError):
+        load_run_config(cfg)
+
+
+def test_retry_on_code_literal_mirrors_concrete_extraction_error_codes() -> None:
+    """Drift guard: every concrete ExtractionError subclass's .code must appear
+    in RetryOnCode (minus OCR codes the validator rejects — they're in the
+    Literal for type-completeness, not as valid retry triggers). Conversely
+    every RetryOnCode value must correspond to a concrete subclass code."""
+    concrete_codes: set[str] = set()
+    work: list[type[BaseException]] = list(errors_module.ExtractionError.__subclasses__())
+    while work:
+        cls = work.pop()
+        # Only concrete leaf classes carry retry-actionable codes; intermediates
+        # like OcrError / LlmError carry their own codes too, but for this test
+        # we capture every subclass that has explicitly overridden .code.
+        code = cls.__dict__.get("code")
+        if code is not None:
+            concrete_codes.add(code)
+        work.extend(cls.__subclasses__())
+
+    retry_codes = set(get_args(RetryOnCode))
+    assert concrete_codes == retry_codes, (
+        f"RetryOnCode drifted from ExtractionError hierarchy. "
+        f"Only in errors.py: {concrete_codes - retry_codes}. "
+        f"Only in RetryOnCode: {retry_codes - concrete_codes}."
+    )

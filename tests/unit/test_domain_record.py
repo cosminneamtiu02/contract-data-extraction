@@ -184,3 +184,16 @@ def test_contract_record_round_trips_through_model_dump_json_when_failed() -> No
     assert restored.overall_status == "failed"
     assert restored.current_stage == "data_parsing"
     assert restored.data_parsing.error == err
+
+
+def test_default_contract_record_all_pending_has_intake_as_current_stage() -> None:
+    """``ContractRecord()`` with no factory call yields all-PENDING stages.
+    Production callers go through ``ContractRecord.fresh()``, but the bare
+    constructor reachability is a tripwire: if a future result-store bug
+    produces an unfreshed record, ``current_stage`` correctly points at
+    ``intake`` and ``overall_status`` is ``in_progress``."""
+    record = ContractRecord()
+
+    assert record.intake.state == StageState.PENDING
+    assert record.current_stage == "intake"
+    assert record.overall_status == "in_progress"

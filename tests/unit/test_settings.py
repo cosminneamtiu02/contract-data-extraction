@@ -6,8 +6,9 @@ service at boot, not at first request — tests assert that missing required
 values raise immediately and that field constraints are enforced.
 
 All tests pass ``_env_file=None`` to disable .env discovery so they don't pick
-up a developer's local .env file. The ``isolated_env`` fixture clears all
-EXTRACTION_* env vars at test entry so each test starts from a clean slate.
+up a developer's local .env file. The ``isolated_env`` fixture (defined in
+``tests/conftest.py`` since the Phase 1 panel re-run) clears all EXTRACTION_*
+env vars at test entry so each test starts from a clean slate.
 """
 
 from pathlib import Path
@@ -16,26 +17,6 @@ import pytest
 from pydantic import ValidationError
 
 from extraction_service.settings import Settings
-
-_EXTRACTION_ENV_VARS = (
-    "EXTRACTION_MODE",
-    "EXTRACTION_PORT",
-    "EXTRACTION_MODEL",
-    "EXTRACTION_NUM_PARALLEL",
-    "EXTRACTION_NUM_CTX",
-    "EXTRACTION_INTAKE_QUEUE_SIZE",
-    "EXTRACTION_INTERSTAGE_QUEUE_SIZE",
-    "EXTRACTION_IDLE_SHUTDOWN_SECONDS",
-    "EXTRACTION_MAX_RETRIES",
-    "EXTRACTION_RUN_CONFIG",
-)
-
-
-@pytest.fixture
-def isolated_env(monkeypatch: pytest.MonkeyPatch) -> pytest.MonkeyPatch:
-    for var in _EXTRACTION_ENV_VARS:
-        monkeypatch.delenv(var, raising=False)
-    return monkeypatch
 
 
 def _set_run_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
@@ -122,3 +103,17 @@ def test_settings_rejects_non_positive_port(
 
     with pytest.raises(ValidationError):
         Settings(_env_file=None)
+
+
+@pytest.mark.parametrize("value", [0, 5])
+def test_settings_accepts_max_retries_at_inclusive_bounds(
+    isolated_env: pytest.MonkeyPatch, tmp_path: Path, value: int
+) -> None:
+    """``max_retries`` has constraints ``ge=0, le=5`` — both inclusive bounds
+    must be accepted, not just the interior."""
+    _set_run_config(isolated_env, tmp_path)
+    isolated_env.setenv("EXTRACTION_MAX_RETRIES", str(value))
+
+    settings = Settings(_env_file=None)
+
+    assert settings.max_retries == value

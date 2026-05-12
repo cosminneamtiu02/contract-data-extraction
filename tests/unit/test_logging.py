@@ -75,3 +75,19 @@ def test_configure_logging_carries_contextvars_into_log_events() -> None:
     payload = json.loads(buf.getvalue().strip())
     assert payload["contract_id"] == "ctx-xyz"
     assert payload["stage"] == "ocr"
+
+
+def test_configure_logging_filters_below_info_level() -> None:
+    """``structlog.make_filtering_bound_logger(logging.INFO)`` means
+    ``log.debug(...)`` must produce no output. The only configured-but-untested
+    behavior of configure_logging — locking it in here."""
+    buf = io.StringIO()
+    configure_logging("production", stream=buf)
+
+    log = structlog.get_logger()
+    log.debug("should_not_appear", reason="below_info")
+    log.info("should_appear", reason="at_info")
+
+    output = buf.getvalue()
+    assert "should_not_appear" not in output
+    assert "should_appear" in output

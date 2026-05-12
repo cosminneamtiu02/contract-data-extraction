@@ -58,3 +58,17 @@ def test_contract_job_round_trips_through_model_dump_json() -> None:
     restored = ContractJob.model_validate_json(payload)
 
     assert restored == original
+
+
+def test_contract_job_raises_when_required_field_missing() -> None:
+    """Pydantic must reject construction without ``contract_id`` or ``pdf_bytes``.
+    Phase 5's HTTP intake handler will construct ContractJob from untrusted
+    request payloads — this is the entry-point guard."""
+    with pytest.raises(ValidationError):
+        ContractJob()  # type: ignore[call-arg]  # intentionally invalid for the test
+
+    with pytest.raises(ValidationError):
+        ContractJob(contract_id=uuid4())  # type: ignore[call-arg]
+
+    with pytest.raises(ValidationError):
+        ContractJob(pdf_bytes=b"%PDF-1.4")  # type: ignore[call-arg]

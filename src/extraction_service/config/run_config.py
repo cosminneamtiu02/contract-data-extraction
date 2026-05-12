@@ -15,11 +15,15 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, PositiveInt
+from pydantic import BaseModel, ConfigDict, Field, PositiveInt, field_validator
 
 # Mirrors ExtractionError.code class attributes in extraction_service.domain.errors.
 # Kept as a separate Literal here (rather than importing from errors.py) to avoid
 # a config -> domain dependency and to surface config typos at boot via Pydantic.
+# The base-class sentinel "extraction_error" is intentionally excluded — it is
+# never a concrete retry trigger (catch-all uses subclass codes). A test in
+# tests/unit/test_run_config.py asserts this Literal stays in sync with the
+# concrete ExtractionError subclasses' .code attributes.
 RetryOnCode = Literal[
     "ocr_engine_failed",
     "ocr_empty_output",
@@ -27,6 +31,14 @@ RetryOnCode = Literal[
     "context_overflow",
     "schema_invalid",
 ]
+
+# OCR errors are deterministic on the input (plan §3.3) — retrying them is a
+# config-level mistake. The field_validator on RetryConfig rejects these codes
+# at boot. Keeping them in the Literal preserves type-completeness; the
+# validator is the semantic guard.
+_OCR_RETRY_CODES_REJECTED: frozenset[str] = frozenset(
+    {"ocr_engine_failed", "ocr_empty_output"}
+)
 
 _DEFAULT_RETRY_ON: list[RetryOnCode] = ["llm_failed", "schema_invalid"]
 
@@ -53,11 +65,24 @@ class LlmConfig(BaseModel):
 class RetryConfig(BaseModel):
     """Retry policy for the LLM stage. ``retry_on`` lists error codes that
     trigger a retry; OCR errors are always non-retried (docs/plan.md §3.3).
-    Entries are validated against the ExtractionError code Literal."""
+    Entries are validated against the ExtractionError code Literal AND
+    rejected at boot if any OCR code (deterministic failure) is listed."""
 
     model_config = ConfigDict(extra="forbid")
 
     retry_on: list[RetryOnCode] = Field(default_factory=lambda: list(_DEFAULT_RETRY_ON))
+
+    @field_validator("retry_on")
+    @classmethod
+    def _reject_ocr_codes(cls, codes: list[RetryOnCode]) -> list[RetryOnCode]:
+        invalid = [c for c in codes if c in _OCR_RETRY_CODES_REJECTED]
+        if invalid:
+            msg = (
+                f"retry_on may not contain OCR error codes (deterministic failures per "
+                f"plan §3.3): {sorted(invalid)}"
+            )
+            raise ValueError(msg)
+        return codes
 
 
 class PathsConfig(BaseModel):

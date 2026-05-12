@@ -173,3 +173,14 @@ def test_stage_record_round_trips_through_model_dump_json_when_pending() -> None
     assert restored == original
     assert restored.duration_ms is None
     assert restored.extracted is None
+
+
+def test_stage_record_start_with_default_now_uses_current_time() -> None:
+    """The production call path (``record.start()`` with no argument) must
+    assign a timezone-aware datetime — a future refactor that drops the
+    default would silently leave ``started_at`` at ``None``."""
+    record = StageRecord().start()
+
+    assert record.state == StageState.IN_PROGRESS
+    assert record.started_at is not None
+    assert record.started_at.tzinfo is not None
