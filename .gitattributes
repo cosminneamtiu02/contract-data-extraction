@@ -25,6 +25,13 @@
 *.json text eol=lf
 *.toml text eol=lf
 
+# YAML — pin LF explicitly for parity with *.json/*.toml above. The global
+# `* text=auto eol=lf` heuristic already catches .yml/.yaml on most clones,
+# but explicit pins remove the heuristic dependency (e.g., a workflow file
+# that ever contained a binary-looking byte sequence).
+*.yml text eol=lf
+*.yaml text eol=lf
+
 # Tabular fixtures (text but should not be normalized aggressively).
 *.csv text eol=lf
 *.jsonl text eol=lf
