@@ -77,8 +77,6 @@ target-version = "py313"
 # BLE added 2026-05-12 (Lens 05 pass-7): plan §7 "no silent exception catches"
 # rule needs a linter arm. BLE001 = blind `except Exception`. Zero current
 # violations (Phase 1 has no `except` blocks); covers Phase 2-6 catch-alls.
-# Defense-in-depth: zero current violations in src/; only tests need to raise
-# string-literal exceptions in pytest.raises blocks, handled below.
 # PL (Pylint) added 2026-05-12 per pass-1 review against main (Lens 08): zero
 # PL violations in src/; two test-style false positives (PLR2004 magic numbers
 # in assertions set up inline; PLC0415 non-top-level imports in smoke tests
