@@ -223,4 +223,110 @@ invent a new exception. Recorded in commit `5bf0ee2`.
 | `0d24644` | feat(2.9): wrap OCR failures as OcrError | 2.9 |
 
 Tasks 2.5 dropped (§17.1). Task 2.6 absorbed into 2.4 (§17.2). Future
-panel-review passes appending to this file should use `§17.8`, `§17.9`, etc.
+panel-review passes appending to this file should use `§17.9`, `§17.10`, etc.
+
+---
+
+## §17.8 — Phase 2 PR #10 self-review (single-pass, 20 lenses)
+
+**Pass type:** Single pass. PR #10 was opened as draft after the development
+phase landed. Per the project's two-phase Superpowers flow (Pass 1 dev → Pass
+2 self-review → mark ready), the 20-lens panel fired against
+`e817817..c3cf1d8` (Phase 2's added commits, NOT against current `origin/main`
+which has moved to PR #9's HEAD `96ab536` during this work).
+
+**Verdicts:** 12 of 20 lenses Ship-ready Yes; 8 With fixes; 0 No.
+
+**Convergent finding (3 lenses):** Lenses 11 (CI workflow), 15 (CI test
+execution), and 20 (Workflow/automation gotchas) all flagged the
+pyproject.toml `markers` description text "CI runs them as part of the full
+sweep" as factually wrong — CI does not (and now explicitly will not) run
+slow tests. Triple-lens convergence promoted this comment-drift item to
+load-bearing factual fix.
+
+**Synthesiser-decided headbutting:**
+
+- Lens 15 said the existing env-var-driven slow-test skip is correct; Lens 20
+  said it is fragile and recommended `-m "not slow"` as defense-in-depth.
+  Both correct; synthesiser sided with Lens 20 — added the marker filter to
+  CI's pytest invocation so the slow-test skip no longer depends solely on
+  the env var being unset in the runner environment.
+
+- Lens 13 raised the unspecified contract on `document.pages = {}` and
+  suggested either "test asserts page_count=0" OR "raise OcrError". The
+  synthesiser picked "assert page_count=0" — pinning the current
+  implementation, not changing behaviour. A future iteration that wants to
+  raise on empty pages will see the test fail first and be forced to make
+  the change deliberately.
+
+**Fixes applied this pass (panel-derived, on the same `phase-2-ocr`
+branch):**
+
+| Commit | Subject | Lens(es) | Severity |
+|---|---|---|---|
+| `a4b66b3` | refactor(ocr): use asyncio.to_thread + sync docstrings to assembled state | 08, 17 | Important |
+| `d855107` | test(ocr): pin word_recall metric contract + empty-baseline sentinel | 13 | Important |
+| `7286644` | test(fakes): pin FakeOcrEngine OcrEngine Protocol conformance | 13 | Important |
+| `45e834a` | fix(ci): add `-m "not slow"` + correct pyproject markers comment | 11, 15, 20 (convergence) | Important |
+| `05766a5` | fix(ocr): canonicalise samples dir + drop dead fixture + sync §17 ref | 10, 14, 16, 17 | Important / Minor |
+| `baefb25` | test(ocr): pin extract page_count=0 contract on empty document.pages | 13, 09 | Important / Minor |
+| `d080a40` | docs(panel): fix doc/comment drift surfaced by lenses 04/06/17/19 | 04, 06, 17, 19 | Minor (substantive cosmetic) |
+
+**Deferred — waiting on later-phase code (4a):**
+
+- `scripts/validate_ocr.py` real-corpus validation gate (Phase 6 task 6.2;
+  Lens 01). The plan-text reference to running this script "before declaring
+  Phase 2 done" is an internal plan inconsistency — the same plan's file-tree
+  annotation labels `scripts/` as "Phase 6 — not yet created" and §6.8 task
+  6.2 formally assigns the script's creation to Phase 6. Re-flag in the
+  Phase 6 panel pass if it hasn't landed by then.
+- Phase 3+ factory-test expansion (Lens 13 Minor). The single-arm `match` in
+  `factory.py` is complete for the current closed Literal; when Phase 3 or
+  later broadens `OcrConfig.engine`, the factory test needs a parallel
+  expansion. Will re-trigger naturally at that point.
+- ONNX model integrity check post-`snapshot_download` (Lens 10 Minor).
+  modelscope's own download protocol already verifies wheel integrity; an
+  application-level checksum assertion is a Phase 6 hardening item.
+- `--cov` activation in CI (Lens 15 Important). Phase 0.5's §17.2 deferred
+  the coverage gate to "when non-stub coverage exists". Phase 2 ships
+  non-stub production code, so the deferral condition is technically met,
+  but activating `--cov-fail-under=80` mid-Phase-2 is out of this PR's
+  declared scope. Re-trigger at the next panel pass after this PR merges.
+
+**Deferred — other reasons (4b):**
+
+- `feat(2.3)` and `feat(2.4)` commit-message phrasing ambiguities (Lens 02
+  Importants). The project rule "prefer to create a new commit rather than
+  amending an existing commit" applies; rewriting these would require
+  destructive history edits on a branch about to be squash-merged anyway.
+  The eventual squash subject (chosen by the user at merge time via GitHub
+  UI) supersedes the individual subjects and is the right surface to make
+  precise. No code/doc fix needed in this pass.
+- Lens 03's "docs/plan.md was edited mid-Phase-2" finding (Minor) — **FALSE
+  POSITIVE.** `git diff e817817..c3cf1d8 -- docs/plan.md` is empty; Lens 03
+  misread the git diff range and saw PR #9's main-side changes as if they
+  were on this branch. Demoted in synthesis. No fix.
+- Lens 03's "CLAUDE.md methodology reversal" finding (Minor) — **FALSE
+  POSITIVE** by the same misread. This branch's CLAUDE.md only adds the
+  parallel-per-layer paragraph (5bf0ee2); it does not reverse PR #9's
+  changes because PR #9 isn't yet on this branch's base. Merge-time conflict
+  resolution belongs to the user at GitHub-UI level. Demoted; no fix.
+- Several ceremonial-cosmetic Minors filtered out per the CLAUDE.md
+  senior-dev judgment filter: bare `"docling"` string in test (Lens 06),
+  `from __future__ import annotations` inconsistency across test files
+  (Lens 09), `_ENGINE_NAME` single-use constant inline-vs-keep call (Lens
+  07; synthesiser KEEP — the named constant is informational), README
+  forward-architecture references (Lens 17 — user-restricted, flag only),
+  tag-vs-SHA pinning on external pre-commit repos (Lens 18 — pre-existing
+  from Phase 0.5, out of Phase 2 scope).
+
+**Convergence with project rules:** the senior-dev filter (CLAUDE.md
+"Senior-developer judgment filter") was applied throughout. The triple-lens
+convergence on the pyproject markers comment overrode the
+filter-out-as-ceremonial reading some readers might apply to "just a
+comment" — convergence is the signal the filter cannot override.
+
+**Loop status:** single-pass mode (this is the first review of this branch).
+If a follow-up pass is desired ("rerun the review"), it would target the
+current branch HEAD (now `d080a40`) and use the loop-mode rules from
+CLAUDE.md.
