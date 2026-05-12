@@ -21,7 +21,7 @@ from extraction_service.settings import Settings
 
 def _set_run_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     cfg = tmp_path / "run.yaml"
-    cfg.write_text("placeholder: true\n")
+    cfg.write_text("placeholder: true\n", encoding="utf-8")
     monkeypatch.setenv("EXTRACTION_RUN_CONFIG", str(cfg))
     return cfg
 

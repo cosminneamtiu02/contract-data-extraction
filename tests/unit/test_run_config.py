@@ -27,7 +27,7 @@ from extraction_service.domain import errors as errors_module
 
 def _write_yaml(tmp_path: Path, body: str) -> Path:
     cfg = tmp_path / "run.yaml"
-    cfg.write_text(dedent(body))
+    cfg.write_text(dedent(body), encoding="utf-8")
     return cfg
 
 
@@ -248,7 +248,7 @@ def test_load_yaml_raises_on_malformed_yaml(tmp_path: Path) -> None:
     """Syntactically broken YAML must raise — Phase 5 startup should see this
     as a boot-time failure, not a runtime surprise on first request."""
     cfg = tmp_path / "broken.yaml"
-    cfg.write_text("llm: prompt_template_path: /tmp/p\n  invalid_indent: }: {\n")
+    cfg.write_text("llm: prompt_template_path: /tmp/p\n  invalid_indent: }: {\n", encoding="utf-8")
 
     with pytest.raises(yaml.YAMLError):
         load_run_config(cfg)

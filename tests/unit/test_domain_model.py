@@ -29,7 +29,7 @@ _VALID_SCHEMA = {
 
 def _write_json(tmp_path: Path, payload: object, name: str = "schema.json") -> Path:
     path = tmp_path / name
-    path.write_text(json.dumps(payload))
+    path.write_text(json.dumps(payload), encoding="utf-8")
     return path
 
 
@@ -78,7 +78,7 @@ def test_load_raises_when_file_does_not_exist(tmp_path: Path) -> None:
 
 def test_load_raises_when_file_is_not_valid_json(tmp_path: Path) -> None:
     path = tmp_path / "broken.json"
-    path.write_text("{not valid json,,,")
+    path.write_text("{not valid json,,,", encoding="utf-8")
 
     with pytest.raises(json.JSONDecodeError):
         load_domain_model(path)
