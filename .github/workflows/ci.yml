@@ -65,7 +65,12 @@ jobs:
         run: uv run mypy src tests
 
       - name: Tests
-        run: uv run pytest -q
+        # `-m "not slow"` is belt-and-braces alongside the env-var-driven
+        # auto-skip in tests/ocr/conftest.py: if EXTRACTION_OCR_SAMPLES_DIR
+        # were ever accidentally set at the repo/org level, the slow real-OCR
+        # tests would otherwise trigger modelscope.snapshot_download (~700 MB
+        # of PP-OCRv5 weights) on every CI run with no runner cache.
+        run: uv run pytest -q -m "not slow"
 
       - name: Dependency CVE scan
         # Default pip-audit behavior fails CI on any CVE found in the

@@ -129,7 +129,10 @@ addopts = [
 # Pre-empt --strict-markers footgun: register markers so unknown ones fail
 # loudly under --strict-markers. `slow` marks tests that run real OCR against
 # local sample PDFs (~2-10s per page on M4 CPU); exclude with `-m "not slow"`
-# during fast-feedback dev runs. CI runs them as part of the full sweep.
+# during fast-feedback dev runs. CI auto-skips them: the parametrise hook in
+# tests/ocr/conftest.py yields zero cases when $EXTRACTION_OCR_SAMPLES_DIR
+# is unset (the CI default), so the marker filter is belt-and-braces, not
+# the load-bearing skip — see ci.yml's `-m "not slow"` flag for that.
 markers = [
     "slow: real-OCR tests that require local sample PDFs via $EXTRACTION_OCR_SAMPLES_DIR; not for fast-feedback runs",
 ]
