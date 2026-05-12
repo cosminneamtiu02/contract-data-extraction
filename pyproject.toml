@@ -116,7 +116,13 @@ target-version = "py313"
 # workers will emit log lines and the structlog bridge is exactly where G004
 # anti-patterns would land silently. Zero current violations — same proactive
 # pattern as BLE, ANN, PL.
-select = ["E", "F", "I", "B", "UP", "ASYNC", "PIE", "SIM", "RET", "ARG", "PTH", "TID", "T20", "RUF", "C4", "FURB", "PT", "EM", "TRY", "TCH", "N", "S", "BLE", "PL", "ANN", "G"]
+# DTZ added 2026-05-13 (Lens 08): flake8-datetimez catches `datetime.now()`
+# without `tz=` and `datetime.utcnow()` (deprecated in 3.12, naive in semantics).
+# Active datetime use sites: domain/stage.py and domain/record.py both call
+# `datetime.now(UTC)` correctly today. Phase 2-4 workers will add stage-timing
+# code that is exactly where DTZ violations would land silently. Zero current
+# violations — same proactive pattern as G/BLE/ANN/PL.
+select = ["E", "F", "I", "B", "UP", "ASYNC", "PIE", "SIM", "RET", "ARG", "PTH", "TID", "T20", "RUF", "C4", "FURB", "PT", "EM", "TRY", "TCH", "N", "S", "BLE", "PL", "ANN", "G", "DTZ"]
 ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
