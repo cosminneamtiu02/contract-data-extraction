@@ -8,6 +8,63 @@ Local single-process HTTP service that ingests scanned German legal contracts, O
 
 Read [docs/plan.md](docs/plan.md) for the full architecture and phase-by-phase plan. Phase progress lives in commits and in [docs/superpowers/specs/](docs/superpowers/specs/).
 
+## Phase development methodology — go-to strategy
+
+**When the user asks for phase work** — phrases like "start phase 1", "implement Phase N", "begin phase X", "let's do phase Y", "next phase", or "what's next" when the answer is the next phase per the plan — use the flow below. It applies to every phase in [docs/plan.md §6](docs/plan.md) (Phases 1 → 6; Phase 0 and Phase 0.5 are already shipped on `main`).
+
+### Why this flow
+
+- **The plan IS the spec.** Each phase in [docs/plan.md §6](docs/plan.md) has a numbered task table listing files, RED tests, and GREEN implementations. Re-brainstorming isn't needed.
+- **TDD is rigid for production code.** Invoke `superpowers:test-driven-development` and follow it: no production code without a failing test first. The plan's task table already lists each task's RED test — execute as written.
+- **The PR is the running workspace.** Open it as `--draft` right after the first task's commit, then push subsequent task commits to the same branch. CI fires on every push, so each task gets a fresh `backend-checks` / `darwin-checks` / CodeQL pass before the next one starts. The user can review commits as they arrive instead of waiting for an end-of-phase dump. Mark "ready for review" only when the whole phase is in. **Never merge locally** — see [memory/feedback_pr_workflow.md](../../.claude/projects/-Users-cosminneamtiu-Work-contract-data-extraction/memory/feedback_pr_workflow.md).
+
+### The flow
+
+1. **Identify the phase.** Read its section in [docs/plan.md](docs/plan.md) — §6.3 Phase 1, §6.4 Phase 2, …, §6.8 Phase 6. The task table is the spec.
+
+2. **Sync `main`, cut the branch.** `git checkout main && git pull --ff-only origin main`. Branch name matches the plan's worktree name: `phase-1-domain`, `phase-2-ocr`, `phase-3-llm`, `phase-4-pipeline`, `phase-5-http`, `phase-6-hardening`.
+
+3. **Track tasks with TodoWrite.** One todo per task in the plan table, plus a final todo "Run full local verification gate, then mark PR ready for review."
+
+4. **Invoke `superpowers:test-driven-development` and follow it per task:**
+   - **RED:** write the failing test(s). Split the plan's compact "X and Y and Z" spec into one-behavior-per-test functions.
+   - **Verify RED:** `uv run pytest tests/unit/<file> -v`. Failure must be "feature missing" (e.g., `ModuleNotFoundError`), not a typo.
+   - **GREEN:** minimum code to pass. No future-task anticipation.
+   - **Verify GREEN:** new tests pass AND the whole suite stays green.
+   - **Full local verification gate** (see [§ Verification gate](#verification-gate-all-must-pass-before-commit) below). Strict-mypy or ruff complaints → restructure the test or code; do not sprinkle `# type: ignore` unless it's genuinely the right tool.
+   - **Commit:** `feat(N.M): <subject>` with HEREDOC body + `Co-Authored-By` footer. **One task = one commit.**
+   - **Push to origin.** Each task's push lands on the open PR; CI runs immediately.
+
+5. **After the first task's commit, open the draft PR.** `git push -u origin phase-N-<slug>`, then `gh pr create --draft --title "feat(phase-N): <phase title>" --body "<task checklist + CI checklist>"`. The PR body lists all 9 (or N) tasks with `- [x]` for the one just landed and `- [ ]` for the rest. Update the checklist as subsequent tasks land — the running PR is the user-visible scoreboard.
+
+6. **Subsequent tasks** follow step 4's RED→GREEN→commit→push loop. Each push triggers CI on the PR; verify the four required checks (`backend-checks`, `darwin-checks`, both CodeQL jobs) stay green before starting the next task. If CI goes red on a task, fix that task before adding more commits.
+
+7. **At phase end:** re-run the full local verification gate one more time. Mark the PR ready: `gh pr ready <PR#>`. User merges via the GitHub UI.
+
+### Project-wide best practices to apply uniformly
+
+These survive across phases and override the plan text where they conflict with older wording:
+
+- **`frozen=True` Pydantic models** for value objects ([docs/plan.md §4.11](docs/plan.md)). Nested mutables (e.g., a `dict[str, Any]` metadata field) are *not* deep-frozen — note that in the docstring.
+- **`StrEnum` (Python 3.11+) over `class X(str, Enum)`** for string-typed enums. Cleaner `str()` and f-string output for structlog and JSON, identical Pydantic serialization. The plan text predates `StrEnum`; treat its `(str, Enum)` as shorthand.
+- **`dict[str, Any]` only at IO boundaries** (e.g., `ContractJob.metadata`). Every other domain field is concretely typed.
+- **No `# type: ignore` without a one-line rationale comment** on the same line. Restructure first; ignore only when there's no clean alternative.
+- **Test names describe behavior, not implementation.** `test_contract_job_is_frozen` ✓ ; `test_contract_job_pydantic_config` ✗.
+- **One assertion target per test** — split tests when the plan compactly lists "asserts X, Y, Z."
+
+### Spec deviations
+
+- **Minor deviations** (e.g., `StrEnum` over `(str, Enum)`): note in the commit message body. No spec doc needed.
+- **Material deviations** (changing a phase's exit criteria, skipping a task, swapping a library): create or append to a phase spec deviation log under [docs/superpowers/specs/](docs/superpowers/specs/). Phase 0.5 uses `2026-05-11-ci-cd-scaffolding-design.md §17`; later phases get their own files when needed.
+
+### When NOT to use this methodology
+
+- **One-off fixes outside a phase** — direct branch, no TDD ceremony for trivial doc/config changes.
+- **Panel-review-fix branches** — those follow the [Code review methodology](#code-review-methodology--go-to-strategy) flow (`chore/panel-review-fixes` naming, atomic per-concern commits).
+- **Phase 0 and Phase 0.5** — already shipped.
+
+For everything matching "implement phase N" — default to this flow.
+
 ## Code review methodology — go-to strategy
 
 **When the user asks for a code review** (phrases like "review this", "panel review", "deep review", "review main", "rerun the review", "review the branch"), use the **20-lens parallel panel** described below. Do NOT default to `superpowers:requesting-code-review` (which uses 1 general-purpose agent with a 5-dimension rubric). The single-agent default is shallower; this project's convention is the panel.
