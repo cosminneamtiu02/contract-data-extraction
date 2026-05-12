@@ -1472,3 +1472,58 @@ These three workflow gaps explain why the loop hit the max cap rather than conve
 - Termination reason: **MAX-CAP-HIT** (not zero-commits convergence)
 
 The user drives any next-step decision: (a) request a restart loop (new 5-cycle cap, fresh cycle-1 numbering); (b) merge the PR as-is acknowledging the loop didn't fully converge; (c) implement the workflow fixes identified in the MAX-CAP diagnosis before re-running.
+
+### 17.24. Standalone "review against current main" pass-1 on `chore/panel-review-fixes-2026-05-13` — 12 applied fixes
+
+User-triggered fresh review loop against `origin/main` (post-PR-#11 prune-CLAUDE.md merge). New branch cut from `origin/main`; cycle 1 of an auto-converge loop. The full 20-lens panel inspected the WHOLE STATE at HEAD per the cycle-independence rule (no prior-cycle awareness in lens prompts).
+
+Range: `e160593` (origin/main at cycle-1 start, the PR-#11 prune-CLAUDE.md merge) .. `<this commit's parent>` (HEAD of `chore/panel-review-fixes-2026-05-13` after 12 fix commits, pre-audit).
+
+**Cycle-1 totals: 12 panel-derived fixes applied as 12 atomic commits + this §17.24 audit entry = 13 commits.** Lens-rated severity counts across applied findings: 0 Critical, 6 Important, 16 Minor (some commits roll up multiple lens-rated sub-findings).
+
+**Convergent findings (≥2 lenses on same item):** 0 strong this cycle (L07 Phase-5-re-export + L09 docstring contradiction touched the same module but at orthogonal levels; not load-bearing convergence).
+
+**Cycle-1 ship-ready verdicts (panel pre-fix):** 14 × Yes, 6 × With fixes (L01 / L02 / L08 / L12 / L18 / L19), 0 × No. Total: 20.
+
+**Clean lenses (zero findings):** 2 (L10, L14). L10 (Security & secrets) is the cleanest baseline this project has hit — every SHA pin, CodeQL coverage, baseline state, ruff S arm verified clean. L14 (Pytest infra) is fully wired with both pytest-asyncio 1.x ini keys plus the test-loop-scope companion.
+
+**Layer A commits (12 atomic, applied sequentially in main conversation — file-disjoint partitioning would have permitted parallel dispatch but the per-fix scope was small enough that sequential edits beat dispatch overhead per CLAUDE.md `§Parallel fix-dispatch → When NOT to parallelize`):**
+
+- `c9eb0bb` ci(workflows): harden bash-safety on single-line dependabot steps — **L05 Minor×2**. Two single-line `run:` steps (`dependabot-lockfile-sync.yml:170` `uv lock`, `dependabot-automerge.yml:49` `gh pr merge`) converted to multi-line + `set -euo pipefail` for parity with every other shell block in the repo. Defensive consistency fix; no current defect.
+- `ae10aca` ci(workflows): fold ci.yml concurrency long trailing comment into the block above — **L11 Minor**. Line 20 had a trailing comment longer than 80 chars that wrapped in most editors, obscuring the concurrency `group:` expression. Moved into the multi-line block immediately above.
+- `b708101` ci(workflows): add --tb=short to CI pytest invocations — **L15 Minor**. `-q` truncates failure tracebacks; `--tb=short` restores one-line frames per stack entry so CI failures can be triaged from the log alone without a local re-run. Applied to both backend-checks and darwin-checks.
+- `7fb10dd` chore(types): drop version-specific docling claim from mypy override comment — **L04 Minor**. The `[[tool.mypy.overrides]]` comment said "docling 2.93.0 ships py.typed" — a version-pinned factual claim that becomes stale audit commentary once uv.lock advances. Reworded to "docling ships py.typed (verified at the locked version)" per the §17.23 MAX-CAP-diagnosis filter rule on audit-comment factual drift.
+- `36d7ec3` ci(ruff): add G (flake8-logging-format) family to lint rule set — **L08 Important**. `log_config.py:19` imports `logging` and bridges it into structlog; Phase 2-4 workers will emit log calls through that bridge and `logger.info(f"...")` (G004) plus %-style log calls (G001-G003) are the canonical anti-pattern there. Zero current G violations — same proactive arm-the-rule-family pattern this project applied to BLE / ANN / PL.
+- `8e941b2` chore(deps): bump pre-1.0 floors to track locked minors — **L12 Important×4 + Minor×1**. Five direct runtime deps had floors significantly behind locked minors, violating the project's own "tracks the locked minor" convention applied to ollama and ruff: fastapi `>=0.115` → `>=0.136`, uvicorn `>=0.32` → `>=0.46`, docling `>=2.20` → `>=2.93`, modelscope `>=1.20` → `>=1.36`, httpx `>=0.27` → `>=0.28`. Resolution unchanged — only requires-dist specifier metadata in uv.lock churns; floors now block a fresh-machine `uv sync` from locking materially older API surfaces.
+- `14014de` docs(domain): fix __init__ docstring re-export contradiction — **L09 Minor**. The docstring's opening sentence said "NOT re-exported at this package boundary" then the next sentence acknowledged that OverallStatus/StageName ARE re-exported. Tightened to "Concrete *model* types … are NOT re-exported. The Literal aliases ARE re-exported."
+- `47db60a` docs(config): point LlmConfig docstring at §4.14 instead of §6.5 — **L17 Minor**. The "(docs/plan.md §6.5)" reference pointed at the Phase 3 task table, not the design spec. §4.14 is the Ollama-client section that covers timeout_seconds and LLM config knobs — the accurate cross-reference.
+- `1d5fc5d` test(domain): drop tautological "stores" tests on StageError and ContractJob — **L13 Minor×2**. Five tests asserted that constructing a frozen Pydantic model with a kwarg then reading it back returned the same value — i.e., third-party library behavior, not project behavior. Dropped `test_stage_error_stores_code`, `test_stage_error_stores_description`, `test_contract_job_stores_contract_id`, `test_contract_job_stores_pdf_bytes`, `test_contract_job_stores_metadata`. Frozen-mutation, JSON round-trip, required-field rejection, and default-value tests all retained — no coverage regression. Filter rule "testing third-party library behavior" is on this project's ceremonial-drop list.
+- `a0db572` chore(pre-commit): align pip-audit rationale comment + detect-secrets baseline exclude with CI — **L18 Minor×2**. Two parity gaps with `.github/workflows/ci.yml`: pip-audit hook had `pass_filenames: false` + `always_run: true` without a rationale comment (added 2-line explanation); detect-secrets hook lacked the `.secrets.baseline` exclude that the CI step uses (added `exclude: '^\.secrets\.baseline$'`). Pre-commit and CI now behave symmetrically.
+- `33e102a` chore(repo-hygiene): pin LF on *.yml/*.yaml + clarify .vscode carve-out comment — **L19 Important + Minor**. `.gitattributes` added explicit `*.yml`/`*.yaml` LF pins for parity with *.json/*.toml/*.csv/*.jsonl/*.ipynb (removes a heuristic dependency on `* text=auto eol=lf`). `.gitignore` .vscode carve-out comment reworded — previous wording could mislead a contributor who creates the files into expecting auto-tracking; clarified that the negation only un-ignores and the contributor must `git add` explicitly.
+- `52a67fa` docs(plan): sync §6.3 Tasks 1.1/1.3/1.4 RED-test columns with live test files — **L01 Minor×3**. Closes the "test split + missed plan sync" workflow gap from the §17.23 MAX-CAP diagnosis. Task 1.1 listed 4 tests / file has 6 (post-L13 removal); Task 1.3 listed 20 / file has 28; Task 1.4 listed 3 / file has 19. All three rows now reflect the full live test set, including the `test_stage_record_fail_with_default_now_uses_current_time` residual that §17.23 explicitly called out as unsynced. Also notes the `extracted` field forward-include in the GREEN-impl column (Phase-4 LLM payload slot — see L03 forward-include note below).
+
+**Layer B (this §17.24 audit entry).**
+
+**L03 forward-include note (acknowledged without code change):** `StageRecord.extracted: dict[str, Any] | None = None` (src/extraction_service/domain/stage.py:72) is technically Phase-4 scope per docs/plan.md §6.3 Task 1.3 (which spec'd "state, started_at, completed_at, duration_ms, error" only). The field is `None` by default and harmless until Phase 4's `data_parsing` worker populates it; the cycle-1 Task 1.3 GREEN-impl column now explicitly mentions this forward-include with a §17.24 anchor. No removal: the test suite (`test_stage_record_complete_accepts_extracted_payload`, `test_stage_record_complete_defaults_extracted_to_none`) already exercises the slot and removing the field would churn 2 tests for no win.
+
+**Items the senior-dev filter dropped (cycle 1):**
+
+Recurring filter-drops by category (with prior-loop cycle-count for each pattern that has been re-flagged):
+
+- **`match mode:` no `case _:` assert_never** (L05): explicit filter-drop per senior-dev rule. **6 cycles total** including this one — canonical filter-out category working as designed.
+- **Pre-commit `rev:` tag-vs-SHA** (L10): accepted community convention per §17.9. Not flagged this cycle (lens correctly stayed within scope).
+- **`darwin-checks` smoke-only scope** (L15): accepted §17.10 / §17.11 deferral. Lens explicitly self-noted the scope as documented and intentional.
+- **Coverage gate / JUnit XML / Python version matrix absence** (L15): accepted §17.2 / §17.9 / §17.11 deferrals. Lens self-noted as deferred (no re-flag).
+- **L02 commit-message type corrections on already-pushed commits** (L02): force-push-of-shared-branch gate. **5 cycles total** of re-flag + drop, now including the `96ab536` cycle-3 merge.
+- **OverallStatus/StageName re-export with no Phase 5 caller** (L07): Phase 5 wait. **6 cycles total** of re-flag + drop. The re-export remains valid forward-anchor.
+- **`_STAGE_FIELDS` Literal-annotation readability nit** (L06): lens self-rated "no action required."
+- **`COM` trailing-comma family** (L08): accepted no-current-violation, lens self-rated "low-stakes either way."
+- **`/tmp/*.txt`/`*.json` literals in YAML fixtures** (L16): preemptive tightening with no current race; cost ~20 lines for a future-proof against a hypothetical loader revision. Filter rule "preemptive tightenings with no current violation AND no plausible future violation in scope" applies.
+- **`mypy → pre-push` stage migration** (L18 Important): CLAUDE.md `§Triage rules → DEFER ONLY` explicitly lists "mypy → pre-push stage" as the deferred-until-codebase-is-large-enough class. Filter-drop with documented project rule.
+- **`PathsConfig` "will grow" speculation comment** (L07): accepted design-intent note; the sub-model is a deliberate design choice, not dead code.
+- **`.github/CODEOWNERS` wildcard granularity** (L19): lens self-rated "no change required at current team size."
+- **CodeQL default query suite vs `security-extended`** (L20): documented day-one choice per workflow comment; revisitable when signal-to-noise becomes problematic but not a defect.
+
+**No user-decision items in cycle 1** (auto-cycle mode per CLAUDE.md `§Cycle-loop mode`).
+
+**Per-cycle status line (compact):** `Cycle 1 on chore/panel-review-fixes-2026-05-13: 13 commits applied (12 fixes + this §17.24); 22 findings (0 Critical / 6 Important / 16 Minor); 0 strong convergent findings; Ship-ready (pre-fix): 14/20 Yes, 6/20 With fixes; Clean lenses: 2/20 (L10, L14); ~13 categories filter-dropped (recurring patterns); 0 new deferrals; 0 prior-cycle deferrals reversed. New HEAD: <pending push>. Continuing.`
