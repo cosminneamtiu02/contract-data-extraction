@@ -1030,3 +1030,60 @@ Recorded after the 20-lens panel was re-run against `phase-1-domain` at `eb1961a
 **Per-pass status line emitted to user:** `Pass 11: 3 commits applied; 3 fixes total (0 Critical / 0 Important / 3 Minor); Ship-ready: 17/20 Yes, 3/20 With fixes; ~7 filtered out, 0 deferred new. New HEAD: this §17.17 commit. Continuing.`
 
 **Loop iteration plan:** Pass 11 produced commits, so the loop continues into Pass 12. Two iterations remain before the max cap (pass 12, 13 maximum). Convergence trend across this cycle: 5 → 5 → 3 fixes per pass. The next pass is expected to produce ≤3 substantive fixes; if it produces 0 commits, the loop converges naturally.
+
+### 17.18. Phase 1 panel twelfth pass (new cycle iteration 4 — ZERO-COMMITS CONVERGENCE)
+
+Recorded after the 20-lens panel was re-run against `phase-1-domain` at `e6adb27` on 2026-05-12. Iteration 4 of the second 5-iteration loop. **The loop has converged at Pass 12 via the zero-commits termination condition** — the strongest possible termination signal per CLAUDE.md's "Loop mode (auto-converge)" section. The second cycle did NOT need to reach the max cap (Pass 13).
+
+**Pass 12 totals: 0 commits applied; 0 fixes total (0 Critical / 0 Important / 0 Minor); 0 Layer A commits.** This `§17.18` entry is the only Pass 12 commit (Layer B documentation only).
+
+**Ship-ready verdicts:** 20/20 Yes for every lens — the strongest reading the panel has ever produced. All 20 lenses returned with a "Yes" verdict on ship-readiness; no "With fixes" verdicts at all in Pass 12.
+
+**Trend across this cycle: pass 9 14/20 Yes → pass 10 17/20 Yes → pass 11 17/20 Yes → pass 12 20/20 Yes.** Monotonic improvement; full convergence.
+
+**Items the senior-dev filter dropped (all from Pass 12 panel reports, all filter-correct per CLAUDE.md):**
+
+- **L03 Minor on `pytest>=9.0` floor bump as scope-creep "classification note"** — lens itself rated "No defect, just a classification note" and "accepted deviation pattern" per project convention. No action recommended.
+- **L05 Minor re-raising the BLE001 comment imprecision** (§17.14 deferral) — no new evidence; lens-acknowledged "the deferred rationale still holds".
+- **L06 Minor proposing `__all__ = []` in `config/__init__.py` for "pattern consistency"** — adding empty `__all__` would actively mask future symbols, contradicting the deliberate `extraction_service/__init__.py` rationale documented in §17.14 ("an empty list would silently mask future symbols"). The lens proposed the OPPOSITE of the project's intentional convention.
+- **L07 Minor on `_DEFAULT_RETRY_ON` typed as list vs tuple** — lens self-rated "No behavioral impact; the existing pattern works." Pure style preference.
+- **L08 Minor proposing `case _: assert_never(mode)` exhaustiveness guard on the 2-arm `Literal["development", "production"]`** — THE canonical filter-drop example the user originally named as the "forced finding" template, and the explicit drop category in CLAUDE.md's senior-dev judgment filter. Re-raised here for the third+ time and re-filtered.
+- **L09 Minor on `import yaml` isort ordering** — lens speculated about a potential ruff `I` violation but said "Verify with ruff." Local ruff check is fully green (verified). The lens was wrong; no actual violation.
+- **L12 re-raised `hatchling>=N` build-system floor** (§17.14 deferred) and **`pytest-cov>=7.0` floor** (§17.16 deferred — auto-resurfaces with `--cov` per §17.2). Both stay deferred.
+- **L13 Minor on `test_stage_state_has_expected_member_values` hard-coded value set** — lens self-marked "Low impact at 4 members; flag for when the enum grows." Forward-flag only.
+- **L14 Minor on "pytest 9.0.3 (pinned in this project)" comment as stale** — lens speculated the comment is stale, but verification of `uv.lock` confirms `pytest==9.0.3` IS the locked version. Lens factually incorrect; no fix needed.
+- **L14 Minor on `isolated_env` return type style** — lens self-rated "Not broken; purely a style note."
+- **L15 Minor on adding `--tb=short` to CI `pytest -q`** — preemptive DX tightening with no current need; pytest output is currently fine. Matches the senior-dev filter's "preemptive tightenings with no current violation" drop category.
+- **L16 Important on `/tmp` paths in `_MINIMAL_YAML`** — §17.11 deferred this with rationale (S108 per-file-ignore handles lint; tmp_path migration deferred). Lens itself acknowledged "currently non-breaking". No new evidence to reverse the deferral.
+- **L16 Minor on `T0` constant duplicated across `test_domain_record.py` and `test_domain_stage.py`** — lens self-marked "does not affect determinism."
+- **L17 Minor on §17.17's per-pass status line phrasing drift from §17.15/§17.16 convention** — pure formatting consistency, no factual error (in contrast to Pass 11's Lens 17 fixes which WERE factual errors: arithmetic + spelling). Per the senior-dev filter rule "Re-versioning prior-pass decisions just for churn" — phrasing-consistency churn without factual error is exactly the filter-drop case. The information conveyed is equivalent.
+- **L19 Minor re-raising `.claude/worktrees/` redundancy** (§17.14 deferred) — lens explicitly said "do not re-apply."
+- **L20 Minor re-raising `starlette` pattern comment alignment** (§17.14 deferred) — lens proposed adding inline comment, but the file header already documents the transitive nature.
+
+**Per-pass status line emitted to user:** `Pass 12: 1 commit applied (this §17.18 entry); 0 fixes total (0 Critical / 0 Important / 0 Minor); Ship-ready: 20/20 Yes (best ever); ~16 filtered out, 0 deferred new. New HEAD unchanged from a code perspective (only §17.18 doc append). CONVERGED.`
+
+**Termination decision:** Per CLAUDE.md "Loop mode (auto-converge)" — *"The loop terminates when a panel pass produces zero commits to the branch. Specifically: 20 lenses run. Synthesizer applies the senior-dev filter. After filter, both the Objective bucket AND the (now-self-decided) User-decision bucket are empty (or all entries are 'defer with rationale' — no actual code/doc changes). The deferred section may still have entries (real later-phase blockers); those don't block termination."*
+
+Pass 12 satisfies this: the panel surfaced ~16 findings, the senior-dev filter dropped all of them as ceremonial / re-raised-without-evidence / preemptive-with-no-current-violation, leaving zero code/doc changes. The §17.18 entry itself is Layer B documentation of the termination, not a Layer A fix. This is the strongest termination signal the loop can produce.
+
+**Second cycle summary table:**
+
+| Pass | Iter | Commits | Fixes (C/I/M) | Ship-ready Yes | Filtered | Outcome |
+|---|---|---:|---|---:|---:|---|
+| 9 | 1 | 6 | 5 (0/0/5) | 14/20 | ~9 | Continued |
+| 10 | 2 | 6 | 5 (0/0/5) | 17/20 | ~8 | Continued (1 parallel-overflow self-corrected) |
+| 11 | 3 | 3 | 3 (0/0/3) | 17/20 | ~7 | Continued |
+| 12 | 4 | 1 (this §17.18) | 0 | **20/20** | ~16 | **CONVERGED (zero commits)** |
+| **Total** | | **16** | **13 (0 Critical / 0 Important / 13 Minor)** | | **~40 filtered** | |
+
+**Cumulative across BOTH cycles** (first cycle §17.10-§17.14, second cycle §17.15-§17.18):
+
+| Cycle | Passes | Total commits | Total fixes (C/I/M) | Filtered | Termination |
+|---|---|---:|---|---:|---|
+| 1 | 4-8 | 45 | 55 (0 / 16 / 39) | ~98 | Max-cap (iter 5) |
+| 2 | 9-12 | 16 | 13 (0 / 0 / 13) | ~40 | Zero-commits (iter 4) |
+| **Total** | **8** | **61** | **68 (0 / 16 / 52)** | **~138** | |
+
+**Phase 1 PR (#7) is in deliverable state for the user.** All four required CI checks (backend-checks, darwin-checks, CodeQL python, CodeQL actions) remain wired. Local gate fully green at HEAD post pass 12 (lockfile + ruff check + ruff format + mypy strict + 94 tests + pip-audit + pre-commit run --all-files). User drives merge timing, any further panel passes (would need to be requested explicitly outside the auto-converge loop), and PR-review-comment responses.
+
+**Critical interpretation of the convergence:** Zero Critical findings, zero Important findings, and zero Minor findings that the senior-dev filter accepts means the branch is at the noise floor for the current codebase scope (Phase 1 domain layer + scaffolding). Asymptotic convergence is a real ceiling that any further panel iteration would re-discover. A third cycle requested by the user would likely surface the same ~16 ceremonial / re-raised / preemptive items as Pass 12 (the panel members do not have memory across cycles) and the senior-dev filter would drop the same set. The cost-benefit of a third cycle is decisively negative.
