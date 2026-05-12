@@ -94,6 +94,10 @@ def test_stage_record_complete_sets_completed_at_and_computes_duration_ms() -> N
 
     assert finished.state == StageState.DONE
     assert finished.completed_at == T0 + timedelta(milliseconds=250)
+    # started_at carries forward — duration_ms only happens to equal 250 because
+    # model_copy preserves the prior field; an explicit assert prevents a future
+    # refactor that resets started_at on transition from silently breaking it.
+    assert finished.started_at == T0
     assert finished.duration_ms == 250
 
 
@@ -106,6 +110,8 @@ def test_stage_record_fail_sets_state_completed_at_and_error() -> None:
     assert failed.state == StageState.FAILED
     assert failed.completed_at == T0 + timedelta(milliseconds=120)
     assert failed.error == error
+    # started_at preserved through fail() too (parallel to complete()).
+    assert failed.started_at == T0
     assert failed.duration_ms == 120
 
 

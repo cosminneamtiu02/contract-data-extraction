@@ -12,6 +12,9 @@ created by the HTTP intake handler.
 
 from datetime import UTC, datetime
 
+import pytest
+from pydantic import ValidationError
+
 from extraction_service.domain.record import ContractRecord
 from extraction_service.domain.stage import StageError, StageRecord, StageState
 
@@ -133,6 +136,17 @@ def test_contract_record_allows_stage_reassignment() -> None:
 
     assert record.ocr.state == StageState.IN_PROGRESS
     assert record.ocr.started_at == T0
+
+
+def test_stage_field_inside_contract_record_remains_frozen() -> None:
+    """ContractRecord is mutable at the container level; its StageRecord children
+    must still be frozen so a Phase 4 worker cannot bypass the §3.5 lock by
+    mutating a sub-record in place (e.g., ``record.ocr.state = IN_PROGRESS``
+    instead of the documented ``record.ocr = record.ocr.start(...)`` pattern)."""
+    record = ContractRecord.fresh(now=T0)
+
+    with pytest.raises(ValidationError):
+        record.ocr.state = StageState.IN_PROGRESS  # type: ignore[misc]  # intentional frozen-child mutation to verify ValidationError fires.
 
 
 # --- JSON round-trip ---------------------------------------------------------

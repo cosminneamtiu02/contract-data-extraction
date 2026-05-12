@@ -263,9 +263,11 @@ def test_retry_on_code_literal_mirrors_concrete_extraction_error_codes() -> None
     work: list[type[BaseException]] = list(errors_module.ExtractionError.__subclasses__())
     while work:
         cls = work.pop()
-        # Only concrete leaf classes carry retry-actionable codes; intermediates
-        # like OcrError / LlmError carry their own codes too, but for this test
-        # we capture every subclass that has explicitly overridden .code.
+        # Walk every subclass that defines ``code`` directly in its __dict__,
+        # INCLUDING intermediate classes (OcrError, LlmError) — they each ship
+        # their own code, so RetryOnCode must cover them too (not just leaves).
+        # The base ExtractionError sentinel is excluded by starting the walk
+        # from its subclasses, never visiting the base itself.
         code = cls.__dict__.get("code")
         if code is not None:
             concrete_codes.add(code)
