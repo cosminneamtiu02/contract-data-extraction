@@ -50,9 +50,10 @@ permissions:
   contents: read
 
 concurrency:
-  # The `action` suffix segregates `opened` from `synchronize` so an
-  # unrelated sync doesn't cancel the regenerator that fired on initial
-  # open.
+  # The `action` suffix segregates `opened` / `synchronize` / `reopened`
+  # events into independent groups so a `synchronize` (unrelated sync)
+  # doesn't cancel the regenerator that fired on `opened`, and a
+  # `reopened` doesn't share a group with either.
   group: dependabot-lockfile-sync-${{ github.event.pull_request.number }}-${{ github.event.action }}
   cancel-in-progress: true
 
