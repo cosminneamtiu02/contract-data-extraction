@@ -110,17 +110,38 @@ def test_stage_record_start_leaves_original_record_unchanged() -> None:
     assert record.started_at is None
 
 
-def test_stage_record_complete_sets_completed_at_and_computes_duration_ms() -> None:
+def test_stage_record_complete_transitions_state_to_done() -> None:
     record = StageRecord().start(now=T0)
 
     finished = record.complete(now=T0 + timedelta(milliseconds=250))
 
     assert finished.state == StageState.DONE
+
+
+def test_stage_record_complete_sets_completed_at_to_now() -> None:
+    record = StageRecord().start(now=T0)
+
+    finished = record.complete(now=T0 + timedelta(milliseconds=250))
+
     assert finished.completed_at == T0 + timedelta(milliseconds=250)
-    # started_at carries forward — duration_ms only happens to equal 250 because
-    # model_copy preserves the prior field; an explicit assert prevents a future
-    # refactor that resets started_at on transition from silently breaking it.
+
+
+def test_stage_record_complete_carries_started_at_forward() -> None:
+    """started_at must persist through complete() so duration_ms can derive
+    from both timestamps; an explicit assert here prevents a future refactor
+    that resets started_at on transition from silently breaking it."""
+    record = StageRecord().start(now=T0)
+
+    finished = record.complete(now=T0 + timedelta(milliseconds=250))
+
     assert finished.started_at == T0
+
+
+def test_stage_record_complete_derives_duration_ms() -> None:
+    record = StageRecord().start(now=T0)
+
+    finished = record.complete(now=T0 + timedelta(milliseconds=250))
+
     assert finished.duration_ms == 250
 
 
