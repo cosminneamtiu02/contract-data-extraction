@@ -10,7 +10,9 @@ Read [docs/plan.md](docs/plan.md) for the full architecture and phase-by-phase p
 
 ## Phase development methodology — go-to strategy (Superpowers flow)
 
-**When the user asks for phase work** — phrases like "implement Phase N", "begin phase X", "let's do phase Y", "next phase", or "what's next" when the answer is the next phase per the plan — use the full **Superpowers flow** below. It applies to every phase in [docs/plan.md §6](docs/plan.md) from **Phase 2 onward**; Phase 0, Phase 0.5, and Phase 1 are already complete or in-review.
+**When the user asks for phase work** — phrases like "implement Phase N", "begin phase X", "let's do phase Y", "next phase", "proceed with phase X", "take main and work on phase X", "get to work on phase X", or "what's next" when the answer is the next phase per the plan — use the full **Superpowers flow** below. It applies to every phase in [docs/plan.md §6](docs/plan.md) from **Phase 2 onward**; Phase 0, Phase 0.5, and Phase 1 are already complete or in-review.
+
+**Parallel dispatch is the default for any layer with ≥2 file-disjoint tasks.** The trigger phrases above unconditionally fire parallel `Agent` dispatch for every such layer. Design-nuance worries about a specific task are NOT a reason to serialize — write the nuance into the subagent prompt and dispatch. The only legitimate reasons to keep a candidate layer in the main conversation are: (a) the layer has only 1 file-disjoint task, (b) every task in the layer shares a file (forced serial), (c) the WHOLE phase has ≤2 indep tasks across all layers (set-up cost > gain), or (d) the user has explicitly asked for a different flow this time. See [memory/feedback_parallel_dispatch_default.md](../../.claude/projects/-Users-cosminneamtiu-Work-contract-data-extraction/memory/feedback_parallel_dispatch_default.md).
 
 The flow has **two phases**, both automatic:
 
@@ -173,7 +175,7 @@ These survive across phases and override the plan text where they conflict with 
 
 ### When NOT to use this methodology
 
-- **Phases with only 1–2 independent tasks** — parallel-subagent overhead exceeds the coordination cost. Fall back to serial-in-main-conversation TDD inside the worktree.
+- **Phases whose ENTIRE task list has only 1–2 independent tasks across ALL layers** — parallel-subagent overhead exceeds the coordination cost. Fall back to serial-in-main-conversation TDD inside the worktree. **This is a per-WHOLE-PHASE threshold, NOT per-layer.** A multi-task phase where one or more layers contain ≥2 file-disjoint tasks STILL dispatches each such layer in parallel — even when the rest of the phase is forced-serial by file conflicts (e.g., Phase 2 where Layer B = {2.2, 2.3} parallelises but Layers C–F are forced serial by the shared `docling_engine.py` file).
 - **One-off fixes outside a phase** — direct branch (no worktree, no subagents), no TDD ceremony for trivial doc/config changes.
 - **Panel-review-fix branches for standalone "review against main" runs** — those follow the [Code review methodology](#code-review-methodology--go-to-strategy) flow (`chore/panel-review-fixes` naming, atomic per-concern commits). Loop-mode phase-PR self-reviews use the [§ Parallel fix-dispatch pattern](#parallel-fix-dispatch-pattern) on the current phase branch instead.
 - **Phase 0, Phase 0.5, Phase 1** — already complete or in-review.
