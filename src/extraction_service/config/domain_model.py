@@ -13,7 +13,7 @@ at IO boundaries").
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from jsonschema.validators import Draft202012Validator
 
@@ -24,6 +24,10 @@ def load_domain_model(path: Path) -> dict[str, Any]:
     # mis-decode non-ASCII characters in JSON string values (German field
     # names, descriptions). Matches the encoding pin on Settings.env_file.
     with path.open(encoding="utf-8") as f:
-        schema: dict[str, Any] = json.load(f)
+        # json.load returns Any; cast to the JSON Schema shape (always an
+        # object at the top level per the JSON Schema spec). If the cast is
+        # wrong, Draft202012Validator.check_schema below catches it at runtime
+        # with a meaningful SchemaError, not a silent type-mismatch downstream.
+        schema = cast("dict[str, Any]", json.load(f))
     Draft202012Validator.check_schema(schema)
     return schema
