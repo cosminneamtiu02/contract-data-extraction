@@ -175,7 +175,7 @@ These survive across phases and override the plan text where they conflict with 
 
 - **Phases with only 1–2 independent tasks** — parallel-subagent overhead exceeds the coordination cost. Fall back to serial-in-main-conversation TDD inside the worktree.
 - **One-off fixes outside a phase** — direct branch (no worktree, no subagents), no TDD ceremony for trivial doc/config changes.
-- **Panel-review-fix branches** — those follow the [Code review methodology](#code-review-methodology--go-to-strategy) flow (`chore/panel-review-fixes` naming, atomic per-concern commits, no subagent dispatch for the fixes themselves).
+- **Panel-review-fix branches for standalone "review against main" runs** — those follow the [Code review methodology](#code-review-methodology--go-to-strategy) flow (`chore/panel-review-fixes` naming, atomic per-concern commits). Loop-mode phase-PR self-reviews use the [§ Parallel fix-dispatch pattern](#parallel-fix-dispatch-pattern) on the current phase branch instead.
 - **Phase 0, Phase 0.5, Phase 1** — already complete or in-review.
 
 For everything matching "implement phase N" where N ≥ 2 — default to this full Superpowers flow.
@@ -406,7 +406,15 @@ The cosmetic-always-apply rule above guards against complacency on small fixes t
 5. Apply fixes via the [§ Parallel fix-dispatch pattern](#parallel-fix-dispatch-pattern) below — non-overlapping fixes fire in parallel via `Agent` subagents, file-conflicting fixes serialize across layers.
 6. Run the full local verification gate.
 7. Push.
-8. Compact status line: "Pass N: M commits applied, K filtered out, deferred D items. New HEAD: <sha>. Continuing." OR "Pass N: 0 commits. CONVERGED."
+8. **Compact status line** with mandatory components (in this order):
+   - `Pass N: M commits applied` (raw count of commits landed this pass, includes the §17.N audit entry but not lockfile-companion commits)
+   - `M fixes total (X Critical / Y Important / Z Minor)` — severity-bucketed count of distinct lens-derived findings applied, using the lens's own severity ratings as reported in the panel output
+   - `Ship-ready: A/20 Yes, B/20 With fixes` (count of lens verdicts across the 20 panel agents; if any lens stalled, note it separately as `C stalled`)
+   - `K filtered out, D deferred` (counts of items routed to filter-skip and Deferred-4a/4b respectively)
+   - `New HEAD: <sha>. Continuing.` OR `New HEAD unchanged. CONVERGED.` (the convergence signal)
+   - Optional one-line callout if any item was promoted from a previous Deferred entry or reverses a prior-pass decision.
+
+   This compact line is the user's only between-pass output; do not emit the full 6-section synthesis report between passes — that is reserved for the terminal pass (zero-commits or max-cap-hit).
 9. If converged or pass count == 5, emit the final 6-section report. Else loop.
 
 ### Parallel fix-dispatch pattern
