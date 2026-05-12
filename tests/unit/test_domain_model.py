@@ -2,7 +2,7 @@
 
 ``load_domain_model`` reads the user-supplied JSON Schema that the LLM stage
 will validate extracted data against (docs/plan.md §3.2, §4.13's
-``SchemaInvalid``). The loader runs meta-validation via the ``jsonschema``
+``SchemaInvalidError``). The loader runs meta-validation via the ``jsonschema``
 library so a malformed schema crashes the service at boot, not after every
 contract goes through OCR.
 """
