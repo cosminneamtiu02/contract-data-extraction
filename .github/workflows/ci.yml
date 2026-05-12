@@ -71,7 +71,13 @@ jobs:
         # were ever accidentally set at the repo/org level, the slow real-OCR
         # tests would otherwise trigger modelscope.snapshot_download (~700 MB
         # of PP-OCRv5 weights) on every CI run with no runner cache.
-        run: uv run pytest -q -m "not slow"
+        #
+        # `--cov --cov-fail-under=80` activates the coverage gate. Phase 0.5's
+        # spec §17.2 deferred this to "when non-stub coverage exists" — Phase
+        # 2 ships non-stub production code (src/extraction_service/ocr/ tree)
+        # so the deferral condition is now met. The fail_under threshold lives
+        # in [tool.coverage.report] in pyproject.toml.
+        run: uv run pytest -q -m "not slow" --cov --cov-fail-under=80
 
       - name: Dependency CVE scan
         # Default pip-audit behavior fails CI on any CVE found in the
