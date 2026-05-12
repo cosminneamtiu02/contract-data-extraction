@@ -53,7 +53,7 @@ def test_concrete_errors_have_expected_code(cls: type[ExtractionError], expected
         (SchemaInvalidError, (LlmError, ExtractionError, Exception)),
     ],
 )
-def test_inheritance_chain(
+def test_concrete_error_classes_inherit_from_correct_parents(
     subclass: type[ExtractionError], ancestors: tuple[type[BaseException], ...]
 ) -> None:
     for parent in ancestors:
