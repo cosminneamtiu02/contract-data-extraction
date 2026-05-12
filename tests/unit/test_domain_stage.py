@@ -57,14 +57,24 @@ def test_stage_error_is_frozen() -> None:
 T0 = datetime(2026, 5, 12, 12, 0, 0, tzinfo=UTC)
 
 
-def test_stage_record_defaults_to_pending_with_no_timestamps_or_error() -> None:
-    record = StageRecord()
+def test_stage_record_defaults_state_to_pending() -> None:
+    assert StageRecord().state == StageState.PENDING
 
-    assert record.state == StageState.PENDING
-    assert record.started_at is None
-    assert record.completed_at is None
-    assert record.error is None
-    assert record.duration_ms is None
+
+def test_stage_record_defaults_started_at_to_none() -> None:
+    assert StageRecord().started_at is None
+
+
+def test_stage_record_defaults_completed_at_to_none() -> None:
+    assert StageRecord().completed_at is None
+
+
+def test_stage_record_defaults_error_to_none() -> None:
+    assert StageRecord().error is None
+
+
+def test_stage_record_defaults_duration_ms_to_none() -> None:
+    assert StageRecord().duration_ms is None
 
 
 def test_stage_record_start_returns_new_record_with_started_at() -> None:
