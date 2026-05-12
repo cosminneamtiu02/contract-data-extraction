@@ -200,7 +200,7 @@ Steps:
 8. **Commit and push.** Stage `uv.lock` only; bail out cleanly if no diff. Otherwise commit with the canonical message (matches the loop-guard subject pattern), push with `--force-with-lease="$HEAD_REF:$HEAD_SHA"` — bounded to the exact head this run started from so a mid-flight `@dependabot rebase` rejects our stale push instead of clobbering the new manifest.
 9. **Push-error discrimination.** Capture push stderr. If it matches `non-fast-forward|stale info`, treat as a benign concurrent-push collision (another sync run beat us; the PR head already has the correct lockfile) and exit 0. Any other failure (auth/scope/network) propagates as a real workflow error. Locale-pin via `LANG=C` `LC_ALL=C` so a future runner image with non-English defaults doesn't localize the error and silently break the discriminator.
 
-**PAT setup (one-time, post-merge).** Fine-grained PAT scoped to this repo: `Contents: Read and write` + `Pull requests: Read and write`. Stored as a **Dependabot** secret (not Actions secret) named `DEPENDABOT_LOCKFILE_SYNC_PAT`:
+**PAT setup (one-time, post-merge).** Fine-grained PAT scoped to this repo: `Contents: Read and write` only. (No `Pull requests` scope — the workflow performs `actions/checkout` + `git push` and never calls the GitHub PRs API; see §17.10 for the post-implementation correction.) Stored as a **Dependabot** secret (not Actions secret) named `DEPENDABOT_LOCKFILE_SYNC_PAT`:
 ```bash
 gh secret set DEPENDABOT_LOCKFILE_SYNC_PAT --app dependabot --body "<PAT>"
 gh variable set DEPENDABOT_LOCKFILE_SYNC_ENABLED --body "true"
@@ -406,7 +406,7 @@ uv.lock linguist-generated=true -diff
    - Branch ruleset on `main`: require `backend-checks`, `darwin-checks`, `CodeQL / Analyze (python)`, `CodeQL / Analyze (actions)`.
    - Repo setting: "Allow GitHub Actions to create and approve pull requests" → on.
    - `gh variable set DEPENDABOT_AUTOMERGE_ENABLED --body "true"`.
-   - Create fine-grained PAT (Contents:RW, Pull requests:RW), then `gh secret set DEPENDABOT_LOCKFILE_SYNC_PAT --app dependabot --body "<PAT>"` and `gh variable set DEPENDABOT_LOCKFILE_SYNC_ENABLED --body "true"`.
+   - Create fine-grained PAT (`Contents: Read and write` only — no `Pull requests` scope; see §4.4 / §17.10), then `gh secret set DEPENDABOT_LOCKFILE_SYNC_PAT --app dependabot --body "<PAT>"` and `gh variable set DEPENDABOT_LOCKFILE_SYNC_ENABLED --body "true"`.
    - Run `uv run detect-secrets scan > .secrets.baseline` locally once after dev-deps install; commit the baseline.
 
 7. **Phase-0 rebase coupling.** Acknowledged in §2. Touched files don't overlap; rebase should be trivial.
@@ -681,3 +681,61 @@ Recorded after the 20-lens panel was re-run against `phase-1-domain` at `9eb7ddf
 - The user-decision tier is now self-decided in loop mode. No user ask between panel iterations.
 - The loop terminates when a pass produces zero commits.
 - Per-pass commits cluster the lens-derived findings by concern: docs fixes, config hardenings, test improvements, automation hygiene, and a `§17.N` deviation log each iteration.
+
+### 17.11. Phase 1 panel fifth pass (loop iteration 2, first parallel fix-dispatch)
+
+Recorded after the 20-lens panel was re-run against `phase-1-domain` at `4813be0` on 2026-05-12 in loop mode. This pass was the **first execution of the parallel fix-dispatch pattern** codified in commit `4813be0` immediately after pass 4: 12 non-overlapping panel-derived fixes were dispatched as 12 concurrent `Agent` subagents in a single assistant message, each owning a disjoint file set, with the synthesizer running the verification gate and applying the spec-deviation entry as a final sequential layer.
+
+**Layer A (12 parallel-dispatched fixes):**
+
+- `0b24a5f` docs(config): expand `load_run_config` docstring with `FileNotFoundError` + `yaml.YAMLError` propagation (Lens 05 Minor).
+- `030ff21` docs(errors): tighten `ContextOverflowError` docstring — "OCR output" → "OCR-produced text" to avoid the LlmError-vs-OcrError reader confusion (Lens 06 Minor).
+- `5f7a27b` test(errors): rename `test_inheritance_chain` → `test_concrete_error_classes_inherit_from_correct_parents` (Lens 06 + Lens 13 convergent; project convention "test names describe behavior, not implementation").
+- `3abe0b7` test: pin `encoding="utf-8"` on all 5 `path.write_text` calls in test fixtures — symmetrical with pass-4 reader pins (Lens 10 Minor).
+- `4489109` test(record): cover `ContractRecord.fresh()` no-arg default-now path + hoist `timedelta` to module-level imports (Lens 13 Important + Lens 16 Minor; asymmetric coverage gap vs the existing `StageRecord.start()` parallel test).
+- `66862a4` test(log_config): cover `merge_contextvars` in development renderer mode AND switch `structlog.types.Processor` → `structlog.typing.Processor` (Lens 13 Minor + Lens 04 Minor; the source rename landed in the same commit as the dev-mode test due to a parallel-agent file-ownership overlap — both fixes are still correctly applied).
+- `fc077eb` chore(deps,test-infra): bump `pytest-asyncio>=0.24` → `>=1.0` and pin `asyncio_default_fixture_loop_scope = "function"` (Lens 14 Important + Minor; prevents the first Phase 2 async fixture from breaking collection under `error::DeprecationWarning`).
+- `2020b0c` chore(deps): refresh `uv.lock` after the floor bump (companion to `fc077eb`).
+- `d838a3a` docs(plan): update §4.13 code snippet to show `ClassVar[str]` + concrete sentinel codes (Lens 17 Minor; the snippet had drifted from the live `errors.py` ClassVar refinement).
+- `c088a6c` chore: correct `.gitignore` comment about `tests/fixtures/` protection (Lens 19 Minor; my pass-3 comment overstated the protection — model-weight extensions `*.bin/.pt/.pth/.gguf/.safetensors` DO ignore files inside `tests/fixtures/`).
+- `cc0f7ad` chore: add `max_line_length = 100` to `.editorconfig` (Lens 19 Minor; ties editor-ruler to CI `ruff line-length`).
+
+**Layer B (sequential, this commit):**
+
+- `docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md` §4.4 line 203 and §14 line 409: PAT scope text synced to remove "Pull requests: Read and write" — workflow + error message were corrected in pass 4 (§17.9) but the spec body wasn't synced (Lens 20 Minor).
+- This `§17.11` entry itself, recording the Layer A SHAs.
+
+**Items the senior-dev filter dropped from the panel's recommendations:**
+
+- **`StageError` rename to `StageFailure`** — already deferred to Phase 4 in §17.10; not re-raised this pass (no new evidence).
+- **`pytest-asyncio` major version drift had been speculative; resolved.** Lens 14's pass-5 finding was applied (`fc077eb` + `2020b0c`).
+- **`max_retries` config-surface split (RetryConfig vs Settings)** — Lens 05 acknowledged this as "probably intentional" per the plan; Phase 3 retry executor concern, not a Phase 1 defect.
+- **`test_inheritance_chain` tautology argument** (Lens 13 Minor x1) — addressed via Lens 06's rename; the parametrize cases are retained because `ContextOverflowError → LlmError` IS load-bearing for Phase 3 retry dispatch.
+- **`log_config.py` `# type: ignore[prop-decorator]` rationale-comment deduplication** (Lens 04 Minor) — already deferred in §17.9; the current per-site form is correct.
+- **`darwin-checks` running only smoke** (Lens 15 Minor) — intentional triage call; revisit at Phase 2 (already deferred in §17.10).
+- **Pre-commit external repos tag-pinned not SHA-pinned** (Lens 18 Minor) — already deferred in §17.9 / §17.10; community convention for trusted-maintainer repos.
+- **Spec body §2 line 28 `master` branch reference** (Lens 17 Minor) — historical record of the command that was actually run; rewriting would falsify the audit trail.
+- **`workflow_dispatch` concurrency formula** (Lens 11 Minor) — pre-dates the diff range; lens itself flagged "for awareness only".
+- **Stale `.pyc` files in local `__pycache__`** (Lens 09 Minor) — local artifact; never committed.
+- **Spec §17 missing entry for pip-audit pre-commit hook** (Lens 18 Minor) — §17 records deviations from spec, not every routine addition.
+- **`hatchling>=N` build-system floor** (Lens 12 Minor) — already deferred in §17.9.
+- **`httpx` ungrouped comment-header annotation** (Lens 12 Minor) — Lens itself said "no functional issue".
+- **`/tmp/` fixture path sentinels in `test_run_config.py`** (Lens 16 Minor) — Lens said "no test will fail".
+- **Real-wall-clock test for `StageRecord.start()` default** (Lens 16 Minor) — Lens itself said "not a current defect" and "deliberately non-assertive".
+- **Original 17 ruff families lacking rationale comments** (Lens 08 Minor) — comment inflation; the families are well-known.
+- **`_now_or_default` helper extraction** (Lens 08 Minor) — already deferred in §17.9.
+- **`ruff>=0.9` floor inline comment** (Lens 08 Minor) — already deferred in §17.9.
+- **`hatchling exclude = ["**/__pycache__"]` removal** (Lens 09 Minor) — already deferred in §17.9.
+- **`pythonpath = ["src"]` in pytest config** (Lens 09 Minor) — duplicates the supported `uv run` editable-install path.
+- **`isolated_env` explicit `scope="function"` declaration** (Lens 14 Minor) — function-scope is the implicit default; explicit declaration is documentation-via-redundancy.
+- **`asyncio_default_fixture_loop_scope` documentation tightening beyond what's already inline** — applied as part of `fc077eb`'s comment.
+- **Commit-message stylistic re-versioning on historical commits** (Lens 02 Minor x3) — immutable history.
+- **README install / `.gitignore` vscode existence rephrases** — README is user-restricted; .vscode comment was corrected in pass 4.
+
+**Process learning from this pass (relevant to the parallel fix-dispatch pattern):**
+
+- 12 parallel agents was the right call wall-clock-wise: dispatched in ~30 seconds; all reports received within ~8 minutes (slower agents on doc/config files dominated the latency).
+- Two of the 12 agents (A11 for `log_config.py` source rename, A12 for `test_domain_job.py` rationale tightening) reported "fix already in HEAD" rather than producing their own commits. Investigation: `66862a4` (A6's commit) and `c088a6c` (A9's commit) had already applied those changes as side effects, indicating an agent file-ownership overflow. The branch state is correct (all 12 fixes landed), but the future iteration of the dispatch prompt should add an explicit `git diff --cached` self-check before commit to enforce file-ownership rigor.
+- The `§17.N` entry's "Layer B" sequential placement is correct: every Layer A SHA must be known before the audit-trail entry can be written. Trying to parallelize that would race the SHA references.
+
+**Loop-mode status:** Pass 5 produced 13 commits (12 Layer A + 1 Layer B). The loop continues to pass 6 against the new HEAD.
