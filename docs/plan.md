@@ -550,17 +550,17 @@ extraction-service/
 │   └── golden/
 │       └── (placeholder for OCR golden outputs, gitignored if too large)
 │
-├── config/
+├── config/                          # (Phase 6 — not yet created)
 │   ├── run_config.example.yaml
 │   ├── domain_model.example.json    # JSON Schema sample for a loan contract
 │   └── extraction_prompt.example.txt
 │
-├── scripts/
+├── scripts/                         # (Phase 6 — not yet created)
 │   ├── prewarm.py               # smoke test: hit Ollama with a tiny prompt
 │   ├── validate_ocr.py          # run OCR on a directory and dump outputs
 │   └── benchmark_e2e.py         # time a batch of contracts
 │
-└── ops/
+└── ops/                             # (Phase 6 — not yet created)
     ├── ollama_env.sh            # exports OLLAMA_* and sysctl iogpu.wired_limit_mb
     └── launchd.plist.example    # macOS launchd unit (optional)
 ```
