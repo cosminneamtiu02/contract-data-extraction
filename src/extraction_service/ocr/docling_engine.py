@@ -34,6 +34,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from extraction_service.domain.errors import OcrEmptyOutputError, OcrError
 from extraction_service.ocr.base import OcrResult
 
 if TYPE_CHECKING:
@@ -154,30 +155,60 @@ class DoclingOcrEngine:
 
         ``asyncio.wait_for`` enforces ``OcrConfig.timeout_seconds`` at the
         asyncio layer. When the timeout fires, ``TimeoutError`` propagates to
-        the caller (Phase 4 worker → ``StageError``). The underlying executor
-        thread keeps running until ``convert`` returns — Python lacks thread
-        cancellation primitives — but the work completes harmlessly in the
-        background; subsequent OCR jobs are unaffected because each gets a
-        fresh thread from the default pool.
+        the caller (Phase 4 worker → ``StageError``) unwrapped — it carries
+        its own diagnostic signal distinct from generic OCR failures. The
+        underlying executor thread keeps running until ``convert`` returns;
+        the work completes harmlessly in the background.
 
-        Error wrapping (empty output → ``OcrEmptyOutputError``; converter
-        exceptions → ``OcrError``) is added in Task 2.9.
+        Error wrapping (plan §6.4 task 2.9):
+
+        - Any non-timeout exception from ``convert`` → ``OcrError`` (code
+          ``"ocr_engine_failed"``), preserving the original via ``raise ...
+          from e``.
+        - ``ConversionStatus`` other than ``SUCCESS`` → ``OcrError``. Docling
+          exposes "soft" failures (recoverable parse errors, missing layout
+          model) by returning a failed result rather than raising; without
+          this check the failure would silently propagate as empty/partial
+          ``OcrResult.text`` and the LLM stage would chew on garbage.
+        - Empty or whitespace-only markdown → ``OcrEmptyOutputError`` (code
+          ``"ocr_empty_output"``). A blank-page scan or a zero-region OCR
+          pass is a deterministic failure on the input, not retryable.
         """
-        # Local import to keep cold-start light when no extraction runs (the
+        # Local imports to keep cold-start light when no extraction runs (the
         # Docling import chain is heavyweight — see _build_default_converter).
-        from docling.datamodel.base_models import DocumentStream
+        from docling.datamodel.base_models import ConversionStatus, DocumentStream
 
         stream = DocumentStream(name="contract.pdf", stream=BytesIO(pdf_bytes))
 
         loop = asyncio.get_running_loop()
-        result = await asyncio.wait_for(
-            loop.run_in_executor(None, self._converter.convert, stream),
-            timeout=self._ocr_config.timeout_seconds,
-        )
+        try:
+            result = await asyncio.wait_for(
+                loop.run_in_executor(None, self._converter.convert, stream),
+                timeout=self._ocr_config.timeout_seconds,
+            )
+        except TimeoutError:
+            # Propagate unwrapped — the caller (Phase 4 worker) distinguishes
+            # timeout from generic OCR failure for its own diagnostic logging.
+            raise
+        except Exception as exc:
+            # Wrap every other failure (RuntimeError from corrupted PDF, OSError
+            # from missing model, ONNX runtime crashes, ...) as OcrError so
+            # Phase 4's `except ExtractionError` catch always handles it.
+            msg = f"docling OCR engine failed: {exc}"
+            raise OcrError(msg) from exc
+
+        if result.status != ConversionStatus.SUCCESS:
+            msg = f"docling reported conversion status {result.status!r}"
+            raise OcrError(msg)
 
         document = result.document
+        text = document.export_to_markdown()
+        if not text or not text.strip():
+            msg = "docling produced empty OCR output"
+            raise OcrEmptyOutputError(msg)
+
         return OcrResult(
-            text=document.export_to_markdown(),
+            text=text,
             page_count=len(document.pages),
             engine_name=_ENGINE_NAME,
         )

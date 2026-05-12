@@ -30,6 +30,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from extraction_service.config.run_config import OcrConfig
+from extraction_service.domain.errors import OcrEmptyOutputError, OcrError
 from extraction_service.ocr.docling_engine import DoclingOcrEngine
 
 from .conftest import word_recall
@@ -73,6 +74,7 @@ async def test_docling_extract_returns_text_from_converter() -> None:
     fake_document.pages = {1: object(), 2: object()}
     fake_result = MagicMock()
     fake_result.document = fake_document
+    fake_result.status = _success_status()
 
     stub_converter = MagicMock()
     stub_converter.convert.return_value = fake_result
@@ -94,6 +96,7 @@ async def test_docling_extract_returns_page_count_from_converter() -> None:
     fake_document.pages = {1: object(), 2: object(), 3: object()}
     fake_result = MagicMock()
     fake_result.document = fake_document
+    fake_result.status = _success_status()
 
     stub_converter = MagicMock()
     stub_converter.convert.return_value = fake_result
@@ -115,6 +118,7 @@ async def test_docling_extract_returns_docling_as_engine_name() -> None:
     fake_document.pages = {1: object()}
     fake_result = MagicMock()
     fake_result.document = fake_document
+    fake_result.status = _success_status()
 
     stub_converter = MagicMock()
     stub_converter.convert.return_value = fake_result
@@ -142,6 +146,7 @@ async def test_docling_extract_wraps_bytes_in_document_stream() -> None:
     fake_document.pages = {1: object()}
     fake_result = MagicMock()
     fake_result.document = fake_document
+    fake_result.status = _success_status()
 
     stub_converter = MagicMock()
     stub_converter.convert.return_value = fake_result
@@ -198,6 +203,104 @@ async def test_docling_extract_raises_timeout_when_convert_exceeds_budget() -> N
             await engine.extract(b"any bytes")
     finally:
         release.set()  # Free the leaked executor thread immediately
+
+
+async def test_docling_extract_empty_markdown_raises_ocr_empty_output() -> None:
+    """``extract`` raises ``OcrEmptyOutputError`` when Docling produces no text.
+
+    Empty markdown is a real failure mode: a blank page or an OCR pass that
+    detected zero text regions returns an empty string from
+    ``export_to_markdown()``. The pipeline must surface this as
+    ``OcrEmptyOutputError`` (code ``"ocr_empty_output"``) rather than letting
+    an empty ``OcrResult.text`` flow downstream, where the LLM stage would
+    silently produce a degenerate extraction.
+    """
+    fake_document = MagicMock()
+    fake_document.export_to_markdown.return_value = "   \n\n  "  # whitespace only
+    fake_document.pages = {1: object()}
+    fake_result = MagicMock()
+    fake_result.document = fake_document
+    fake_result.status = _success_status()
+
+    stub_converter = MagicMock()
+    stub_converter.convert.return_value = fake_result
+
+    engine = DoclingOcrEngine(
+        OcrConfig(),
+        _converter_factory=lambda _cfg: stub_converter,
+    )
+
+    with pytest.raises(OcrEmptyOutputError):
+        await engine.extract(b"any bytes")
+
+
+async def test_docling_extract_converter_exception_wraps_as_ocr_error() -> None:
+    """``extract`` wraps any non-timeout converter exception as ``OcrError``.
+
+    Internal Docling failures (corrupted PDF, missing ONNX model, ONNX
+    runtime crash) surface from ``convert()`` as arbitrary exceptions.
+    Phase 4's worker catches ``ExtractionError`` (the parent of ``OcrError``)
+    to populate ``StageError.code``; an unwrapped ``RuntimeError`` from
+    Docling would slip past that catch and crash the worker. Wrapping
+    preserves the original cause via ``raise ... from e``.
+    """
+    stub_converter = MagicMock()
+    stub_converter.convert.side_effect = RuntimeError("docling internal failure")
+
+    engine = DoclingOcrEngine(
+        OcrConfig(),
+        _converter_factory=lambda _cfg: stub_converter,
+    )
+
+    with pytest.raises(OcrError) as exc_info:
+        await engine.extract(b"any bytes")
+
+    assert exc_info.value.code == "ocr_engine_failed"
+
+
+async def test_docling_extract_failed_conversion_status_raises_ocr_error() -> None:
+    """``extract`` raises ``OcrError`` when ``ConversionResult.status`` is not SUCCESS.
+
+    Docling exposes "soft" failures (recoverable parse errors, missing
+    layout model, etc.) by returning a ``ConversionResult`` with
+    ``status=FAILED`` rather than raising. Without an explicit status
+    check the engine would return an empty ``OcrResult`` from a failed
+    conversion — a quiet-bug-by-construction the LLM stage would happily
+    chew on. Explicit check surfaces the failure at the OCR boundary.
+    """
+    from docling.datamodel.base_models import ConversionStatus
+
+    fake_document = MagicMock()
+    fake_document.export_to_markdown.return_value = "partial junk text"
+    fake_document.pages = {1: object()}
+    fake_result = MagicMock()
+    fake_result.document = fake_document
+    fake_result.status = ConversionStatus.FAILURE
+
+    stub_converter = MagicMock()
+    stub_converter.convert.return_value = fake_result
+
+    engine = DoclingOcrEngine(
+        OcrConfig(),
+        _converter_factory=lambda _cfg: stub_converter,
+    )
+
+    with pytest.raises(OcrError) as exc_info:
+        await engine.extract(b"any bytes")
+
+    assert exc_info.value.code == "ocr_engine_failed"
+
+
+def _success_status() -> object:
+    """Return ``ConversionStatus.SUCCESS`` for the success-path mock tests.
+
+    Helper rather than module-level import: keeps the heavyweight Docling
+    import chain off the import path of tests that don't actually need
+    ``ConversionStatus`` (e.g., the construct test).
+    """
+    from docling.datamodel.base_models import ConversionStatus
+
+    return ConversionStatus.SUCCESS
 
 
 @pytest.mark.slow
