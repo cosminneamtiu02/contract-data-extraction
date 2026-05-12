@@ -2,7 +2,10 @@
 #
 # Scope: pip (single workspace at /), github-actions, pre-commit.
 # Groups batch interlocking package updates into atomic PRs:
-#   - fastapi-stack: fastapi + starlette + uvicorn + standard transitives
+#   - fastapi-stack: fastapi + uvicorn (declared deps). `starlette` matches the
+#     pattern but is a fastapi transitive — Dependabot won't open updates for it
+#     directly. `uvicorn[standard]` transitives (httptools, uvloop, watchfiles)
+#     are NOT declared deps either; they're pulled by the `standard` extra.
 #   - pydantic:      pydantic + pydantic-settings (lockstep releases)
 #   - pytest:        pytest + plugins (aligned releases)
 #   - dev-tools:     ruff + mypy + pip-audit + detect-secrets + types-* + hatchling

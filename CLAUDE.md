@@ -10,7 +10,7 @@ Read [docs/plan.md](docs/plan.md) for the full architecture and phase-by-phase p
 
 ## Phase development methodology — go-to strategy (Superpowers flow)
 
-**When the user asks for phase work** — phrases like "start phase 1", "implement Phase N", "begin phase X", "let's do phase Y", "next phase", or "what's next" when the answer is the next phase per the plan — use the full **Superpowers flow** below. It applies to every phase in [docs/plan.md §6](docs/plan.md) (Phases 1 → 6; Phase 0 / Phase 0.5 / Phase 1 are already shipped or in-review on `main`).
+**When the user asks for phase work** — phrases like "implement Phase N", "begin phase X", "let's do phase Y", "next phase", or "what's next" when the answer is the next phase per the plan — use the full **Superpowers flow** below. It applies to every phase in [docs/plan.md §6](docs/plan.md) from **Phase 2 onward**; Phase 0, Phase 0.5, and Phase 1 are already complete or in-review.
 
 The flow has **two phases**, both automatic:
 
@@ -123,13 +123,16 @@ You are implementing Task {N.M} for the contract-data-extraction project's Phase
 2. `unset VIRTUAL_ENV && uv run pytest <your-test-file> -v` — confirm the failure mode is "feature missing" (e.g., ModuleNotFoundError), not a typo in the test.
 3. Write the minimum implementation in the source file you own. No future-task anticipation.
 4. Re-run pytest on your test file. All new tests must pass.
-5. Run the full local verification gate from the worktree:
+5. Run the full local verification gate from the worktree (the canonical gate at [§ Verification gate](#verification-gate-all-must-pass-before-commit) — every command, in order):
    ```
    unset VIRTUAL_ENV
+   uv lock --check
    uv run ruff check src tests
    uv run ruff format --check src tests
    uv run mypy src tests
    uv run pytest -q
+   uv run pip-audit --skip-editable
+   uv run pre-commit run --all-files
    ```
    Strict-mypy or ruff complaints → restructure the test or code. Do NOT sprinkle `# type: ignore` without a one-line rationale comment on the same line.
 6. `git add <your owned files only>` and commit: `feat({N.M}): <subject>` via HEREDOC body explaining WHY, with `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>` footer. One task = one commit. Do NOT push (the main conversation pushes the whole branch at phase end).
@@ -173,7 +176,7 @@ These survive across phases and override the plan text where they conflict with 
 - **Phases with only 1–2 independent tasks** — parallel-subagent overhead exceeds the coordination cost. Fall back to serial-in-main-conversation TDD inside the worktree.
 - **One-off fixes outside a phase** — direct branch (no worktree, no subagents), no TDD ceremony for trivial doc/config changes.
 - **Panel-review-fix branches** — those follow the [Code review methodology](#code-review-methodology--go-to-strategy) flow (`chore/panel-review-fixes` naming, atomic per-concern commits, no subagent dispatch for the fixes themselves).
-- **Phase 0, Phase 0.5, Phase 1** — already shipped or merged.
+- **Phase 0, Phase 0.5, Phase 1** — already complete or in-review.
 
 For everything matching "implement phase N" where N ≥ 2 — default to this full Superpowers flow.
 
@@ -276,11 +279,11 @@ After all 20 lens reports return, **the synthesis is done in the main conversati
 2. **Promote convergence.** When ≥2 lenses independently flag the same item, treat it as **load-bearing regardless of individual severities reported**. Convergence is the strongest signal a multi-agent review produces. In this project: the CodeQL `@v4` pin (3-lens convergence in pass 1) and the dependabot `update-types` ecosystem asymmetry (4-lens convergence in pass 2) were both promoted to Critical/Important via convergence.
 3. **Inter-lens disagreement: pick a side, explain why.** Don't average, don't punt to the user. Example from this project: Pass-1 Lens 06 said add `__all__: list[str] = []`; Pass-2 Lens 07 called it premature. The synthesizer correctly chose Lens 07 because empty `__all__` actively masks future symbols — a quiet bug-by-construction outweighs an explicit-gate benefit.
 4. **Reversing a prior fix is correct when new evidence justifies it.** If lens N now contradicts a fix from a prior round, undo the prior fix. Don't anchor.
-5. **The synthesis report structure — strict order; this is what the user reads.** Do not deviate from this order; do not collapse categories; do not skip the per-deferred-item justification length requirement.
+5. **The synthesis report structure — strict order; 6 sections, non-negotiable.** Do not deviate from this order; do not collapse categories; do not skip the per-deferred-item justification length requirement.
 
-   1. **Per-lens verdicts table.** One row per lens: lens number, lens name, verdict (Yes / No / With fixes), and per-severity finding counts. This is the cold-pickup signal — what the panel said at a glance. **No finding details in this table** — those belong in the four sections below.
+   **1. Per-lens verdicts table.** One row per lens: lens number, lens name, verdict (Yes / No / With fixes), and per-severity finding counts. This is the cold-pickup signal — what the panel said at a glance. **No finding details in this table** — those belong in the five sections below.
 
-   2. **Objective fixes (auto-applied).** Findings where no reasonable reader would dispute the item needs fixing. Auto-apply this category. Includes:
+   **2. Objective fixes (auto-applied).** Findings where no reasonable reader would dispute the item needs fixing. Auto-apply this category. Includes:
       - Convergent findings (≥2 lenses agree on the same item)
       - State-tracking errors in docs (stale claims about CI state, branch protection, infra)
       - Doc hygiene (per the cosmetic-fixes-always-apply rule)
@@ -289,23 +292,21 @@ After all 20 lens reports return, **the synthesis is done in the main conversati
 
       For each item: file:line, one-line reason, commit SHA where applied.
 
-   3. **Headbutting findings (synthesizer-decided).** Where ≥2 lenses contradict each other on a factual or design call. Do NOT punt to the user; pick a side. For each item: which lenses disagree, the substance of the disagreement, the side I picked (or "both wrong → third option"), and a one-sentence rationale for the call. Applied automatically with the decision recorded in the commit message.
+   **3. Headbutting findings (synthesizer-decided).** Where ≥2 lenses contradict each other on a factual or design call. Do NOT punt to the user; pick a side. For each item: which lenses disagree, the substance of the disagreement, the side I picked (or "both wrong → third option"), and a one-sentence rationale for the call. Applied automatically with the decision recorded in the commit message.
 
-   4. **Deferred (justified) — split into two sub-categories:**
+   **4a. Deferred — waiting on a later phase.** Findings that will naturally resurface when the dependent phase code lands, and applying them now means inventing scaffolding (fake consumers, hypothetical threat models, unused config knobs) with no real callsite. Each gets a 3–4 sentence justification, but the justification should name the specific later phase / specific dependency that unblocks the item. These items have a built-in re-trigger.
 
-      **4a. Deferred — waiting on a later phase.** Findings that will naturally resurface when the dependent phase code lands, and applying them now means inventing scaffolding (fake consumers, hypothetical threat models, unused config knobs) with no real callsite. Each gets a 3–4 sentence justification, but the justification should name the specific later phase / specific dependency that unblocks the item. These items have a built-in re-trigger.
+   **4b. Deferred — other reasons.** Findings deferred because the cost-benefit doesn't work today, the synthesizer can't resolve them without out-of-band info (e.g., a `gh api` call), they're cosmetic and non-load-bearing, or they conflict with a project rule (e.g., "prefer new commit over amend on shared branches"). Each gets a 3–4 sentence justification walking through the specific cost-benefit. **These items will NOT auto-resurface** — a future panel pass needs to explicitly decide to re-take them, so the justification is more load-bearing than for 4a.
 
-      **4b. Deferred — other reasons.** Findings deferred because the cost-benefit doesn't work today, the synthesizer can't resolve them without out-of-band info (e.g., a `gh api` call), they're cosmetic and non-load-bearing, or they conflict with a project rule (e.g., "prefer new commit over amend on shared branches"). Each gets a 3–4 sentence justification walking through the specific cost-benefit. **These items will NOT auto-resurface** — a future panel pass needs to explicitly decide to re-take them, so the justification is more load-bearing than for 4a.
+   For both 4a and 4b: not a one-liner; not "Phase 5 will handle it" as a bare statement. The paragraph IS the deferred item's audit trail — a future panel pass that re-flags the same item should be able to read this paragraph and either agree with the deferral or explicitly counter it.
 
-      For both sub-categories: not a one-liner; not "Phase 5 will handle it" as a bare statement. The paragraph IS the deferred item's audit trail — a future panel pass that re-flags the same item should be able to read this paragraph and either agree with the deferral or explicitly counter it.
-
-   5. **For user decision (last).** Findings where the project-context judgment call belongs to the user — subjective design choices, naming preferences, scope renegotiations, anything where I could decide either way and reasonable readers could disagree with my call. For each item, include my recommendation based on project context. Then **explicitly ASK the user**: "do you want to decide each of these, or are you OK with me deciding based on project context?" Do NOT decide unilaterally on user-decision items. Do NOT skip the ask.
+   **5. For user decision (last).** Findings where the project-context judgment call belongs to the user — subjective design choices, naming preferences, scope renegotiations, anything where I could decide either way and reasonable readers could disagree with my call. For each item, include my recommendation based on project context. Then **explicitly ASK the user**: "do you want to decide each of these, or are you OK with me deciding based on project context?" Do NOT decide unilaterally on user-decision items. Do NOT skip the ask.
 
    The order is non-negotiable: **1. Verdicts → 2. Objective → 3. Headbutting → 4a. Deferred (later phase) → 4b. Deferred (other reasons) → 5. For user decision.** Verdicts first because they're the at-a-glance signal. Objective is largest and most skimmable. Headbutting is the synthesizer's real value-add. Deferred-4a items have a built-in re-trigger; deferred-4b items don't, so the justification carries more weight. User-decision is last because it pauses the flow.
 
-   **Apply-first-then-report execution order — STRICT.** The 5 sections describe the *content* of the report; the *execution* order is different. After the panel returns, the synthesizer:
+   **Apply-first-then-report execution order — STRICT.** The 6 sections describe the *content* of the report; the *execution* order is different. After the panel returns, the synthesizer:
 
-   1. **Drafts the full report internally** (not shown to the user yet) with all 5/6 categories populated.
+   1. **Drafts the full report internally** (not shown to the user yet) with all 6 categories populated.
    2. **Auto-applies every item in section 2 (Objective fixes)** — atomic per-concern commits, full local verification gate after the batch.
    3. **Auto-applies every item in section 3 (Headbutting findings)** the synthesizer has decided. Only items routed to section 5 (User decision) wait for user input; everything in 2 and 3 is already a decision the synthesizer made, so applying is automatic.
    4. **Pushes the resulting commits to the PR.**

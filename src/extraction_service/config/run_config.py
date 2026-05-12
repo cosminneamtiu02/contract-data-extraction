@@ -36,9 +36,7 @@ RetryOnCode = Literal[
 # config-level mistake. The field_validator on RetryConfig rejects these codes
 # at boot. Keeping them in the Literal preserves type-completeness; the
 # validator is the semantic guard.
-_OCR_RETRY_CODES_REJECTED: frozenset[str] = frozenset(
-    {"ocr_engine_failed", "ocr_empty_output"}
-)
+_OCR_RETRY_CODES_REJECTED: frozenset[str] = frozenset({"ocr_engine_failed", "ocr_empty_output"})
 
 _DEFAULT_RETRY_ON: list[RetryOnCode] = ["llm_failed", "schema_invalid"]
 

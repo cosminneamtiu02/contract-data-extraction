@@ -7,8 +7,14 @@
 *.jpeg binary
 *.gif binary
 *.ico binary
+*.tiff binary
+*.tif binary
 *.pdf binary
 *.onnx binary
+
+# Tabular fixtures (text but should not be normalized aggressively).
+*.csv text eol=lf
+*.jsonl text eol=lf
 
 # Lock files (collapse in PR diffs; tracked but not human-reviewed).
 # `merge=union` reduces merge conflicts when two PRs add different deps —

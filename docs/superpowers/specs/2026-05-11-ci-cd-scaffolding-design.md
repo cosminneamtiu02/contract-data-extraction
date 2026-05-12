@@ -532,3 +532,36 @@ Accepted workaround: seed a same-named placeholder secret in the Actions store. 
 - Operational step (one-time): `gh secret set DEPENDABOT_LOCKFILE_SYNC_PAT --body "<placeholder>"` (Actions store, no `--app dependabot` flag).
 - Workflow header documents the duplication so a future maintainer doesn't mistake the Actions-store entry for a live secret or remove it as redundant.
 - Rotation discipline: when the real Dependabot-store PAT is rotated, the Actions-store placeholder does NOT need rotation — it carries no live credential value.
+
+### 17.8. Phase 1 panel re-run (post-PR-#8-merge into `phase-1-domain`)
+
+Recorded after the 20-lens panel was re-run against `phase-1-domain` at the post-#8-merge state (range `0bed324..70527da`) on 2026-05-12. This pass produced the following changes against `phase-1-domain` itself (not a separate `chore/panel-review-fixes-*` branch — per the strengthened cosmetic-always rule, all in-scope fixes land on the active phase branch when the panel is run as a phase-PR self-review).
+
+**Plan / spec deviations introduced or acknowledged in this pass:**
+
+- **Exception class names gain the `Error` suffix.** Plan §4.13's original class names — `OcrEmptyOutput`, `ContextOverflow`, `SchemaInvalid` — drop the `Error` suffix. The Phase 1 re-run's Lens 08 (Idiomatic Python + ruff `N`) flagged this as a PEP 8 / N818 violation. User decision: rename to `OcrEmptyOutputError`, `ContextOverflowError`, `SchemaInvalidError` rather than `extend-ignore = ["N818"]`. The plan text in §4.13 has been updated in-place to match the renamed classes; the §6.5 / §6.6 task-table prose references the new names too. This is a *retroactive plan-doc update*, not a deviation log of code-vs-plan drift.
+
+- **`StageRecord.extracted: dict[str, Any] | None` field added in Phase 1.** Plan §6.3 task 1.3's spec for `StageRecord` enumerates `state, started_at, completed_at, duration_ms, error` — no `extracted`. Lens 01 (plan adherence) flagged that the field belongs to Phase 4 task 4.5's worker output and was added early. Rationale for landing it in Phase 1: plan §3.2 explicitly says "Orchestrator reads `data_parsing.extracted` when `overall_status == 'done'`" — the slot is a plan-architecture commitment regardless of which phase populates it. Adding the field as `dict[str, Any] | None = None` costs nothing today and avoids a breaking schema change when Phase 4 worker code lands. Field is typed at the IO boundary per CLAUDE.md project-wide best practice.
+
+- **`RetryOnCode` Literal duplicates `ExtractionError.code` values intentionally.** `extraction_service.config.run_config.py` declares a `Literal["ocr_engine_failed", "ocr_empty_output", "llm_failed", "context_overflow", "schema_invalid"]` mirroring the concrete `ExtractionError.code` class attributes. Two design intents: (a) avoid a `config → domain` import dependency that would couple business config to domain code; (b) surface YAML-side typos at boot via Pydantic. A consistency test (`test_retry_on_code_literal_mirrors_concrete_extraction_error_codes`) walks `ExtractionError.__subclasses__()` and asserts no drift. The base-class sentinel `"extraction_error"` is intentionally excluded from the Literal — it is never a concrete retry trigger.
+
+- **`RetryConfig.retry_on` rejects OCR codes via `@field_validator`.** Per plan §3.3 OCR errors are deterministic on the input and never retried. The Literal *includes* the two OCR codes for type-completeness (a consumer might want to log them); the validator is the semantic guard ensuring `retry_on: [ocr_engine_failed]` raises `ValidationError` at boot.
+
+- **`StageRecord.fail(error, now=None)` → `fail(now=None, *, error)` for signature symmetry with `complete()`.** Lens 06 (Naming & API surface) flagged that `fail()`'s positional-`error`-first signature differed from `complete(now=None, *, extracted=None)`. The new symmetric signature prevents Phase 4 worker call sites from accidentally transposing `now` and `error` when the three transition methods appear close together.
+
+- **`tests/fakes/` and `config/` example directories absent.** Plan §5's project-layout diagram lists `tests/fakes/{fake_ocr.py, fake_ollama.py}` and `config/{run_config.example.yaml, domain_model.example.json, extraction_prompt.example.txt}`. Both are assigned to later phases (fakes to Phase 2.2 + Phase 3.x; example configs to Phase 6.6). Phase 1 ships without scaffolding placeholders — the "no premature abstraction" rule outweighs filetree-diagram precision.
+
+**Methodology / `CLAUDE.md` additions in this pass:**
+
+- "Phase development methodology — go-to strategy (Superpowers flow)" section added (worktree + parallel subagent dispatch + automatic 20-lens self-review + PR-as-handoff).
+- "Apply-first-then-report execution order" subsection added to the synthesizer rules: section 2 (Objective) and section 3 (Headbutting) auto-apply *before* the report is shown to the user, so the report is a confirmation log with commit SHAs rather than a planning document asking permission.
+- Synthesis report restructured into 6 strict-order sections (Verdicts → Objective → Headbutting → 4a Deferred-later-phase → 4b Deferred-other → User decision).
+- Cosmetic-fixes-always-apply rule strengthened: explicitly enumerates the kinds of items that count and adds "cosmetic items NEVER appear in Deferred" as a hard rule.
+- Ruff `select` extended with `EM`, `TRY`, `TCH`, `N`, `S` rule families. Test per-file-ignores: `ARG`, `EM101`, `TRY003`, `S101`, `S108`.
+- `[tool.pytest.ini_options]` gains `markers = []` (pre-empt `--strict-markers` footgun) and `filterwarnings = ["error::DeprecationWarning"]` (forward-looking DeprecationWarning gate).
+- `[tool.hatch.build.targets.wheel]` gains `exclude = ["**/__pycache__"]`.
+- `tests/conftest.py` added (autouse `_reset_structlog_state` fixture, promoted `isolated_env` from test_settings.py).
+
+**State changes captured here for memory parity:**
+
+- Lockfile-sync workflow state was previously described as "configured but currently disarmed pending PAT setup" in CLAUDE.md. As of 2026-05-12 it is live and armed (PAT set in Dependabot store; `vars.DEPENDABOT_LOCKFILE_SYNC_ENABLED = "true"`).

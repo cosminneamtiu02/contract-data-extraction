@@ -153,6 +153,13 @@ jobs:
           enable-cache: true
           cache-dependency-glob: uv.lock
           python-version: ${{ steps.pyver.outputs.python-version }}
+          # github-token here is read-only and used by setup-uv only to lift the
+          # unauthenticated rate limit when downloading uv itself. It does NOT
+          # contradict the job-level `permissions: {}` block above — that block
+          # zeros the minted-token *scopes* for any step in this job, but the
+          # GITHUB_TOKEN secret is still injected with default read-only access
+          # when explicitly requested by an action. Push authentication uses
+          # secrets.DEPENDABOT_LOCKFILE_SYNC_PAT, set on git later in this job.
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Regenerate uv.lock

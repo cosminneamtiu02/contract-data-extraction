@@ -47,6 +47,10 @@ dev = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/extraction_service"]
+# Hatchling already excludes __pycache__ by default — making it explicit so a
+# future build-backend swap or hatchling-plugin change cannot accidentally
+# ship .pyc artifacts.
+exclude = ["**/__pycache__"]
 
 [tool.ruff]
 line-length = 100
@@ -89,6 +93,13 @@ ignore_missing_imports = true
 asyncio_mode = "auto"
 testpaths = ["tests"]
 addopts = ["--strict-markers", "--strict-config", "-ra"]
+# Pre-empt --strict-markers footgun: register the empty marker list so the
+# first custom marker added in a later phase fails loudly until it's listed.
+markers = []
+# DeprecationWarnings are errors by default — a Phase 2/3 dependency that
+# starts emitting deprecation noise will surface before it silently rots the
+# test signal. Specific noisy deps can add narrow ignores when needed.
+filterwarnings = ["error::DeprecationWarning"]
 
 [tool.coverage.run]
 source = ["src/extraction_service"]
