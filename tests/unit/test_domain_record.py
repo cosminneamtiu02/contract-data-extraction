@@ -147,6 +147,17 @@ def test_current_stage_points_to_failure_point_when_a_stage_failed() -> None:
     assert record.current_stage == "ocr"
 
 
+def test_current_stage_points_to_data_parsing_when_data_parsing_failed() -> None:
+    err = StageError(code="schema_invalid", description="missing field")
+    record = ContractRecord(
+        intake=StageRecord(state=StageState.DONE),
+        ocr=StageRecord(state=StageState.DONE),
+        data_parsing=StageRecord(state=StageState.FAILED, error=err),
+    )
+
+    assert record.current_stage == "data_parsing"
+
+
 def test_current_stage_is_none_when_all_stages_done() -> None:
     done = StageRecord(state=StageState.DONE)
     record = ContractRecord(intake=done, ocr=done, data_parsing=done)
