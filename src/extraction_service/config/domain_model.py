@@ -2,7 +2,7 @@
 
 The domain model is a JSON Schema document supplied by the caller and pointed
 at by ``run_config.paths.domain_model_path``. The LLM stage validates extracted
-data against it (docs/plan.md §3.2; ``SchemaInvalid`` exception in §4.13).
+data against it (docs/plan.md §3.2; ``SchemaInvalidError`` exception in §4.13).
 
 ``load_domain_model`` runs JSON Schema meta-validation via the ``jsonschema``
 library so a malformed schema raises at startup, not on the first contract.

@@ -517,8 +517,12 @@ extraction-service/
 │   │   ├── fake_ocr.py          # deterministic OcrEngine
 │   │   └── fake_ollama.py       # canned LLM responses
 │   ├── unit/
+│   │   ├── test_domain_errors.py
 │   │   ├── test_domain_job.py
-│   │   ├── test_stage_record.py
+│   │   ├── test_domain_model.py
+│   │   ├── test_domain_record.py
+│   │   ├── test_domain_stage.py
+│   │   ├── test_logging.py
 │   │   ├── test_settings.py
 │   │   ├── test_run_config.py
 │   │   ├── test_prompt_render.py
@@ -560,6 +564,8 @@ extraction-service/
 ```
 
 ### 5.1 pyproject.toml (essential sections)
+
+> The block below is the original plan-time snapshot. The live `pyproject.toml` is the source of truth — it has diverged since Phase 1 review passes added ruff rule-set entries (`EM`, `TRY`, `TCH`, `N`, `S`), per-file-ignores for tests, pytest `markers`/`filterwarnings`, the hatchling `exclude` directive, and version floors on the `types-*` dev deps. See `pyproject.toml` directly for current state; deviations from this snapshot are recorded in `docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md §17.8`.
 
 ```toml
 [build-system]
@@ -685,14 +691,14 @@ Each phase is **its own git worktree** so phases can be reviewed/merged independ
 
 ### 6.3 Phase 1 — Domain types and configuration
 
-**Goal:** All immutable types (`ContractJob`, `ContractRecord`, stage state machine), settings loading, run config parsing. No I/O, no async — pure data.
+**Goal:** Domain value objects (`ContractJob`, stage state machine, `StageRecord` — frozen) plus the mutable `ContractRecord` container (workers reassign stage fields under the §3.5 lock), settings loading, run config parsing. No I/O, no async — pure data.
 
 **Worktree:** `phase-1-domain`
 
 | # | Task | File | RED test | GREEN impl | Verify |
 |---|---|---|---|---|---|
 | 1.1 | `ContractJob` frozen Pydantic model | `src/extraction_service/domain/job.py` | `tests/unit/test_domain_job.py::test_frozen_construct` — construct with valid bytes + UUID, assert frozen and round-trips through `model_dump_json` | Pydantic v2 model with `model_config = ConfigDict(frozen=True)`, fields: `contract_id: UUID`, `pdf_bytes: bytes`, `metadata: dict[str, Any]` | `uv run pytest tests/unit/test_domain_job.py` |
-| 1.2 | `StageState` enum | `src/extraction_service/domain/stage.py` | `test_stage_state_values` — assert enum has `pending`, `in_progress`, `done`, `failed` | `class StageState(str, Enum)` with those four values | pytest |
+| 1.2 | `StageState` enum | `src/extraction_service/domain/stage.py` | `test_stage_state_values` — assert enum has `pending`, `in_progress`, `done`, `failed` | `class StageState(StrEnum)` with those four values (Python 3.11+ `StrEnum` over the older `(str, Enum)` form — cleaner `str()` / f-string output for structlog) | pytest |
 | 1.3 | `StageRecord` Pydantic model | `src/extraction_service/domain/stage.py` | `test_stage_record_transitions` — start pending, transition to in_progress sets `started_at`, transition to done sets `completed_at` and `duration_ms` | model with state, started_at, completed_at, duration_ms (computed), error (Optional) | pytest |
 | 1.4 | `ContractRecord` | `src/extraction_service/domain/record.py` | `test_contract_record_default_state` — fresh record has intake=done, ocr=pending, parsing=pending; `overall_status="in_progress"` | model with intake, ocr, data_parsing StageRecords plus a derived `overall_status` and `current_stage` property | pytest |
 | 1.5 | Error hierarchy | `src/extraction_service/domain/errors.py` | `test_error_codes` — each exception class has correct `code` attribute | exception classes from Section 4.13 | pytest |
