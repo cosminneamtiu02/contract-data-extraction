@@ -37,7 +37,11 @@ dev = [
     # Floor mirrors the locked major (1.3.0); 0.x → 1.x changed the default
     # asyncio mode and added new ini keys — >=0.24 was stale.
     "pytest-asyncio>=1.0",
-    "pytest-cov>=6.0",
+    # Floor tracks the locked major (7.1.0); pytest-cov 7.0 dropped pytest 7.x
+    # support and changed --cov-fail-under semantics. A fresh-machine resolve
+    # could silently lock 6.x otherwise. Matches the tracks-the-locked-major
+    # convention applied to pytest (>=9.0), pytest-asyncio (>=1.0), mypy (>=2.0).
+    "pytest-cov>=7.0",
     "hypothesis>=6.115",
     # Floor tracks the API surface the codebase was tested against (locked at
     # 2.1.x); mypy 2.0 introduced breaking strict-mode flag semantics — same
