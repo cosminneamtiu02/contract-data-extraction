@@ -802,3 +802,63 @@ Recorded after the 20-lens panel was re-run against `phase-1-domain` at `26b4f24
 - Parallel fix-dispatch wall-clock: 7 agents in parallel completed in ~5 minutes total. Comparable to the 12-agent parallel dispatch in pass 5. The ruff-format companion (`adca278`) was added in the main conversation after Layer A — pattern: line-length boundary crossings from type-annotation tightenings need a post-Layer-A format pass.
 
 **Loop-mode status:** Pass 6: 9 commits applied; 10 fixes (0 Critical / 4 Important / 6 Minor); 16/20 Ship-ready Yes, 4/20 With fixes; ~25 panel recommendations filtered out; new HEAD post Layer B. **Loop continues to pass 7 against the new HEAD.**
+
+### 17.13. Phase 1 panel seventh pass (loop iteration 4)
+
+Recorded after the 20-lens panel was re-run against `phase-1-domain` at `2c430ae` on 2026-05-12 in loop mode. Pass 7 surfaced a fresh wave of small substantive items — the senior-dev filter still passing through real defects after the strong-convergence pass 6.
+
+**Pass 7 totals: 9 fix-now items (5 Important / 4 Minor / 0 Critical) across 8 commits (6 Layer A + 1 lockfile companion + this Layer B entry).**
+
+**Ship-ready verdicts:** 12/20 Yes, 8/20 With fixes.
+
+**Layer A (6 parallel-dispatched fix-agents):**
+
+- `be7e1db` feat(domain): re-export `OverallStatus`, `StageName` from `domain/__init__.py` (Lens 09 Important) — record.py comment declared them as Phase 5 HTTP response surface but the natural `from extraction_service.domain import OverallStatus` import path raised ImportError. Closed the discovery gap before Phase 5 needs the path.
+- `9d4e3a1` docs(workflows): sync IDE NOTE line-number references (Lens 11 Minor) — pass-4 commit `de1bb9f` added a 9-line rationale block above the actual PAT references, shifting their line numbers. The IDE NOTE comment's `(lines 60, 76)` was stale; corrected to current `(lines 75, 91)`.
+- `3e09216` chore(pyproject): mypy floor + pytest comment + coverage comment + BLE ruff family (Lens 12 Important + Lens 14 Minor + Lens 15 Important + Lens 05 Important — 4 findings bundled on one file):
+  - `mypy>=1.13` → `mypy>=2.0` (one major behind locked 2.1.0; mypy 2.0 introduced breaking strict-mode flag semantics; mirrors the pass-5 pytest-asyncio floor fix)
+  - "pytest 9.x" → "pytest 9.0.x" in import-mode comment (9.1+ added `import_mode` as ini option)
+  - Inline comment on `fail_under = 80` documenting the §17.2 deferral (config is inert without `--cov` in CI; prevents false-confidence reading)
+  - `BLE` added to ruff `select` (plan §7 "no silent exception catches" rule had no linter arm; zero current violations + real Phase 2-6 coverage)
+- `0ec44de` docs(plan): complete §6.3 RED-test name sweep (Lens 01 Important + Lens 17 Minor) — pass-6 commit `c5f3de9` synced tasks 1.1/1.6/1.9; tasks 1.2-1.8 were left with plan-time predicted names. Completed the sweep across all six remaining task rows.
+- `3184fd5` chore: document `.env.example` forward-looking stub in `.gitignore` (Lens 19 Minor) — mirrors the `.vscode/` carve-out comment pattern; gives contributors a signal that the rule is intentional scaffolding.
+- `b1731a8` docs(claude): generalize parallel fix-dispatch template (Lens 17 Important) — template inside Loop mode section hardcoded "Phase 1 review pass-N" and "phase-1-domain" branch; Phase 2 self-review would have dispatched agents with "Phase 1 review" in their prompts. Replaced with `Phase N` and `<phase-branch>` placeholders.
+
+**Layer A companion (uv.lock):**
+
+- `c525a27` chore(deps): refresh `uv.lock` after the mypy floor bump (resolved version unchanged at 2.1.0; metadata regeneration only).
+
+**Layer B (sequential, this commit):** this `§17.13` entry.
+
+**Items the senior-dev filter dropped from the panel's recommendations:**
+
+- **Add base `ExtractionError` instance-test for sentinel code** (Lens 05 Minor) — subclass test already exercises the same mechanism; base test is symmetric belt-and-suspenders.
+- **5 PositiveInt rejection tests for Settings** (Lens 13 Minor) — port test already anchors the PositiveInt boundary behavior; adding 5 more re-tests the same Pydantic mechanism.
+- **Lower-bound assertion on real-clock tests** (Lens 16 Important) — already deferred in §17.11 with explicit "deliberately non-assertive" rationale.
+- **`_VALID_SCHEMA` module-level dict immutability tightening** (Lens 16 Minor) — lens itself said "no current test mutates it"; preemption for hypothetical future test misuse.
+- **`LoggingMode` type alias extraction** (Lens 06 Important) — already deferred to Phase 5 in §17.11 (natural wiring callsite).
+- **Single-value `Literal["docling"]` widening** (Lens 03 Important) — Phase 2 widens when adding the second engine; current single-value form is plan-compliant.
+- **`OcrError` intermediate-class code inheritance footgun** (Lens 05 Important, re-raised from prior passes) — Phase 4 implementation concern.
+- **`_write_json` test helper unused `name` parameter** (Lens 07 Minor) — borderline YAGNI churn in test code.
+- **`lambda: list(_DEFAULT_RETRY_ON)` → `_DEFAULT_RETRY_ON.copy`** (Lens 08 Minor) — intentional style (explicit copy via `list(...)` is equally idiomatic).
+- **Drift-guard test type-narrowing with `isinstance`** (Lens 04 Minor) — polish-of-polish on test introspection; no runtime consequence.
+- **`Mode` alias in shared module** (Lens 06 Important) — already deferred to Phase 5 in §17.11.
+- **`asyncio_default_test_loop_scope` explicit setting** (Lens 14 Minor, re-raised) — already deferred (no DeprecationWarning when absent, unlike fixture-scope counterpart).
+- **`hypothesis` not yet exercised** (Lens 15 Minor) — beyond Phase 1 scope; dev dep available when Phase 2+ needs property-based tests.
+- **`darwin-checks` `--dev` install** (Lens 15 Minor) — marginal CI optimization.
+- **CLAUDE.md "When NOT to use" bullet 4 "in-review" wording** (Lens 17 Important) — current wording IS accurate; Phase 1 is in-review.
+- **`structlog.typing.Processor` annotation comment for clarity** (Lens 04 Minor, re-raised) — comment inflation.
+- **`Mode` alias inline drift-prevention** (Lens 06 Important) — re-versioning §17.11 deferral; no new evidence.
+- **`getattr(self, name)` `match` rewrite** (Lens 04 Minor) — current pattern works, mypy is green; rewrite is more verbose with no static-analysis gain.
+- **README quick-start `pre-commit install`** (Lens 18 Minor) — README user-restricted.
+- **CI `pre-commit run --all-files` single-step parity** (Lens 18 Minor) — intentional architectural tradeoff (clean per-tool CI annotations).
+- **Pre-commit external repo SHA pinning** (Lens 18, re-raised) — already deferred; community convention.
+- **`workflow_dispatch` concurrency formula** (Lens 11 Minor, re-raised) — predates the diff range; lens flagged "for awareness only".
+- **lockfile-sync cancel-in-progress on synchronize** (Lens 20 Minor) — lens-acknowledged designed behavior; no code change needed.
+- **setup-uv cache-key pre-regen lockfile staleness** (Lens 20 Minor) — lens-acknowledged "current risk: none".
+- **Historical commit-message stylistic items (66862a4 + c088a6c silent passengers)** (Lens 02 ×2 Minor) — immutable history.
+- **§17 missing entry for pip-audit hook routine addition** (Lens 18, re-raised) — already addressed; §17 records deviations, not routine additions.
+
+**Process note:** Pass 7 surfaced 9 fix-now items where pass 6 had 10 — convergence is asymptotic, not strictly monotonic. Each pass tends to find a handful of items the prior pass's lens prompts didn't specifically guard against (this pass: `mypy>=1.13` floor staleness, parallel-dispatch template hardcoding, the §6.3 task-row-sweep completion). Two of these were the synthesizer's own pass-6 additions to the codebase that became findings the moment they landed.
+
+**Loop-mode status:** Pass 7: 8 commits applied; 9 fixes (0 Critical / 5 Important / 4 Minor); 12/20 Ship-ready Yes, 8/20 With fixes; ~26 panel recommendations filtered out; new HEAD post Layer B. **Loop continues to pass 8 against the new HEAD (iteration 5 of 5 — pass 8 will hit the max-cap if it produces non-zero commits).**
