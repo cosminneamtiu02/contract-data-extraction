@@ -201,7 +201,14 @@ class DoclingOcrEngine:
             raise OcrError(msg) from exc
 
         if result.status != ConversionStatus.SUCCESS:
-            msg = f"docling reported conversion status {result.status!r}"
+            # Surface per-page error records when Docling populates them (they
+            # live on result.errors as a list of ConversionError objects with
+            # `.error_message` text). Without this, operators get only the
+            # status enum repr and no signal about which page or rule failed.
+            # `getattr` keeps the engine robust across Docling versions that
+            # might rename/drop the attribute.
+            errors_detail = getattr(result, "errors", None) or "<no per-page errors reported>"
+            msg = f"docling reported conversion status {result.status!r}: {errors_detail}"
             raise OcrError(msg)
 
         document = result.document
