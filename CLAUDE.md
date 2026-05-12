@@ -276,11 +276,27 @@ After all 20 lens reports return, **the synthesis is done in the main conversati
 2. **Promote convergence.** When ≥2 lenses independently flag the same item, treat it as **load-bearing regardless of individual severities reported**. Convergence is the strongest signal a multi-agent review produces. In this project: the CodeQL `@v4` pin (3-lens convergence in pass 1) and the dependabot `update-types` ecosystem asymmetry (4-lens convergence in pass 2) were both promoted to Critical/Important via convergence.
 3. **Inter-lens disagreement: pick a side, explain why.** Don't average, don't punt to the user. Example from this project: Pass-1 Lens 06 said add `__all__: list[str] = []`; Pass-2 Lens 07 called it premature. The synthesizer correctly chose Lens 07 because empty `__all__` actively masks future symbols — a quiet bug-by-construction outweighs an explicit-gate benefit.
 4. **Reversing a prior fix is correct when new evidence justifies it.** If lens N now contradicts a fix from a prior round, undo the prior fix. Don't anchor.
-5. **The unified report format:**
-   - Strengths (cross-lens consensus, deduplicated)
-   - Issues grouped by promoted severity (Critical / Important / Minor)
-   - Per-lens summary table with verdicts (Yes / No / With fixes)
-   - Recommendations + final assessment
+5. **The synthesis report structure — strict order; this is what the user reads.** Do not deviate from this order; do not collapse categories; do not skip the per-deferred-item justification length requirement.
+
+   1. **Per-lens verdicts table.** One row per lens: lens number, lens name, verdict (Yes / No / With fixes), and per-severity finding counts. This is the cold-pickup signal — what the panel said at a glance. **No finding details in this table** — those belong in the four sections below.
+
+   2. **Objective fixes (auto-applied).** Findings where no reasonable reader would dispute the item needs fixing. Auto-apply this category. Includes:
+      - Convergent findings (≥2 lenses agree on the same item)
+      - State-tracking errors in docs (stale claims about CI state, branch protection, infra)
+      - Doc hygiene (per the cosmetic-fixes-always-apply rule)
+      - Defense-in-depth tightenings with zero current violations
+      - Single-lens findings whose substance is uncontested by any other lens (silence ≠ disagreement)
+
+      For each item: file:line, one-line reason, commit SHA where applied.
+
+   3. **Headbutting findings (synthesizer-decided).** Where ≥2 lenses contradict each other on a factual or design call. Do NOT punt to the user; pick a side. For each item: which lenses disagree, the substance of the disagreement, the side I picked (or "both wrong → third option"), and a one-sentence rationale for the call. Applied automatically with the decision recorded in the commit message.
+
+   4. **Deferred (justified).** Findings not applied this pass. **For every deferred item, write a 3–4 sentence explanation of WHY it's deferred.** Not a one-liner; not "Phase 5 will handle it." Actually walk through the threat model, the dependency chain, the cost-benefit calculation. This paragraph IS the deferred item's audit trail — a future panel pass that re-flags the same item should be able to read this paragraph and either agree with the deferral or explicitly counter it.
+
+   5. **For user decision (last).** Findings where the project-context judgment call belongs to the user — subjective design choices, naming preferences, scope renegotiations, anything where I could decide either way and reasonable readers could disagree with my call. For each item, include my recommendation based on project context. Then **explicitly ASK the user**: "do you want to decide each of these, or are you OK with me deciding based on project context?" Do NOT decide unilaterally on user-decision items. Do NOT skip the ask.
+
+   The order is non-negotiable. Verdicts first because they're the at-a-glance signal. Objective is largest and most skimmable. Headbutting is the synthesizer's real value-add. Deferred is dense by design — the 3–4 sentence rationale carries weight. User-decision is last because it pauses the flow.
+
 6. **Skip the synthesized report if asked to go straight to triage.** When the user says "evaluate implementation relevance" or "what's worth fixing", jump straight to the triage matrix below.
 
 ### Triage rules — what gets fixed now
