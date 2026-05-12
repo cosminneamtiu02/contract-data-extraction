@@ -50,6 +50,10 @@ class StageRecord(BaseModel):
     object here (docs/plan.md §3.2 — orchestrator polls and reads
     ``data_parsing.extracted`` when ``overall_status == "done"``). It is
     ``None`` on every other stage and before completion.
+
+    ``extracted`` is typed ``dict[str, Any] | None`` — an IO-boundary case
+    where ``Any`` is explicitly accepted per docs/plan.md §7 (the LLM produces
+    caller-supplied-schema-shaped JSON the service does not introspect).
     """
 
     model_config = ConfigDict(frozen=True)
@@ -70,6 +74,10 @@ class StageRecord(BaseModel):
         return int((self.completed_at - self.started_at).total_seconds() * 1000)
 
     def start(self, now: datetime | None = None) -> "StageRecord":
+        """Return a new record transitioned to IN_PROGRESS with ``started_at`` set.
+
+        ``now`` is injectable for deterministic tests; production callers pass
+        nothing and get ``datetime.now(UTC)`` at call time."""
         return self.model_copy(
             update={
                 "state": StageState.IN_PROGRESS,
@@ -83,6 +91,12 @@ class StageRecord(BaseModel):
         *,
         extracted: dict[str, Any] | None = None,
     ) -> "StageRecord":
+        """Return a new record transitioned to DONE with ``completed_at`` set.
+
+        ``extracted`` is the data-parsing payload — Phase 4's LLM worker
+        populates it when the ``data_parsing`` stage completes successfully
+        (docs/plan.md §3.2). Non-LLM stages and pre-completion states leave
+        it ``None``. Kwarg-only so it can never be transposed with ``now``."""
         return self.model_copy(
             update={
                 "state": StageState.DONE,
@@ -91,7 +105,12 @@ class StageRecord(BaseModel):
             }
         )
 
-    def fail(self, error: StageError, now: datetime | None = None) -> "StageRecord":
+    def fail(self, now: datetime | None = None, *, error: StageError) -> "StageRecord":
+        """Return a new record transitioned to FAILED with ``completed_at`` and ``error`` set.
+
+        Signature mirrors ``complete()``: ``now`` first (optional), domain
+        payload (``error``) keyword-only — prevents transposition at Phase 4
+        call sites that mix ``start`` / ``complete`` / ``fail`` close together."""
         return self.model_copy(
             update={
                 "state": StageState.FAILED,
