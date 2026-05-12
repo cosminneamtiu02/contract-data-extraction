@@ -474,7 +474,7 @@ extraction-service/
 │       ├── domain/
 │       │   ├── __init__.py
 │       │   ├── job.py           # ContractJob frozen Pydantic model
-│       │   ├── stage.py         # StageState, StageRecord
+│       │   ├── stage.py         # StageState, StageRecord, StageError
 │       │   ├── record.py        # ContractRecord (full status)
 │       │   └── errors.py        # exception hierarchy
 │       │
