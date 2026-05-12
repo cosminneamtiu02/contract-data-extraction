@@ -1,10 +1,11 @@
-"""Docling-backed OCR engine — constructor skeleton (plan §6.4 task 2.3).
+"""Docling-backed OCR engine — production implementation (plan §6.4 tasks 2.3, 2.4, 2.8, 2.9).
 
 This module wires the §2.5 DocumentConverter setup into a class that conforms
 to the ``OcrEngine`` Protocol defined in ``base.py``.  The ``.extract()``
-method body is deferred to Task 2.4; the stub below preserves the ``extract``
-attribute so ``isinstance(engine, OcrEngine)`` returns ``True`` at runtime
-(the Protocol is ``@runtime_checkable`` and checks for attribute presence).
+method is fully implemented: it runs the converter in a thread via
+``asyncio.to_thread``, enforces ``OcrConfig.timeout_seconds`` via
+``asyncio.wait_for``, and wraps failures as ``OcrError`` or
+``OcrEmptyOutputError``.
 
 ## Design: constructor-injectable factory (approach A)
 
@@ -102,7 +103,7 @@ def _build_default_converter(ocr_config: OcrConfig) -> DocumentConverter:
 
 
 class DoclingOcrEngine:
-    """Docling+RapidOCR backend for the ``OcrEngine`` Protocol (plan §6.4 task 2.3).
+    """Docling+RapidOCR backend for the ``OcrEngine`` Protocol (plan §6.4 tasks 2.3-2.9).
 
     Production usage — let the factory default to ``None``::
 
@@ -112,10 +113,13 @@ class DoclingOcrEngine:
 
         engine = DoclingOcrEngine(OcrConfig(), _converter_factory=lambda _: stub)
 
-    The ``.extract()`` body is deferred to Task 2.4.  The stub below preserves
-    the ``extract`` attribute so ``isinstance(engine, OcrEngine)`` returns
-    ``True`` at runtime (the Protocol is ``@runtime_checkable`` and checks for
-    attribute presence).
+    The ``.extract()`` method runs the Docling converter in a thread via
+    ``asyncio.to_thread``, enforces ``OcrConfig.timeout_seconds`` via
+    ``asyncio.wait_for``, raises ``OcrEmptyOutputError`` on empty markdown,
+    raises ``OcrError`` on non-SUCCESS ``ConversionStatus`` or generic
+    converter exceptions, and propagates ``TimeoutError`` unwrapped.
+    ``isinstance(engine, OcrEngine)`` returns ``True`` at runtime because the
+    Protocol is ``@runtime_checkable`` and ``extract`` is defined on this class.
     """
 
     def __init__(
@@ -139,12 +143,12 @@ class DoclingOcrEngine:
         self._converter: DocumentConverter = factory(ocr_config)
 
     async def extract(self, pdf_bytes: bytes) -> OcrResult:
-        """Extract OCR text from a PDF byte buffer (plan §6.4 task 2.4).
+        """Extract OCR text from a PDF byte buffer (plan §6.4 tasks 2.4, 2.8, 2.9).
 
         Docling's ``DocumentConverter.convert`` is synchronous and CPU-bound
         (it runs the full OCR pipeline: PDF rasterisation → layout analysis →
-        RapidOCR/PP-OCRv5 inference → markdown export). Wrapping it in
-        ``loop.run_in_executor`` keeps the event loop free for other work —
+        RapidOCR/PP-OCRv5 inference → markdown export). Running it via
+        ``asyncio.to_thread`` keeps the event loop free for other work —
         critical for Phase 4 where the OCR worker is one of several concurrent
         asyncio tasks driving the pipeline.
 
@@ -180,10 +184,9 @@ class DoclingOcrEngine:
 
         stream = DocumentStream(name="contract.pdf", stream=BytesIO(pdf_bytes))
 
-        loop = asyncio.get_running_loop()
         try:
             result = await asyncio.wait_for(
-                loop.run_in_executor(None, self._converter.convert, stream),
+                asyncio.to_thread(self._converter.convert, stream),
                 timeout=self._ocr_config.timeout_seconds,
             )
         except TimeoutError:
