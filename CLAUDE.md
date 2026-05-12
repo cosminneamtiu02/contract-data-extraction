@@ -12,7 +12,12 @@ Read [docs/plan.md](docs/plan.md) for the full architecture and phase-by-phase p
 
 **When the user asks for phase work** — phrases like "start phase 1", "implement Phase N", "begin phase X", "let's do phase Y", "next phase", or "what's next" when the answer is the next phase per the plan — use the full **Superpowers flow** below. It applies to every phase in [docs/plan.md §6](docs/plan.md) (Phases 1 → 6; Phase 0 / Phase 0.5 / Phase 1 are already shipped or in-review on `main`).
 
-The flow has four signature mechanics — TDD, worktree isolation, parallel subagent dispatch, PR creation as user handoff. Use all four; do not down-shift to a serial-in-main-conversation simplification unless the phase has only 1–2 independent tasks (see [When NOT to use](#when-not-to-use-this-methodology)).
+The flow has **two phases**, both automatic:
+
+1. **Development** — TDD, worktree isolation, parallel subagent dispatch per dependency layer until every task in the plan table lands.
+2. **Self-review** — once dev is done and the PR is opened as draft, **automatically** fire the 20-lens panel on the PR diff, synthesize findings in the main conversation, triage per the project's rules, apply fix-now items as additional commits, then mark the PR ready for review.
+
+The user only takes over **after** the PR is marked ready: they decide on merge timing, request further panel passes if they want, address any reviewer comments. Use both phases together as a single sequence; do not stop after `gh pr create` and ask "do you want a review now?" — the review is part of the standard flow.
 
 ### Why this flow
 
@@ -20,7 +25,8 @@ The flow has four signature mechanics — TDD, worktree isolation, parallel suba
 - **TDD is rigid for production code.** Every task — main-conversation or subagent — follows `superpowers:test-driven-development`: no production code without a failing test first. The plan's RED test column is the contract.
 - **Per-phase git worktree isolates the work.** `./.worktrees/phase-N-<slug>/` is the phase's checkout; the main directory stays on `main` so you can answer review comments on an earlier phase's PR without `git stash` dancing. `.worktrees/` is already in `.gitignore`.
 - **Parallel subagent dispatch is the wall-clock multiplier.** Independent tasks fire in a single message via multiple `Agent` calls; layer dependencies sequentially. With 6+ independent tasks (as Phase 1 had) this saves ~25 minutes per phase.
-- **PR creation is the handoff point.** I run the full local verification gate, push the worktree branch, and open the PR via `gh pr create`. From there the **user** drives every downstream decision: review-comment triage, follow-up commits, marking the PR ready, the actual merge. **Never** `gh pr ready` or `gh pr merge` without explicit instruction. Never merge locally. See [memory/feedback_pr_workflow.md](../../.claude/projects/-Users-cosminneamtiu-Work-contract-data-extraction/memory/feedback_pr_workflow.md).
+- **Self-review before handoff catches the items the dev-time subagents miss.** The 20-lens panel sees the assembled phase as a whole — cross-cutting concerns like type-completeness, test isolation, dependency hygiene that no per-task subagent had the context to flag. Convergent findings (≥2 lenses agree) are the strongest signal of a real defect. Running the review automatically means the user receives a PR that has already absorbed the panel's fix-now bucket, not a raw dev branch.
+- **Handoff = PR marked ready.** Once `gh pr ready` returns, the user drives every downstream decision: merge timing, further panel passes, reviewer-comment responses, deferred-items follow-up. **Never** `gh pr merge` without explicit instruction. Never merge locally. See [memory/feedback_pr_workflow.md](../../.claude/projects/-Users-cosminneamtiu-Work-contract-data-extraction/memory/feedback_pr_workflow.md).
 
 ### The flow
 
@@ -65,15 +71,33 @@ The flow has four signature mechanics — TDD, worktree isolation, parallel suba
 
 9. **Push the worktree branch.** `git push -u origin phase-N-<slug>` from inside the worktree.
 
-10. **Open the PR.** `gh pr create --title "feat(phase-N): <phase title>" --body "<standard body>"` with the [standard PR body sections](#conventional-commits--pr-conventions): Summary, What's in this PR (per commit), What's NOT in this PR (rationale), Test plan (local fully checked, CI unchecked — the four required jobs run automatically). **Open it as a ready-for-review PR, not draft** — the work is complete.
+10. **Open the PR as DRAFT.** `gh pr create --draft --title "feat(phase-N): <phase title>" --body "<standard body>"` with the [standard PR body sections](#conventional-commits--pr-conventions): Summary, What's in this PR (per commit), What's NOT in this PR (rationale), Spec deviations, Test plan (local fully checked, CI unchecked — the four required jobs run automatically). Draft state signals "work in progress through self-review pass."
 
-11. **STOP. Handoff to user.** Report:
+    --- end of development; the self-review pass begins automatically ---
+
+11. **Fire the 20-lens panel on the PR diff.** Use the dispatch mechanics from [§ Code review methodology](#code-review-methodology--go-to-strategy):
+    - `BASE_SHA` = `origin/main`
+    - `HEAD_SHA` = the just-pushed phase branch HEAD
+    - All 20 `Agent` calls in **a single assistant message**, `subagent_type: general-purpose`, `model: sonnet`, `run_in_background: true`.
+
+12. **Synthesize findings in the main conversation** per [§ The synthesizer pass](#the-synthesizer-pass--never-delegate). Demote aggressively; promote convergence (≥2 lenses agree → load-bearing); pick a side on inter-lens disagreement; reverse prior-round fixes when new evidence justifies it.
+
+13. **Triage and apply fix-now items** per [§ Triage rules](#triage-rules--what-gets-fixed-now). **Fixes land on the SAME phase branch** (not a new `chore/panel-review-fixes` branch — that naming is reserved for *standalone* reviews of already-merged code; phase-PR self-review stays on the phase branch). Atomic per-concern commits, conventional-commits format. Update the PR body's "Spec deviations" section if any fix records a new deviation; append to the phase's spec deviation log at [docs/superpowers/specs/](docs/superpowers/specs/) for material deviations.
+
+14. **Re-run the full local verification gate** from the worktree after all fixes apply.
+
+15. **Push the self-review fixes** to the PR: `git push origin phase-N-<slug>`.
+
+16. **Mark the PR ready for review.** `gh pr ready <PR#>`. The self-review pass is complete; the PR is in deliverable state for the user.
+
+17. **STOP. Handoff to user.** Report in one message:
     - PR URL.
-    - Commit list (one line per task).
-    - Local verification summary.
-    - Open todos: any item you didn't finish, any deviation from the plan, any spec deviation log entry to draft.
+    - Dev commits (one line per task).
+    - Self-review summary: convergent findings, per-lens verdicts table, fix-now items applied (per commit SHA), items deferred (with one-line rationale each).
+    - Spec deviations recorded (if any).
+    - User drives from here: merge timing, further panel passes ("rerun the review" → pass-2 against `origin/main..HEAD`), reviewer comments, CI-failure response if the four required checks go red.
 
-    Do not do any of the following without explicit user instruction: `gh pr ready` toggling, follow-up commits, panel review dispatch, addressing CI failures (unless the user asks), responding to PR review comments. **The user drives the post-PR-open phase entirely.**
+    Do NOT, without explicit instruction: `gh pr merge`, dispatch a second panel pass, push further commits, address CI failures, or respond to PR review comments.
 
 ### Subagent dispatch template
 
@@ -319,6 +343,8 @@ This is the **most opinionated** part of the methodology and where the prior sin
 - ❌ "Will land naturally with the next phase anyway" — if it's a 1-line fix today, fix it today.
 
 ### Implementation flow
+
+**Context: standalone vs phase-PR self-review.** This implementation flow applies to **standalone** panel reviews — when the user invokes the panel manually on already-merged `main` (phrases like "rerun the review," "review main," "panel review the current state"). For **phase-PR self-review** auto-fired at the end of [§ Phase development methodology](#phase-development-methodology--go-to-strategy-superpowers-flow) (step 11), fixes land on the same phase branch and the steps below collapse into that flow's steps 13–16; do not cut a separate `chore/panel-review-fixes` branch.
 
 1. **Cut a new branch from `main`.** Naming: `chore/panel-review-fixes` for first pass, `chore/panel-review-fixes-pass-N` for subsequent. Never work directly on `main`.
 2. **Apply fixes.** Use Edit/Write directly. For grouped doc updates, use `replace_all: true` only when the pattern is genuinely identical across sites. For inter-related fixes, prefer atomic per-concern commits over one large commit.
