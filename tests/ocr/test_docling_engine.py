@@ -258,6 +258,38 @@ async def test_docling_extract_converter_exception_wraps_as_ocr_error() -> None:
     assert exc_info.value.code == "ocr_engine_failed"
 
 
+async def test_docling_extract_returns_zero_page_count_when_document_pages_empty() -> None:
+    """``extract`` returns OcrResult.page_count == 0 when the converter reports no pages.
+
+    Pins the current contract on a degenerate input: if Docling produces a
+    DoclingDocument whose ``pages`` dict is empty (plausible on a
+    one-page scan where layout analysis found zero page items but the OCR
+    pass still emitted text), ``extract`` returns page_count=0 silently
+    rather than raising. Phase 4's worker can attribute / log this case
+    however it wants — the OCR layer's contract is just "report what the
+    converter said." If a future iteration decides empty-pages should be
+    an OcrError, this test fails first and forces a deliberate update.
+    """
+    fake_document = MagicMock()
+    fake_document.export_to_markdown.return_value = "some recognised text"
+    fake_document.pages = {}
+    fake_result = MagicMock()
+    fake_result.document = fake_document
+    fake_result.status = _success_status()
+
+    stub_converter = MagicMock()
+    stub_converter.convert.return_value = fake_result
+
+    engine = DoclingOcrEngine(
+        OcrConfig(),
+        _converter_factory=lambda _cfg: stub_converter,
+    )
+
+    result = await engine.extract(b"any bytes")
+
+    assert result.page_count == 0
+
+
 async def test_docling_extract_failed_conversion_status_raises_ocr_error() -> None:
     """``extract`` raises ``OcrError`` when ``ConversionResult.status`` is not SUCCESS.
 
@@ -268,6 +300,9 @@ async def test_docling_extract_failed_conversion_status_raises_ocr_error() -> No
     conversion — a quiet-bug-by-construction the LLM stage would happily
     chew on. Explicit check surfaces the failure at the OCR boundary.
     """
+    # Local import keeps the heavyweight Docling import chain off the import
+    # path of tests that don't exercise ConversionStatus — parallels the
+    # _success_status() helper below.
     from docling.datamodel.base_models import ConversionStatus
 
     fake_document = MagicMock()
