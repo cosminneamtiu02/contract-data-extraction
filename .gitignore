@@ -44,6 +44,9 @@ Thumbs.db
 # Local environment
 .env
 .env.*
+# .env.example will be committed as a contributor template alongside the
+# Settings env-var documentation (currently in src/extraction_service/settings.py
+# docstring); the !-rule is a forward-looking stub with no current file behind it.
 !.env.example
 
 # Logs
