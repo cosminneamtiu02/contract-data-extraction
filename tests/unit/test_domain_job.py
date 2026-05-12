@@ -14,7 +14,7 @@ from pydantic import ValidationError
 from extraction_service.domain.job import ContractJob
 
 
-def test_contract_job_constructs_with_required_fields() -> None:
+def test_contract_job_stores_contract_id() -> None:
     contract_id = uuid4()
     job = ContractJob(
         contract_id=contract_id,
@@ -24,7 +24,25 @@ def test_contract_job_constructs_with_required_fields() -> None:
 
     assert job.contract_id == contract_id
     assert isinstance(job.contract_id, UUID)
+
+
+def test_contract_job_stores_pdf_bytes() -> None:
+    job = ContractJob(
+        contract_id=uuid4(),
+        pdf_bytes=b"%PDF-1.4 fake",
+        metadata={"source": "orchestrator"},
+    )
+
     assert job.pdf_bytes == b"%PDF-1.4 fake"
+
+
+def test_contract_job_stores_metadata() -> None:
+    job = ContractJob(
+        contract_id=uuid4(),
+        pdf_bytes=b"%PDF-1.4 fake",
+        metadata={"source": "orchestrator"},
+    )
+
     assert job.metadata == {"source": "orchestrator"}
 
 
