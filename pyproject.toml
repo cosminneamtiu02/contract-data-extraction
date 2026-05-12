@@ -75,7 +75,11 @@ target-version = "py313"
 # violations (Phase 1 has no `except` blocks); covers Phase 2-6 catch-alls.
 # Defense-in-depth: zero current violations in src/; only tests need to raise
 # string-literal exceptions in pytest.raises blocks, handled below.
-select = ["E", "F", "I", "B", "UP", "ASYNC", "PIE", "SIM", "RET", "ARG", "PTH", "TID", "T20", "RUF", "C4", "FURB", "PT", "EM", "TRY", "TCH", "N", "S", "BLE"]
+# PL (Pylint) added 2026-05-12 per pass-1 review against main (Lens 08): zero
+# PL violations in src/; two test-style false positives (PLR2004 magic numbers
+# in assertions set up inline; PLC0415 non-top-level imports in smoke tests
+# where the import IS the behavior under test) suppressed via per-file-ignores.
+select = ["E", "F", "I", "B", "UP", "ASYNC", "PIE", "SIM", "RET", "ARG", "PTH", "TID", "T20", "RUF", "C4", "FURB", "PT", "EM", "TRY", "TCH", "N", "S", "BLE", "PL"]
 ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
@@ -85,6 +89,8 @@ ignore = ["E501"]
     "TRY003",   # tests' raise messages are intentionally long-form for assertion clarity
     "S101",     # `assert` IS the pytest assertion mechanism
     "S108",     # /tmp paths in test YAML strings are never opened — pure-string Pydantic Path fixtures
+    "PLR2004",  # magic numbers in test assertions (e.g., `assert duration_ms == 2000`) are set up inline 2-3 lines earlier and reading them inline IS clearer than extracting a named constant
+    "PLC0415",  # smoke tests intentionally use non-top-level imports — the import-inside-function IS the behavior under test
 ]
 
 [tool.ruff.format]
