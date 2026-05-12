@@ -8,7 +8,7 @@
 #     are NOT declared deps either; they're pulled by the `standard` extra.
 #   - pydantic:      pydantic + pydantic-settings (lockstep releases)
 #   - pytest:        pytest + plugins (aligned releases)
-#   - dev-tools:     ruff + mypy + pip-audit + detect-secrets + types-* + hatchling + pre-commit
+#   - dev-tools:     ruff + mypy + pip-audit + detect-secrets + types-* + pre-commit
 #   - runtime-singletons: structlog + httpx + ollama + jsonschema + pyyaml
 #   - ml-stack:      docling + rapidocr-onnxruntime + modelscope (heavy transitive trees)
 #
@@ -61,7 +61,6 @@ updates:
           - "pip-audit"
           - "detect-secrets"
           - "types-*"
-          - "hatchling"
           # pre-commit is a dev dep too; without listing it here a future
           # Dependabot pre-commit pip bump would arrive UNGROUPED and bypass
           # the `update-types: [patch, minor]` major-bump gate that the file
