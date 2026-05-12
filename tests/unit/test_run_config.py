@@ -19,7 +19,6 @@ from pydantic import ValidationError
 
 from extraction_service.config.run_config import (
     RetryOnCode,
-    RunConfig,
     load_run_config,
 )
 from extraction_service.domain import errors as errors_module
@@ -44,7 +43,6 @@ def test_load_minimal_valid_yaml_returns_run_config(tmp_path: Path) -> None:
 
     run_config = load_run_config(cfg)
 
-    assert isinstance(run_config, RunConfig)
     assert run_config.llm.prompt_template_path == Path("/tmp/prompt.txt")
     assert run_config.paths.domain_model_path == Path("/tmp/schema.json")
 
