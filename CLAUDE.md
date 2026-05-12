@@ -303,6 +303,16 @@ After all 20 lens reports return, **the synthesis is done in the main conversati
 
    The order is non-negotiable: **1. Verdicts → 2. Objective → 3. Headbutting → 4a. Deferred (later phase) → 4b. Deferred (other reasons) → 5. For user decision.** Verdicts first because they're the at-a-glance signal. Objective is largest and most skimmable. Headbutting is the synthesizer's real value-add. Deferred-4a items have a built-in re-trigger; deferred-4b items don't, so the justification carries more weight. User-decision is last because it pauses the flow.
 
+   **Apply-first-then-report execution order — STRICT.** The 5 sections describe the *content* of the report; the *execution* order is different. After the panel returns, the synthesizer:
+
+   1. **Drafts the full report internally** (not shown to the user yet) with all 5/6 categories populated.
+   2. **Auto-applies every item in section 2 (Objective fixes)** — atomic per-concern commits, full local verification gate after the batch.
+   3. **Auto-applies every item in section 3 (Headbutting findings)** the synthesizer has decided. Only items routed to section 5 (User decision) wait for user input; everything in 2 and 3 is already a decision the synthesizer made, so applying is automatic.
+   4. **Pushes the resulting commits to the PR.**
+   5. **Presents the full report to the user** with section 2 + 3 already showing commit SHAs as confirmation of what landed, section 4a/4b as deferred-with-rationale, section 5 as the only open ask.
+
+   The user receives a report that is partly a confirmation log ("here's what already happened") and partly a forward ask ("here are the items I held for your call"). They do NOT receive a planning document asking for permission on every Objective item — that loop is wasted; the rules already decided. See [memory/feedback_apply_then_report.md](../../.claude/projects/-Users-cosminneamtiu-Work-contract-data-extraction/memory/feedback_apply_then_report.md).
+
 6. **Skip the synthesized report if asked to go straight to triage.** When the user says "evaluate implementation relevance" or "what's worth fixing", jump straight to the triage matrix below.
 
 ### Triage rules — what gets fixed now
