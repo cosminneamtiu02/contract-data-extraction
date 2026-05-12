@@ -397,6 +397,8 @@ The cosmetic-always-apply rule above guards against complacency on small fixes t
 
 **Max iteration cap: 5 passes.** If the loop hasn't converged in 5 passes, stop and report. The most likely cause of non-convergence at that point is the filter being too loose — one or more "filter-out" categories needs to be added based on what's being repeatedly surfaced.
 
+**Post-max-cap restart semantics.** If the user requests a review re-run after max-cap termination ("rerun same cycle", "loop again", "rerun the loop", or similar), treat it as a NEW 5-iteration loop with the iteration counter reset to 1 (not as an extension of the prior cap). The new loop starts a fresh pass-N numbering against the current branch HEAD and applies the same termination conditions (zero-commits convergence OR 5-iteration max cap). The senior-dev filter rationale paragraph above still applies: if the new loop also hits the cap without converging, the most likely cause is filter looseness, and the right response is to tighten the filter rather than start yet another cycle. Record each cycle's pass range and termination reason in `docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md §17.N` so the cumulative audit trail is unambiguous.
+
 **Per-pass mechanics within the loop:**
 
 1. Pass starts: get current `HEAD_SHA`, capture in pass log.
