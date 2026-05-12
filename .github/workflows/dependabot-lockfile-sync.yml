@@ -167,7 +167,9 @@ jobs:
 
       - name: Regenerate uv.lock
         if: steps.loop_guard.outputs.skip != 'true' && steps.changed.outputs.needs_uv == 'true'
-        run: uv lock
+        run: |
+          set -euo pipefail
+          uv lock
 
       - name: Commit and push lockfile update
         # Symmetric with the preceding regen steps so we only run git plumbing
