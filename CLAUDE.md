@@ -291,11 +291,17 @@ After all 20 lens reports return, **the synthesis is done in the main conversati
 
    3. **Headbutting findings (synthesizer-decided).** Where ≥2 lenses contradict each other on a factual or design call. Do NOT punt to the user; pick a side. For each item: which lenses disagree, the substance of the disagreement, the side I picked (or "both wrong → third option"), and a one-sentence rationale for the call. Applied automatically with the decision recorded in the commit message.
 
-   4. **Deferred (justified).** Findings not applied this pass. **For every deferred item, write a 3–4 sentence explanation of WHY it's deferred.** Not a one-liner; not "Phase 5 will handle it." Actually walk through the threat model, the dependency chain, the cost-benefit calculation. This paragraph IS the deferred item's audit trail — a future panel pass that re-flags the same item should be able to read this paragraph and either agree with the deferral or explicitly counter it.
+   4. **Deferred (justified) — split into two sub-categories:**
+
+      **4a. Deferred — waiting on a later phase.** Findings that will naturally resurface when the dependent phase code lands, and applying them now means inventing scaffolding (fake consumers, hypothetical threat models, unused config knobs) with no real callsite. Each gets a 3–4 sentence justification, but the justification should name the specific later phase / specific dependency that unblocks the item. These items have a built-in re-trigger.
+
+      **4b. Deferred — other reasons.** Findings deferred because the cost-benefit doesn't work today, the synthesizer can't resolve them without out-of-band info (e.g., a `gh api` call), they're cosmetic and non-load-bearing, or they conflict with a project rule (e.g., "prefer new commit over amend on shared branches"). Each gets a 3–4 sentence justification walking through the specific cost-benefit. **These items will NOT auto-resurface** — a future panel pass needs to explicitly decide to re-take them, so the justification is more load-bearing than for 4a.
+
+      For both sub-categories: not a one-liner; not "Phase 5 will handle it" as a bare statement. The paragraph IS the deferred item's audit trail — a future panel pass that re-flags the same item should be able to read this paragraph and either agree with the deferral or explicitly counter it.
 
    5. **For user decision (last).** Findings where the project-context judgment call belongs to the user — subjective design choices, naming preferences, scope renegotiations, anything where I could decide either way and reasonable readers could disagree with my call. For each item, include my recommendation based on project context. Then **explicitly ASK the user**: "do you want to decide each of these, or are you OK with me deciding based on project context?" Do NOT decide unilaterally on user-decision items. Do NOT skip the ask.
 
-   The order is non-negotiable. Verdicts first because they're the at-a-glance signal. Objective is largest and most skimmable. Headbutting is the synthesizer's real value-add. Deferred is dense by design — the 3–4 sentence rationale carries weight. User-decision is last because it pauses the flow.
+   The order is non-negotiable: **1. Verdicts → 2. Objective → 3. Headbutting → 4a. Deferred (later phase) → 4b. Deferred (other reasons) → 5. For user decision.** Verdicts first because they're the at-a-glance signal. Objective is largest and most skimmable. Headbutting is the synthesizer's real value-add. Deferred-4a items have a built-in re-trigger; deferred-4b items don't, so the justification carries more weight. User-decision is last because it pauses the flow.
 
 6. **Skip the synthesized report if asked to go straight to triage.** When the user says "evaluate implementation relevance" or "what's worth fixing", jump straight to the triage matrix below.
 
