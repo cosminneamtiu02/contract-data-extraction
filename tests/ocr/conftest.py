@@ -1,0 +1,167 @@
+"""Pytest fixtures for OCR engine tests (plan §6.4).
+
+These fixtures resolve the local OCR sample directory from the
+``EXTRACTION_OCR_SAMPLES_DIR`` environment variable. The variable is required
+because the sample PDFs (real German bank credit contracts) are kept entirely
+out of the repository — they contain personal data and the repo is public.
+
+Behavior matrix:
+
+============================  =====================================  ==========
+Env var state                 Directory contents                     Result
+============================  =====================================  ==========
+unset                         (any)                                  skip
+set, dir does not exist       (any)                                  skip
+set, dir exists, no PDFs      (any)                                  skip
+set, dir exists with PDFs     (any)                                  yield PDFs
+============================  =====================================  ==========
+
+Skipping (rather than failing) on a missing env var keeps CI runs and fresh
+clones green; real-OCR validation runs only on developer machines that have
+the sample set staged at the env-var-pointed path.
+
+The fixtures intentionally do NOT log PDF filenames in failure messages —
+the filenames themselves can carry sensitive content (personal names,
+account numbers).  Failures reference each sample by ordinal index (#0..#N-1)
+so signal-leakage in CI logs is avoided.
+"""
+
+from __future__ import annotations
+
+import os
+import re
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+import pytest
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+SAMPLES_DIR_ENV_VAR = "EXTRACTION_OCR_SAMPLES_DIR"
+
+
+def _resolve_samples_dir() -> Path | None:
+    """Return the configured OCR samples directory, or None when unconfigured.
+
+    Returns None (rather than raising) so the caller can decide whether to
+    skip the test or proceed with a weaker assertion. Fixtures translate
+    None into a pytest skip.
+    """
+    raw = os.environ.get(SAMPLES_DIR_ENV_VAR)
+    if not raw:
+        return None
+    path = Path(raw).expanduser()
+    if not path.is_dir():
+        return None
+    return path
+
+
+def _enumerate_pdfs(samples_dir: Path) -> list[Path]:
+    """Return the PDF samples in deterministic (sorted) order.
+
+    Sort by name so per-PDF test IDs are stable across runs and machines.
+    The caller doesn't need to know individual filenames — tests use the
+    ordinal index for failure messages.
+    """
+    return sorted(samples_dir.glob("*.pdf"))
+
+
+@pytest.fixture(scope="session")
+def ocr_samples_dir() -> Path:
+    """Return the configured OCR samples directory.
+
+    Skips the test session-wide when ``EXTRACTION_OCR_SAMPLES_DIR`` is unset
+    or points to a missing directory. The skip reason names the env var so a
+    developer running the OCR tests for the first time learns exactly which
+    variable to set.
+    """
+    resolved = _resolve_samples_dir()
+    if resolved is None:
+        pytest.skip(
+            f"OCR sample directory not configured. "
+            f"Set ${SAMPLES_DIR_ENV_VAR} to the path containing your local "
+            f"sample PDFs (see docs/superpowers/specs/2026-05-12-phase-2-ocr-spec-deviations.md)."
+        )
+    return resolved
+
+
+@pytest.fixture(scope="session")
+def ocr_sample_pdfs(ocr_samples_dir: Path) -> list[Path]:
+    """Return the list of sample PDFs in the configured directory.
+
+    Skips when the directory is empty so a misconfigured env var (pointing
+    at an unrelated dir) doesn't silently produce zero parametrised cases.
+    """
+    pdfs = _enumerate_pdfs(ocr_samples_dir)
+    if not pdfs:
+        pytest.skip(
+            f"OCR samples directory ${SAMPLES_DIR_ENV_VAR}={ocr_samples_dir} "
+            f"contains no *.pdf files."
+        )
+    return pdfs
+
+
+def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
+    """Parametrise tests requesting ``ocr_sample_pdf`` over every PDF.
+
+    The IDs are ordinal indices (sample_#0, sample_#1, ...) rather than
+    filenames — filenames may contain personal data that we do not want to
+    leak into pytest output, CI logs, or test report XML.
+    """
+    if "ocr_sample_pdf" not in metafunc.fixturenames:
+        return
+
+    resolved = _resolve_samples_dir()
+    if resolved is None:
+        metafunc.parametrize("ocr_sample_pdf", [], ids=[])
+        return
+
+    pdfs = _enumerate_pdfs(resolved)
+    ids = [f"sample_#{i}" for i in range(len(pdfs))]
+    metafunc.parametrize("ocr_sample_pdf", pdfs, ids=ids)
+
+
+@pytest.fixture
+def baseline_for() -> Callable[[Path], str | None]:
+    """Return a helper that loads the sibling .txt baseline for a given PDF.
+
+    Yields None when the baseline file does not exist — the caller then
+    falls back to a weaker smoke assertion rather than failing the test.
+    Baselines are produced by Claude reading each PDF directly (plan
+    deviation §17.N); they are never committed to git.
+    """
+
+    def _load(pdf_path: Path) -> str | None:
+        baseline_path = pdf_path.with_suffix(".txt")
+        if not baseline_path.is_file():
+            return None
+        return baseline_path.read_text(encoding="utf-8")
+
+    return _load
+
+
+def word_recall(baseline: str, ocr_output: str, min_word_len: int = 4) -> float:
+    """Word-level recall: |baseline_words ∩ ocr_words| / |baseline_words|.
+
+    Computes case-insensitive set intersection over words at least
+    ``min_word_len`` characters long, which filters out conjunctions /
+    prepositions (in German: ``und``, ``der``, ``die``, ``das``) whose
+    presence/absence has no diagnostic value for OCR quality. Score in
+    [0, 1]; 1.0 means every long word in the baseline appears somewhere in
+    the OCR output.
+
+    Choice of metric (rather than full equality or Levenshtein on full text):
+    OCR routinely splits hyphenated words at line breaks, merges spaces, and
+    occasionally swaps similar glyphs (l/I, 0/O); a per-line or per-character
+    metric fails on cosmetic differences that aren't real OCR misses.
+    Word-set recall is robust to those and gives a single number that's
+    debuggable when it fails (the failure can name which baseline words are
+    missing from the OCR output).
+    """
+    pattern = rf"\w{{{min_word_len},}}"
+    baseline_words = set(re.findall(pattern, baseline.lower()))
+    ocr_words = set(re.findall(pattern, ocr_output.lower()))
+    if not baseline_words:
+        return 1.0  # nothing to recall against → trivially perfect
+    return len(baseline_words & ocr_words) / len(baseline_words)

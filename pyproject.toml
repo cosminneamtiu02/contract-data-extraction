@@ -126,9 +126,13 @@ addopts = [
     "-ra",
     "--import-mode=importlib",
 ]
-# Pre-empt --strict-markers footgun: register the empty marker list so the
-# first custom marker added in a later phase fails loudly until it's listed.
-markers = []
+# Pre-empt --strict-markers footgun: register markers so unknown ones fail
+# loudly under --strict-markers. `slow` marks tests that run real OCR against
+# local sample PDFs (~2-10s per page on M4 CPU); exclude with `-m "not slow"`
+# during fast-feedback dev runs. CI runs them as part of the full sweep.
+markers = [
+    "slow: real-OCR tests that require local sample PDFs via $EXTRACTION_OCR_SAMPLES_DIR; not for fast-feedback runs",
+]
 # DeprecationWarnings are errors by default — a Phase 2/3 dependency that
 # starts emitting deprecation noise will surface before it silently rots the
 # test signal. Specific noisy deps can add narrow ignores when needed.
