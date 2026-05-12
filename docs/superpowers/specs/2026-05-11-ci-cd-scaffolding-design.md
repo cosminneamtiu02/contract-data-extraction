@@ -1644,3 +1644,58 @@ Fix count: 12 → 4 → 2 (monotonic decline, ratio 0.5 cycle-3-to-cycle-2). Cyc
 Notably this cycle: the SAME 4 clean lenses re-emerged independently (L05, L07, L10, L14 — L09 from cycle 2 dropped out, L10 from cycle 1 returned), suggesting these are durably-stable areas. The first STRONG convergent finding of the loop (L01 + L17 on CLAUDE.md pointer drift) confirms the workflow gap from §17.23 is still active until the in-cycle pointer-bump pattern (this §17.26 commit) is established.
 
 **Per-cycle status line (compact):** `Cycle 3 on chore/panel-review-fixes-2026-05-13: 3 commits applied (2 fixes + this §17.26 with embedded CLAUDE.md pointer bump to break in-cycle recurrence); 2 findings (0 Critical / 0 Important / 2 Minor lens-rated, 1 promoted via convergence); 1 STRONG convergent finding (L01 + L17 on CLAUDE.md §17 pointer); Ship-ready (pre-fix): 14/20 Yes, 6/20 With fixes (rotated: L01/L03/L11/L17/L19/L20); Clean lenses: 4/20 (L05 + L07 + L10 + L14); ~16 categories filter-dropped (incl. 2 NEW lens-hallucination drops — L03 git-tracking fabrication, L20 stale-training fabrication); 0 new deferrals; 0 prior-cycle deferrals reversed. New HEAD: <pending push>. Continuing.`
+
+### 17.27. Cycle-4 on `chore/panel-review-fixes-2026-05-13` — 1 applied fix, near-convergence (fix count 12→4→2→1)
+
+Fourth cycle of the auto-converge loop. Lens prompts continued the cycle-independent clean-snapshot pattern with one tactical refinement: prompts for L03, L04, L10, and L20 now include explicit "verify before reporting" instructions targeting the cycle-3 hallucination failure modes (L03 git-tracking fabrication, L04 plugin-option fabrication, L20 stale-version-knowledge fabrication). The refinement worked — those four lenses returned clean or filter-droppable findings this cycle.
+
+**Cycle-4 totals: 1 panel-derived fix applied as 1 atomic commit + this §17.27 audit entry (also bumping CLAUDE.md `§17 latest` pointer to §17.27 in the same commit) = 2 commits.** Lens-rated severity: 0 Critical, 0 Important applied, 1 Minor applied.
+
+**Convergent findings (≥2 lenses on same item):** 0 strong this cycle. (Cycle 3's L01+L17 convergence on the CLAUDE.md `§17 latest` pointer drift did NOT recur this cycle — the in-cycle pointer-bump pattern established in §17.26 successfully broke the recurrence. L01 explicitly verified the pointer was synced.)
+
+**Cycle-4 ship-ready verdicts (panel pre-fix):** 16 × Yes, 4 × With fixes (L13, L16, L18, L19), 0 × No. Yes-count jumped from cycle 1/2/3's stable 14 to 16 — a +2 swing reflecting that lenses are running out of substantive findings. The 4 With-fixes verdicts decompose as: 1 real substantive cosmetic (L13 smoke-test stale docstring, applied) + 3 filter-drops (L16 recurring /tmp-paths preemptive, L18 recurring ruff-hooks scope re-versioning, L19 .vscode hallucination on git ignore semantics).
+
+**Clean lenses (zero findings):** 7 (L01, L03, L04, L05, L07, L08, L10). Sharp jump from cycle-3's 4 — over a third of the panel surfaced no findings at all. L01 and L04 specifically returned clean only because of cycle-3's drift-closure (L01: CLAUDE.md pointer; L04: implicit confirmation that the cycle-2/3 hallucinated pydantic-mypy options are not real plugin options).
+
+**Layer A commits (1 atomic):**
+
+- `4031cc0` docs(tests): refresh stale smoke-test docstring (Phase 1 complete) — **L13 Minor (substantive cosmetic)**. The smoke-test module docstring said "Real behavior-asserting tests land alongside the production code starting in **Phase 1**" — but Phase 1 IS complete on origin/main (PR #7 merged). The unit suite under `tests/unit/` already covers all 9 Phase-1 task rows; the smoke tests have stayed as package-layout sentinels, not placeholders for future tests. Reworded to acknowledge the current state without churning the actual smoke tests.
+
+**Layer B (this §17.27 audit entry, also bumping CLAUDE.md `§17 latest` pointer to §17.27 in the same commit to maintain the in-cycle-close pattern established in §17.26).**
+
+**Lens hallucinations recorded this cycle:** 1 new pattern (L19 .vscode footgun on git ignore semantics). The lens claimed `.vscode/*` + `!.vscode/specific.json` creates a "git add . skips files in ignored directory" footgun. But `.vscode/*` (with trailing `*`) ignores only files INSIDE `.vscode`, NOT the directory itself — so negation rules work fine with `git add .`. The lens conflated `.vscode/*` (files-only ignore) with `.vscode/` (directory ignore). Filter-drop class: lens git-semantics fabrication. Added to the running list of known hallucination patterns documented in §17.26's first paragraph.
+
+**Items the senior-dev filter dropped (cycle 4) — heavy filter-drop volume confirms the loop is near terminal state:**
+
+- L02 cycle-1 commit-type drift (`ci(ruff)`): 8th cycle dropping this; shared-branch gate.
+- L06 `_STAGE_FIELDS` Literal annotation + `duration_ms_is_none_until_both_timestamps_set` two-target test: cycle-by-cycle stylistic preferences; recurring "re-versioning prior decisions" filter pattern.
+- L09 `py.typed` shipping comment polish: lens-rated "no current defect; polish only."
+- L11 concurrency `cancel-in-progress` latent-trap comment + ci.yml long expression + codeql `workflow_dispatch`: lens-rated "low structural risk" / "deliberate trade-off, not a defect" / "not blocking CI operation."
+- L12 `ruff` listed in runtime-dep convention comment (factually correct — ruff DOES use tracks-the-locked-minor; the dev-vs-runtime distinction is cosmetic to that comment's scope): hair-splitting comment precision. Plus 5 recurring missing-floor-rationale findings (cycles 2/3/4 unchanged).
+- L13 dual-assertion test split: cycle-3 same recurring stylistic preference.
+- L14 `markers = []` comment-clarity nit: lens-rated "fine as-is."
+- L15 import-mode CI-comment cross-reference: lens-rated "no fix required."
+- L16 `/tmp` paths in YAML fixtures: 4th cycle in a row dropping; no current failure mode, no Phase 2-6 loader-validation anchor.
+- L17 README Layout Phase 6 qualifier: lens itself notes "this entry duplicates the 2026-05-12 entry already in the queue — no new entry needed."
+- L18 ruff hooks file-based vs `src tests` scope: cycle 3 lens-rated "no practical effect"; cycle 4 elevated without new evidence. Re-versioning.
+- L19 `.vscode/*` footgun: LENS HALLUCINATION on git ignore semantics (see above).
+- L19 `.worktrees/` / `uv.lock merge=union` / `Makefile` section: 3 separate Minor items lens-rated "correct and good" / "No change needed" / "not a current defect."
+- L20 fork-PR ref hardening: lens self-rated "Low-priority for an Important; defense already present via PAT repo-scoping; not exploitable today."
+- L20 dependabot daily-vs-weekly schedule comment: cycle-2/3 recurring.
+
+**No user-decision items in cycle 4** (auto-cycle mode).
+
+**Prior-cycle deferrals reversed in cycle 4:** 0.
+
+**Trend across the loop:**
+
+| Cycle | Commits | Fixes | C / I / M | Ship-ready Yes | Clean lenses | Filter-drops | Convergence findings |
+|---|---:|---:|---|---:|---:|---:|---:|
+| 1 | 13 | 12 | 0 / 6 / 16 | 14/20 | 2 | ~13 | 0 strong |
+| 2 | 5 | 4 | 0 / 0 / 4 | 14/20 | 4 | ~15 | 0 strong |
+| 3 | 3 | 2 | 0 / 0 / 2 | 14/20 | 4 | ~16 | 1 strong |
+| 4 | 2 | **1** | 0 / 0 / 1 | **16/20** | **7** | ~18 | 0 strong |
+
+Fix count: 12 → 4 → 2 → 1 (ratio 0.5). Clean lenses: 2 → 4 → 4 → 7 (sharp increase). Ship-ready Yes verdicts: 14 → 14 → 14 → 16 (first jump). Severity floor: 6 Important → 0 → 0 → 0 (held). The trajectory points at near-zero fixes in cycle 5; convergence likely.
+
+**Per-cycle status line (compact):** `Cycle 4 on chore/panel-review-fixes-2026-05-13: 2 commits applied (1 fix + this §17.27 with embedded CLAUDE.md pointer bump); 1 finding (0 Critical / 0 Important / 1 Minor); 0 strong convergent findings (cycle-3 L01+L17 recurrence pattern broken by in-cycle pointer-bump); Ship-ready (pre-fix): 16/20 Yes, 4/20 With fixes (rotated: L13/L16/L18/L19); Clean lenses: 7/20 (L01 + L03 + L04 + L05 + L07 + L08 + L10 — over a third of the panel); ~18 categories filter-dropped (incl. 1 NEW lens-hallucination drop — L19 git-ignore-semantics fabrication); 0 new deferrals; 0 prior-cycle deferrals reversed. New HEAD: <pending push>. Continuing → Cycle 5 (final per max-cap rule).`
