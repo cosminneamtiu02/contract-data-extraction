@@ -77,6 +77,24 @@ def test_configure_logging_carries_contextvars_into_log_events() -> None:
     assert payload["stage"] == "ocr"
 
 
+def test_configure_logging_dev_mode_carries_contextvars_into_log_events() -> None:
+    """merge_contextvars is part of the shared processor chain (only the
+    renderer differs between modes per docs/plan.md §4.8). A production-only
+    test would miss a mode-split regression. This test confirms the dev
+    renderer also surfaces bound contract_id / stage in its plain-text output."""
+    buf = io.StringIO()
+    configure_logging("development", stream=buf)
+    structlog.contextvars.bind_contextvars(contract_id="abc-123", stage="ocr")
+
+    log = structlog.get_logger()
+    log.info("stage_started")
+
+    output = buf.getvalue()
+    assert "abc-123" in output
+    assert "ocr" in output
+    assert "stage_started" in output
+
+
 def test_configure_logging_filters_below_info_level() -> None:
     """``structlog.make_filtering_bound_logger(logging.INFO)`` means
     ``log.debug(...)`` must produce no output. The only configured-but-untested
