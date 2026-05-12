@@ -145,17 +145,51 @@ def test_stage_record_complete_derives_duration_ms() -> None:
     assert finished.duration_ms == 250
 
 
-def test_stage_record_fail_sets_state_completed_at_and_error() -> None:
+def test_stage_record_fail_transitions_state_to_failed() -> None:
     error = StageError(code="ocr_empty_output", description="no text extracted")
     record = StageRecord().start(now=T0)
 
     failed = record.fail(error=error, now=T0 + timedelta(milliseconds=120))
 
     assert failed.state == StageState.FAILED
+
+
+def test_stage_record_fail_sets_completed_at_to_now() -> None:
+    error = StageError(code="ocr_empty_output", description="no text extracted")
+    record = StageRecord().start(now=T0)
+
+    failed = record.fail(error=error, now=T0 + timedelta(milliseconds=120))
+
     assert failed.completed_at == T0 + timedelta(milliseconds=120)
+
+
+def test_stage_record_fail_records_error() -> None:
+    error = StageError(code="ocr_empty_output", description="no text extracted")
+    record = StageRecord().start(now=T0)
+
+    failed = record.fail(error=error, now=T0 + timedelta(milliseconds=120))
+
     assert failed.error == error
-    # started_at preserved through fail() too (parallel to complete()).
+
+
+def test_stage_record_fail_carries_started_at_forward() -> None:
+    """started_at must persist through fail() so duration_ms can derive
+    from both timestamps; an explicit assert here prevents a future refactor
+    that resets started_at on transition from silently breaking it."""
+    error = StageError(code="ocr_empty_output", description="no text extracted")
+    record = StageRecord().start(now=T0)
+
+    failed = record.fail(error=error, now=T0 + timedelta(milliseconds=120))
+
     assert failed.started_at == T0
+
+
+def test_stage_record_fail_derives_duration_ms() -> None:
+    error = StageError(code="ocr_empty_output", description="no text extracted")
+    record = StageRecord().start(now=T0)
+
+    failed = record.fail(error=error, now=T0 + timedelta(milliseconds=120))
+
     assert failed.duration_ms == 120
 
 
