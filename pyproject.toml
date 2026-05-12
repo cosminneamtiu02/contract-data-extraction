@@ -153,6 +153,11 @@ asyncio_mode = "auto"
 # collection on the first Phase 2 async fixture. "function" matches the
 # existing per-test loop-scope default.
 asyncio_default_fixture_loop_scope = "function"
+# Symmetric companion to asyncio_default_fixture_loop_scope: pytest-asyncio 1.x
+# may warn when this key is absent and async tests run. Under our
+# filterwarnings = ["error::DeprecationWarning"] posture that would immediately
+# break CI. "function" matches the per-test loop-scope default.
+asyncio_default_test_loop_scope = "function"
 testpaths = ["tests"]
 # `--import-mode=importlib`: with `tests/__init__.py` present, pytest's default
 # `prepend` mode imports test files as `tests.unit.test_*` AND can re-import
