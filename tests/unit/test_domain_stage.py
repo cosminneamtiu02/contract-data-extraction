@@ -87,6 +87,11 @@ def test_stage_record_start_sets_started_at_on_new_record() -> None:
     started = StageRecord().start(now=T0)
 
     assert started.started_at == T0
+
+
+def test_stage_record_start_leaves_completed_at_none_on_new_record() -> None:
+    started = StageRecord().start(now=T0)
+
     assert started.completed_at is None
 
 
