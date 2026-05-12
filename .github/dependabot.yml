@@ -81,6 +81,16 @@ updates:
           - "docling"
           - "rapidocr-onnxruntime"
           - "modelscope"
+      pip-catchall:
+        # Backstop for any pip dependency that doesn't match one of the six
+        # named groups above. Without this, a future declared dep that
+        # slipped between the named patterns would arrive as an UNGROUPED
+        # Dependabot PR, bypassing the `update-types: [patch, minor]`
+        # major-bump filter. Mirrors the `"*"` catch-all on
+        # github-actions-stack (added pass 4).
+        update-types: ["patch", "minor"]
+        patterns:
+          - "*"
 
   - package-ecosystem: github-actions
     directory: /
