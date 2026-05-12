@@ -42,9 +42,10 @@ dev = [
     # could silently lock 6.x otherwise. Matches the tracks-the-locked-major
     # convention applied to pytest (>=9.0), pytest-asyncio (>=1.0), mypy (>=2.0).
     "pytest-cov>=7.0",
-    # Floor tracks the locked minor (6.152.6); 6.x has no cross-major break
+    # Floor pinned at 6.115 (locked: 6.152.6); 6.x has no cross-major break
     # currently — the specific 6.115 floor pins a defensive lower bound below
-    # which property-based test behavior has not been verified against this codebase.
+    # which property-based test behavior has not been verified against this
+    # codebase.
     "hypothesis>=6.115",
     # Floor tracks the API surface the codebase was tested against (locked at
     # 2.1.x); mypy 2.0 introduced breaking strict-mode flag semantics — same
