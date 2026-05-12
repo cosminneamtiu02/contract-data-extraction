@@ -44,7 +44,7 @@ class LlmError(ExtractionError):
 
 
 class ContextOverflowError(LlmError):
-    """OCR output exceeded the LLM's context window."""
+    """OCR-produced text exceeded the LLM's context window."""
 
     code: ClassVar[str] = "context_overflow"
 
