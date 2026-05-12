@@ -739,3 +739,66 @@ Recorded after the 20-lens panel was re-run against `phase-1-domain` at `4813be0
 - The `§17.N` entry's "Layer B" sequential placement is correct: every Layer A SHA must be known before the audit-trail entry can be written. Trying to parallelize that would race the SHA references.
 
 **Loop-mode status:** Pass 5 produced 13 commits (12 Layer A + 1 Layer B). The loop continues to pass 6 against the new HEAD.
+
+### 17.12. Phase 1 panel sixth pass (loop iteration 3, strong-convergence signal)
+
+Recorded after the 20-lens panel was re-run against `phase-1-domain` at `26b4f24` on 2026-05-12 in loop mode. Pass 6 shows **strong convergence**: 16/20 lenses returned Ship-ready Yes (up from 10/20 in pass 5 and ~5/20 in pass 4). The remaining 4 With-fixes lenses each surfaced 1-2 substantive items that survived the senior-dev filter — no Critical, no convergent ≥2-lens findings.
+
+**Pass 6 totals: 10 fix-now items (4 Important / 6 Minor / 0 Critical) across 9 commits (8 Layer A + 1 ruff-format companion + this Layer B entry).**
+
+**Ship-ready verdicts:** 16/20 Yes, 4/20 With fixes (Lens 01, Lens 07, Lens 17, Lens 02-historical).
+
+**Layer A (7 parallel-dispatched fix-agents):**
+
+- `c5f3de9` docs(plan): sync §6.3 task 1.1, 1.6, 1.9 RED-test names to live test names (Lens 01 Minor + Lens 17 Minor) — same factual-drift pattern as the pass-4 task-1.9 fix; phase-implementor subagents reading the table now get accurate test names.
+- `f54df7c` chore: add `[*.toml]` section to `.editorconfig` with `indent_size = 4` (Lens 19 Minor) — follows the existing per-filetype section pattern.
+- `80dd5c0` fix(config): correct `PathsConfig` docstring + tighten `_OCR_RETRY_CODES_REJECTED` type (Lens 07 Important + Minor) — the docstring claimed PathsConfig would grow with prompt-template paths but those already live in `LlmConfig`; rewrote to point future growth at genuinely unhoused paths. Type tightened from `frozenset[str]` to `frozenset[RetryOnCode]` for static guarantee.
+- `13316fc` docs(claude): qualify "When NOT to use" bullet 3 + expand per-pass loop-mode status format (Lens 17 Important + user-directed methodology improvement) — bullet 3 said "no subagent dispatch for fixes themselves" but the Parallel fix-dispatch pattern explicitly dispatches subagents in loop mode; qualified the bullet to apply only to standalone "review against main" runs. Per-pass status format now mandates severity-bucketed fix count (Critical / Important / Minor) AND ship-ready verdict count (e.g., "16/20 Yes, 4/20 With fixes") so the user gets a quality + convergence signal at-a-glance between passes.
+- `2ee3252` fix(types): honest `cast(dict[str, Any], json.load(f))` in `load_domain_model` (Lens 04 Important) — `json.load` returns `Any`; the previous local annotation was an unverified cast. The cast makes the narrowing explicit and the inline comment names `Draft202012Validator.check_schema` as the runtime guard for non-object schemas. Ruff's TC006 enforced the string-quoted form `cast("dict[str, Any]", ...)`.
+- `e25e752` chore(pre-commit): pin `minimum_pre_commit_version: "4.0"` (Lens 18 Minor) — first-run DX win; matches the `pre-commit>=4.0` dev dep floor.
+- `a641208` docs(plan): sync 3 stale "Pull requests: Read and write" PAT scope references in `docs/superpowers/plans/2026-05-11-ci-cd-scaffolding.md` (Lens 20 Minor) — completes the multi-pass PAT-scope sync (workflow header + error message + spec §4.4/§14 corrected in prior passes; the historical plan doc was the last surface).
+
+**Layer A companion (ruff format):**
+
+- `adca278` chore(format): ruff format split the lengthened `_OCR_RETRY_CODES_REJECTED` line over 100 chars after the type-tightening in `80dd5c0`. Pure format, no semantic change.
+
+**Layer B (sequential, this commit):** this `§17.12` entry.
+
+**Items the senior-dev filter dropped from the panel's recommendations:**
+
+- **`assert_never` re-add proposed by Lens 07 in pass 4** — Lens 07 in pass 6 did NOT re-flag it (the explicit prompt-level guard against re-raising it was respected).
+- **`StageError` rename to `StageFailure`** (Lens 06 implicit) — pass-6 Lens 06 did NOT re-raise this either; the §17.10 deferral held.
+- **CLAUDE.md "When NOT to use" bullet 4 staleness** (Lens 17 Important) — bullet says "Phase 1 — already complete or in-review"; in-review IS accurate. Lens itself noted "Minor in isolation". No change needed.
+- **`OcrError` intermediate-class code inheritance footgun** (Lens 05 Important) — Phase 4 implementation concern; risk is hypothetical until Phase 4 worker code exists.
+- **`StageError.code` Literal tightening** (Lens 05 Minor) — preemption for Phase 4; current `str` field is correct at the IO boundary.
+- **`now_or_default` helper extraction** (Lens 08 Important) — already deferred in §17.9; same finding re-raised; re-versioning a prior decision requires new evidence (none provided).
+- **`ruff>=0.9` floor bump to `>=0.15`** (Lens 08 Minor) — already deferred in §17.9; lockfile is source of truth, ad-hoc `pip install` is not supported.
+- **`asyncio_default_test_loop_scope` explicit set** (Lens 14 Minor) — defaults to "function" with NO DeprecationWarning when absent (verified by Lens 14 itself); no Phase 2 collection-break risk like the fixture-scope variant.
+- **Explicit `scope="function"` on `_reset_structlog_state` and `isolated_env`** (Lens 14 + 16 Minor) — function-scope is the implicit default; explicit declaration is documentation-via-redundancy (already deferred in §17.11).
+- **`pythonpath = ["src"]` in pytest config** (Lens 09 Minor) — already deferred in §17.11; duplicates the supported `uv run` editable install path.
+- **Stale `.pyc` in local `__pycache__`** (Lens 09 Minor) — local artifact, never committed; lens itself says "no code change needed".
+- **`hatchling exclude = ["**/__pycache__"]` redundancy** (Lens 09 Minor) — already deferred in §17.9.
+- **`ContextOverflowError` docstring re-rewording** (Lens 06 Minor) — polish-of-polish on a pass-5 fix (commit `030ff21`).
+- **`Mode` type alias extraction** (Lens 06 Minor) — explicit Phase 5 deferred-4a; the wiring callsite (`Settings.mode` → `configure_logging`) is when the alias pays off.
+- **`PathsConfig` plural-name pre-evaluation** (Lens 06 Minor) — explicit Phase 3/4 deferral by the lens itself ("flag for re-evaluation then").
+- **`getattr(self, name)` in record.py untyped** (Lens 04 Minor) — current pattern works, mypy is green; `match name:` rewrite is more verbose with no static-analysis gain.
+- **`renderer: structlog.typing.Processor` annotation clarity comment** (Lens 04 Minor) — comment inflation; the type IS a structural callable, no annotation issue.
+- **Test bundles (`test_stage_state_str_coerces_to_value`, `test_stage_record_defaults_to_pending_*`, `test_fresh_contract_record_with_default_now_*`)** (Lens 13 ×3 Minor) — "one assertion target per test" rule is about one logical invariant; multiple-example values for the same invariant is parametrize-style coverage, not bundling of different behaviors.
+- **`load_run_config` empty-YAML docstring case** (Lens 10 Minor) — docstring already covers it via "ValidationError on schema violations"; empty file → missing required fields → ValidationError.
+- **`/tmp/` paths in test_run_config fixtures** (Lens 10 + 16 Minor) — already noted "no test will fail" in §17.11.
+- **Pre-commit tag-vs-SHA pinning** (Lens 10 Minor) — already deferred in §17.9 / §17.10 / §17.11; community convention.
+- **`backend-checks` / `darwin-checks` timeout / coverage / JUnit XML / matrix** (Lens 15 Minor ×3) — already deferred in §17.2 / §17.9 / §17.10 / §17.11 as Phase 2+ concerns.
+- **Spec §17 missing entry for pip-audit pre-commit hook** (Lens 18 Minor in pass 4; same finding still surfacing) — §17 records deviations from spec, not routine additions; already addressed in pass-5 synthesizer note.
+- **Workflow_dispatch concurrency** (Lens 11 Minor) — pre-dates the diff range; lens itself flagged "for awareness only".
+- **Historical commit-message stylistic corrections** (Lens 02 multiple Minor) — immutable shared-branch history; lens itself acknowledged "nothing requires rewriting history".
+- **Hardcoded test runner timeouts, comment annotations on common-knowledge config** (Lens 11 + 15) — comment inflation per the senior-dev filter.
+- **`httpx` and `pre-commit` documentation-comment clarifications in dependabot.yml** (Lens 12 Minor ×2) — comment inflation; the configurations are correct.
+- **`types-jsonschema>=4.26` floor tightening to locked-version** (Lens 12 Minor) — stub-floor reasoning is "mirror runtime floors not locked versions"; current state matches the stated convention.
+
+**Process learning from this pass:**
+
+- The senior-dev filter has settled into a stable steady-state. ~80% of the panel's raw findings are filtered out; the remaining ~20% are substantive fixes that survive multiple criteria (factual drift, defense-in-depth that mirrors established project patterns, real coverage gaps).
+- Convergence count dropped this pass: 0 multi-lens convergent findings (passes 4 and 5 had 2-3 each on `logging.py` rename, `SchemaInvalid` stale ref, etc.). With those one-time multi-lens-visible items resolved, the panel is now in cleanup mode.
+- Parallel fix-dispatch wall-clock: 7 agents in parallel completed in ~5 minutes total. Comparable to the 12-agent parallel dispatch in pass 5. The ruff-format companion (`adca278`) was added in the main conversation after Layer A — pattern: line-length boundary crossings from type-annotation tightenings need a post-Layer-A format pass.
+
+**Loop-mode status:** Pass 6: 9 commits applied; 10 fixes (0 Critical / 4 Important / 6 Minor); 16/20 Ship-ready Yes, 4/20 With fixes; ~25 panel recommendations filtered out; new HEAD post Layer B. **Loop continues to pass 7 against the new HEAD.**
