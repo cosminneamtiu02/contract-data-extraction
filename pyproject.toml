@@ -35,7 +35,10 @@ dev = [
     "pytest-asyncio>=1.0",
     "pytest-cov>=6.0",
     "hypothesis>=6.115",
-    "mypy>=1.13",
+    # Floor tracks the API surface the codebase was tested against (locked at
+    # 2.1.x); mypy 2.0 introduced breaking strict-mode flag semantics — same
+    # cross-major-correctness pattern as the pytest-asyncio floor fix.
+    "mypy>=2.0",
     "ruff>=0.9",
     # Stub floors mirror the runtime floors in [project].dependencies so a
     # future lockfile regeneration on a fresh machine can't drift the stub
@@ -63,9 +66,12 @@ target-version = "py313"
 # N/S added 2026-05-12 per Phase 1 panel re-run (Lens 08 + Lens 10): N catches
 # pep8-naming drift (incl. N818 *Error suffix on exception classes — names
 # normalised in this same pass), S catches bandit security smells.
+# BLE added 2026-05-12 (Lens 05 pass-7): plan §7 "no silent exception catches"
+# rule needs a linter arm. BLE001 = blind `except Exception`. Zero current
+# violations (Phase 1 has no `except` blocks); covers Phase 2-6 catch-alls.
 # Defense-in-depth: zero current violations in src/; only tests need to raise
 # string-literal exceptions in pytest.raises blocks, handled below.
-select = ["E", "F", "I", "B", "UP", "ASYNC", "PIE", "SIM", "RET", "ARG", "PTH", "TID", "T20", "RUF", "C4", "FURB", "PT", "EM", "TRY", "TCH", "N", "S"]
+select = ["E", "F", "I", "B", "UP", "ASYNC", "PIE", "SIM", "RET", "ARG", "PTH", "TID", "T20", "RUF", "C4", "FURB", "PT", "EM", "TRY", "TCH", "N", "S", "BLE"]
 ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
@@ -105,7 +111,8 @@ testpaths = ["tests"]
 # them under the filesystem path when a file is run directly with
 # `pytest path/to/test.py`. The dual-import causes silent fixture-identity bugs.
 # `importlib` mode imports each test module once under a stable name. Passed via
-# addopts because pytest 9.x doesn't accept `import_mode` as an ini option.
+# addopts because pytest 9.0.x doesn't accept `import_mode` as an ini option
+# (pytest 9.1+ added it; narrowed from "9.x" to avoid misleading future readers).
 addopts = [
     "--strict-markers",
     "--strict-config",
@@ -130,6 +137,9 @@ source = ["src/extraction_service"]
 branch = true
 
 [tool.coverage.report]
+# Inert until --cov is added to the CI pytest invocation; deferred per spec
+# §17.2 (coverage of stub-only Phase 1 code is meaningless until production
+# paths exist — gate will be activated when non-stub code lands).
 fail_under = 80
 show_missing = true
 skip_empty = true
