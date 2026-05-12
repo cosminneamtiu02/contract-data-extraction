@@ -55,6 +55,11 @@ Thumbs.db
 
 # Additional tooling caches (preempt phase 2+)
 .import_linter_cache/
+# Jupyter creates this in-tree on first notebook open. .gitattributes already
+# forward-declares *.ipynb LF-pinning for Phase 2+ OCR prototyping notebooks;
+# this ignore-rule prevents the auto-created checkpoint sidecar from showing
+# up in `git status` once a contributor first opens one.
+.ipynb_checkpoints/
 
 # Model / data artifacts (preempt phase 2+ — Ollama weights are under ~/.ollama
 # and outside the tree, but intermediate model files dropped into the working
