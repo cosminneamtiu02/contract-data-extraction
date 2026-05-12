@@ -16,7 +16,8 @@ concurrency:
   # squash-merges don't cancel earlier post-merge canary runs — the
   # invariant "main is always known-green" requires every commit on main
   # to keep its CI record.
-  group: ci-${{ github.ref }}-${{ github.event_name == 'push' && github.sha || 'pr' }}
+  # workflow_dispatch on a feature branch must NOT collide with that branch's PR run — keyed by SHA so each manual dispatch gets its own group.
+  group: ci-${{ github.ref }}-${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.sha || 'pr' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
