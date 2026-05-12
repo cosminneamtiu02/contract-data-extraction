@@ -177,30 +177,6 @@ These survive across phases and override the plan text where they conflict with 
 
 For everything matching "implement phase N" where N ≥ 2 — default to this full Superpowers flow.
 
-### Project-wide best practices to apply uniformly
-
-These survive across phases and override the plan text where they conflict with older wording:
-
-- **`frozen=True` Pydantic models** for value objects ([docs/plan.md §4.11](docs/plan.md)). Nested mutables (e.g., a `dict[str, Any]` metadata field) are *not* deep-frozen — note that in the docstring.
-- **`StrEnum` (Python 3.11+) over `class X(str, Enum)`** for string-typed enums. Cleaner `str()` and f-string output for structlog and JSON, identical Pydantic serialization. The plan text predates `StrEnum`; treat its `(str, Enum)` as shorthand.
-- **`dict[str, Any]` only at IO boundaries** (e.g., `ContractJob.metadata`). Every other domain field is concretely typed.
-- **No `# type: ignore` without a one-line rationale comment** on the same line. Restructure first; ignore only when there's no clean alternative.
-- **Test names describe behavior, not implementation.** `test_contract_job_is_frozen` ✓ ; `test_contract_job_pydantic_config` ✗.
-- **One assertion target per test** — split tests when the plan compactly lists "asserts X, Y, Z."
-
-### Spec deviations
-
-- **Minor deviations** (e.g., `StrEnum` over `(str, Enum)`): note in the commit message body. No spec doc needed.
-- **Material deviations** (changing a phase's exit criteria, skipping a task, swapping a library): create or append to a phase spec deviation log under [docs/superpowers/specs/](docs/superpowers/specs/). Phase 0.5 uses `2026-05-11-ci-cd-scaffolding-design.md §17`; later phases get their own files when needed.
-
-### When NOT to use this methodology
-
-- **One-off fixes outside a phase** — direct branch, no TDD ceremony for trivial doc/config changes.
-- **Panel-review-fix branches** — those follow the [Code review methodology](#code-review-methodology--go-to-strategy) flow (`chore/panel-review-fixes` naming, atomic per-concern commits).
-- **Phase 0 and Phase 0.5** — already shipped.
-
-For everything matching "implement phase N" — default to this flow.
-
 ## Code review methodology — go-to strategy
 
 **When the user asks for a code review** (phrases like "review this", "panel review", "deep review", "review main", "rerun the review", "review the branch"), use the **20-lens parallel panel** described below. Do NOT default to `superpowers:requesting-code-review` (which uses 1 general-purpose agent with a 5-dimension rubric). The single-agent default is shallower; this project's convention is the panel.
@@ -396,7 +372,7 @@ This catches PEP 561 / license inclusion regressions that the test gate alone mi
 - **Default branch is `main`.** Confirmed; no `master`.
 - **Auto-merge is armed** for Dependabot patch/minor bumps across pip, github-actions, and pre-commit ecosystems. A major bump requires explicit review (per `update-types: [patch, minor]` filters on every group).
 - **Branch protection is live.** Required status checks: `backend-checks`, `darwin-checks`, `CodeQL / Analyze (python)`, `CodeQL / Analyze (actions)`. `gh pr merge --auto` waits for all four.
-- **Lockfile sync workflow is configured** but currently disarmed pending PAT setup. Symbolic `vars.DEPENDABOT_LOCKFILE_SYNC_ENABLED` gates it.
+- **Lockfile sync workflow is live and armed.** PAT is set in the Dependabot secret store (see memory/project_repo_setup_state.md); `vars.DEPENDABOT_LOCKFILE_SYNC_ENABLED = "true"` gates it. An intentional placeholder mirror in the Actions store satisfies VSCode IDE validation — do not delete that mirror.
 - **README is the only docs file the user has restricted.** Do not edit it without explicit permission — even for items the panel review flags as belonging in README (e.g., "add `pre-commit install` instruction").
 - **Deviations from the original spec land in `docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md §17`.** Append a new `§17.N` subsection per pass; do not retroactively rewrite earlier subsections.
 
