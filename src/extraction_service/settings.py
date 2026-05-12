@@ -17,7 +17,15 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """Process-wide runtime configuration."""
 
-    model_config = SettingsConfigDict(env_prefix="EXTRACTION_", env_file=".env")
+    model_config = SettingsConfigDict(
+        env_prefix="EXTRACTION_",
+        env_file=".env",
+        # Pin UTF-8 explicitly: pydantic-settings defaults to the locale charset
+        # (None → platform-dependent), and a non-UTF-8 server locale would mis-decode
+        # any non-ASCII byte in the .env file. UTF-8 is the only sensible default
+        # for env files containing model names, paths, or comments.
+        env_file_encoding="utf-8",
+    )
 
     mode: Literal["development", "production"] = "production"
     port: PositiveInt = 8765
