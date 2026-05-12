@@ -308,7 +308,7 @@ rm -rf dist/
 ## Where things live
 
 - Architecture + phase plan: [docs/plan.md](docs/plan.md)
-- Phase 0.5 CI/CD design + accepted deviations log: [docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md](docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md) (§17 latest: §17.25 — cycle-2 of the 2026-05-13 standalone review loop on `chore/panel-review-fixes-2026-05-13`)
+- Phase 0.5 CI/CD design + accepted deviations log: [docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md](docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md) (§17 latest: §17.26 — cycle-3 of the 2026-05-13 standalone review loop on `chore/panel-review-fixes-2026-05-13`)
 - Phase 0.5 implementation plan (historical): [docs/superpowers/plans/2026-05-11-ci-cd-scaffolding.md](docs/superpowers/plans/2026-05-11-ci-cd-scaffolding.md)
 - README change queue: [docs/readme-changes-pending.md](docs/readme-changes-pending.md)
 - Memory (auto-loaded each session): `~/.claude/projects/-Users-cosminneamtiu-Work-contract-data-extraction/memory/` — see MEMORY.md for index
