@@ -1527,3 +1527,58 @@ Recurring filter-drops by category (with prior-loop cycle-count for each pattern
 **No user-decision items in cycle 1** (auto-cycle mode per CLAUDE.md `§Cycle-loop mode`).
 
 **Per-cycle status line (compact):** `Cycle 1 on chore/panel-review-fixes-2026-05-13: 13 commits applied (12 fixes + this §17.24); 22 findings (0 Critical / 6 Important / 16 Minor); 0 strong convergent findings; Ship-ready (pre-fix): 14/20 Yes, 6/20 With fixes; Clean lenses: 2/20 (L10, L14); ~13 categories filter-dropped (recurring patterns); 0 new deferrals; 0 prior-cycle deferrals reversed. New HEAD: <pending push>. Continuing.`
+
+### 17.25. Cycle-2 on `chore/panel-review-fixes-2026-05-13` — 4 applied fixes, sharp fix-count drop (12 → 4)
+
+Second cycle of the auto-converge loop on this branch. Per the cycle-independence rule, lens prompts received NO carryover context — each lens inspected the working tree at HEAD as a clean snapshot with no awareness of cycle 1's 12 fixes or §17.24. The synthesizer (in the main conversation) applied dedup via the senior-dev filter against established filter-drop categories.
+
+**Cycle-2 totals: 4 panel-derived fixes applied as 4 atomic commits + this §17.25 audit entry = 5 commits.** Lens-rated severity: 0 Critical, 0 Important, 4 Minor.
+
+**Convergence findings (≥2 lenses on same item):** 0 strong this cycle. (L01 + L17 both flagged the cycle-1-introduced doc drift — same workflow-gap class but on different anchors: L01 on the §6.3 task-table residual, L17 on the CLAUDE.md `§17 latest` pointer. Both applied independently.)
+
+**Cycle-2 ship-ready verdicts (panel pre-fix):** 14 × Yes, 6 × With fixes (L01 / L02 / L06 / L16 / L17 / L19), 0 × No. Same Yes-count as cycle 1 — `With fixes` set rotated (L08/L12/L18 from cycle 1 are now Yes; L06/L16/L17 are now With fixes).
+
+**Clean lenses (zero findings):** 4 (L05, L07, L09, L14). Up from cycle 1's 2 — L05 (Error handling) and L07 (Dead code) joined L14 (Pytest infra) in clean status; L09 (Package layout) flipped from 1 Minor to 0 (cycle 1's docstring contradiction fix held).
+
+**Layer A commits (4 atomic, applied sequentially in main conversation):**
+
+- `e7acc02` chore(ruff): add DTZ (flake8-datetimez) family — **L08 Minor**. Active `datetime.now(UTC)` use in domain/stage.py + domain/record.py; Phase 2-4 workers will add stage-timing code where `datetime.now()` without `tz=` (or the 3.12-deprecated `datetime.utcnow()`) would land silently. Zero current violations — same proactive arm-the-rule-family pattern this project applied to G (cycle 1) / BLE / ANN / PL.
+- `ca3411c` ci(workflows): clarify lockfile-sync concurrency comment — **L11 Minor**. The concurrency group keys on `github.event.action` which produces three event values (`opened` / `synchronize` / `reopened`), but the comment listed only two. Comment-only change; the group expression already segregates all three correctly.
+- `f7176de` docs(claude): sync §17 latest pointer to §17.24 — **L17 Minor**. CLAUDE.md line 311 still pointed at §17.23 — cycle-1's `26b788e` added §17.24 to the spec but didn't sync the pointer. Same "CLAUDE.md leak after a §17 addition" pattern that §17.23 MAX-CAP-diagnosis specifically called out as a workflow gap to prevent in-cycle. **This commit closes that gap retroactively for cycle 1's missed sync.**
+- `1507214` docs(plan): sync §6.3 Tasks 1.5/1.6/1.7/1.8/1.9 RED-test columns — **L01 Minor**. Cycle-1's `52a67fa` swept Tasks 1.1/1.3/1.4 but left 1.5-1.9 stale. Same "test split + missed plan sync" pattern, just a partial cycle-1 application. Closing the residual: Task 1.5 (3→5), 1.6 (2→8), 1.7 (3→14), 1.8 (3→6), 1.9 (3→6). All §6.3 RED-test columns now reflect the full live test set.
+
+**Layer B (this §17.25 audit entry).**
+
+**Items the senior-dev filter dropped (cycle 2):**
+
+- **L02 cycle-1 commit-type/scope/terminology corrections** (`ci(ruff)` should be `chore(ruff)`, `chore(types)` should be `chore(mypy)`, residual "pass" terminology in body): Already-pushed-commit-message corrections gate. Same filter rule that's dropped the `96ab536` chore→feat misclassification for 5 cycles, extended to the fix-branch context. Force-push to rewrite messages just for label consistency violates "don't re-version prior-pass decisions just for churn."
+- **L04 `validate_config = true` pydantic-mypy option** (Minor preemptive): zero current violations (three frozen models use `ConfigDict(frozen=True)` which the plugin recognises); cost-benefit upside-down per filter rule "preemptive tightenings with no current violation."
+- **L06 `StageError` → `StageFailure` rename** (Important): 12+ prior cycles (Phase 1 panel passes 8 through 12, plus this loop's cycle 1) accepted the name. Re-versioning a stable naming decision on stylistic opinion without new evidence violates senior-dev filter rule "🪨 Re-versioning prior-pass decisions just for churn." The actual exception hierarchy lives in `errors.py`; the `StageError` value object is a deliberate parallel naming that the docstring explains ("Structured error info attached to a failed stage").
+- **L06 `domain_model.py` → `schema_loader.py` rename**: same accepted-name-stability rule; the path `config.domain_model` already narrows reader interpretation.
+- **L08 `COM` trailing-comma family**: low-stakes per lens self-rating; no current violation.
+- **L10 detect-secrets `rev: v1.5.0` tag pin**: accepted community convention per §17.9. Lens self-rated as "no action required; consistent with the stated convention."
+- **L12 5 floor-rationale-comment additions** (pydantic, pydantic-settings, rapidocr-onnxruntime, jsonschema, pyyaml): comment inflation per filter rule. All five deps use standard tracking conventions with no special rationale to record; existing comments accompany floors that depart from defaults (pre-1.0 minor pins, version-specific API guards) — these five don't.
+- **L13 default-value tests consolidation + smoke-test tautology**: lens self-rated both as "low impact, fine as-is" with explicit "the tests pass and do describe observable behavior." Removing the smoke-test `assert` adds no signal vs leaving the import as the implicit assertion.
+- **L14 markers comment clarity nit**: lens self-rated "No code issue, but the comment could clarify ... it's fine as-is."
+- **L15 import-mode cross-ref comment in ci.yml**: lens self-rated "zero functional impact."
+- **L16 `/tmp/*.txt`/`*.json` literals in YAML fixtures** (Important — elevated this cycle): same finding as cycle 1's Minor; the only "new" framing is the lens elevating severity from Minor to Important. No new evidence (no loader change, no test failure). Filter rule "preemptive tightenings with no current violation AND no plausible future violation in scope" — Phase 2-6 doesn't include a load-time path-existence validator in any task table.
+- **L18 mypy → pre-push stage migration** (Minor): CLAUDE.md `§Triage rules → DEFER ONLY` explicitly lists "mypy → pre-push stage" as the deferred-until-codebase-is-larger class. Filter-drop with documented project rule.
+- **L19 `export-ignore` directives** (Important): no `git archive` / wheel-release / sdist-release path is established in plan §6.4-§6.8 (Phases 2-6). Filter rule "preemptive tightenings ... no plausible future violation in scope" applies — no Phase anchors a release-packaging workflow.
+- **L19 `junit.xml` gitignore + linguist-language composite-action directive**: both preemptive with no current commit and no Phase anchor.
+- **L20 CodeQL `security-and-quality` query suite vs default `security`** (Important — elevated this cycle): same finding as cycle 1's Minor; cycle-1 L20 acknowledged the day-one deliberate choice ("revisit if signal-to-noise becomes problematic"). No new evidence justifying the elevation — just a stronger lens opinion. §17.23's recurring-filter-drop list includes this category. Filter rule "🪨 Re-versioning prior-pass decisions just for churn."
+- **L20 loop-guard email substring tightening + dependabot daily vs weekly schedule asymmetry**: low practical risk + accepted design choice, lens self-rated as Minor with no current bug.
+
+**No user-decision items in cycle 2** (auto-cycle mode per CLAUDE.md `§Cycle-loop mode`).
+
+**Prior-cycle deferrals reversed in cycle 2:** 0 (no §17.24 filter-drops reversed; the recurring filter-drops were correctly re-dropped this cycle on the same evidence basis).
+
+**Trend across the loop so far:**
+
+| Cycle | Commits | Fixes | C / I / M | Ship-ready Yes | Clean lenses | Filter-drops | Convergence findings |
+|---|---:|---:|---|---:|---:|---:|---:|
+| 1 | 13 | 12 | 0 / 6 / 16 | 14/20 | 2 | ~13 categories | 0 strong |
+| 2 | 5 | **4** | 0 / 0 / 4 | 14/20 | **4** | ~15 categories | 0 strong |
+
+Fix count: 12 → 4 (sharp decrease, ratio 0.33). Clean lenses: 2 → 4 (doubled). Severity collapse: from 6 Important + 16 Minor to 0 Important + 4 Minor — a strong convergence signal. Filter-drop volume up slightly as the panel re-flags more recurring categories per cycle (expected behaviour under cycle-independence).
+
+**Per-cycle status line (compact):** `Cycle 2 on chore/panel-review-fixes-2026-05-13: 5 commits applied (4 fixes + this §17.25); 4 findings (0 Critical / 0 Important / 4 Minor); 0 strong convergent findings; Ship-ready (pre-fix): 14/20 Yes, 6/20 With fixes (rotated set: L01/L02/L06/L16/L17/L19); Clean lenses: 4/20 (L05 + L07 + L09 + L14); ~15 categories filter-dropped; 0 new deferrals; 0 prior-cycle deferrals reversed. New HEAD: <pending push>. Continuing.`
