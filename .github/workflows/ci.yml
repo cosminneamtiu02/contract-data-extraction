@@ -112,6 +112,11 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: uv.lock
+          # Authenticated GitHub API requests pull uv interpreter downloads
+          # under the 5000/hr per-token rate limit instead of the shared
+          # 60/hr unauthenticated pool. macOS runners share an outbound IP
+          # pool that frequently exhausts the unauthenticated bucket; same
+          # rationale applies to ubuntu when it lands on a hot IP.
           github-token: ${{ secrets.GITHUB_TOKEN }}
           python-version: ${{ steps.pyver.outputs.python-version }}
 
