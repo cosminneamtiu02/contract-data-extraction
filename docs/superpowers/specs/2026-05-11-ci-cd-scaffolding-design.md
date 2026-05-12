@@ -1166,10 +1166,22 @@ Recorded after the 20-lens panel was re-run against `origin/main` at `e8178175` 
 - **L11 Minor (codeql.yml fetch-depth=0 for actions analysis)** — forward-looking; CodeQL does not surface fetch-depth issues as hard failures. Future pass may re-decide if CodeQL begins missing cross-workflow findings.
 
 **5 — For user decision (single-pass mode — synthesizer must ASK, not self-decide):**
-- **L17 Minor (`README.md` Layout section references `config/`, `scripts/`, `ops/` directories that don't exist).** README is the user-restricted file per CLAUDE.md §Project state notes. Recommendation: add a `(Phase 6 — not yet created)` qualifier to each line, OR remove until the directories land. Asking the user which option they prefer (or whether they want to keep README as-is and revisit when Phase 6 adds the directories).
 - **L19 Minor (`.python-version` patch-pinning).** Currently `3.13` (major.minor); `uv` resolves to the latest 3.13.x. The lens recommended patch-pinning (`3.13.x`) for reproducibility. Cost: bump `.python-version` whenever a new patch lands. Benefit: machine-to-machine builds are byte-identical on the interpreter. This is a preference call between strict reproducibility and auto-pulling patches; routing to user. (Synthesizer's recommendation: KEEP major.minor for now — `uv.lock` already pins the package graph, and the cost of bumping `.python-version` on every patch release would exceed the marginal byte-identical-build benefit for a single-developer project.)
 
-**Per-pass status line:** `Pass 1 (new cycle, post-Phase-1-merge): 17 commits applied (16 fixes + 1 §17.19 entry); 16 fixes total (0 Critical / 5 Important / 11 Minor); Ship-ready: 13/20 Yes (raw), 7/20 With fixes (raw, all fixes-applied); ~14 filtered out, 7 deferred (2× 4a + 5× 4b), 2 routed to user decision. Single-pass mode — no auto re-run; user drives any pass-2 by explicit request. New HEAD: <branch HEAD post-push>.`
+**Mid-pass methodology codification (added 2026-05-12 by user clarification):**
+
+The user established the **README queue rule** mid-pass after initially routing L17 README (Layout section drift on Phase 6 directories) to user-decision in this entry's first draft. The corrected pattern:
+
+- README remains user-restricted; Claude must never edit `README.md` directly.
+- README-edit suggestions are appended to a queue file: **`docs/readme-changes-pending.md`** (created in this pass, with the L17 finding as its first entry).
+- Routing a README finding to the queue file IS the apply-equivalent action — README findings do NOT belong in the user-decision section, the deferred section, or any "ask the user first" tier. The queue file IS the destination.
+- The user reviews and applies accumulated entries when ready, then prunes processed entries.
+
+Codified in: `CLAUDE.md §Project state notes` (the rule itself), `CLAUDE.md §Senior-developer judgment filter §Filter-out (ceremonial) categories → README rewrites` (the routing), memory `feedback_readme_queue.md` (the durable feedback memory).
+
+Re-bucketing of L17 README finding under the corrected rule: **L17 Minor (README Layout section drift on Phase 6 directories) is now in the Objective-fixes-applied bucket**, with the apply action being "appended structured entry to `docs/readme-changes-pending.md`" rather than a direct README edit. The brief grant-then-walk-back of direct-edit permission earlier in the session is recorded here as the trigger for codifying the queue rule.
+
+**Per-pass status line (final, after README-queue codification mid-pass):** `Pass 1 (new cycle, post-Phase-1-merge): 17 + 5 commits applied (16 panel fixes + §17.19 entry + 5 mid-pass codification commits: README queue file, README queue entry, CLAUDE.md rule, memory feedback, §17.19 update); 17 fixes total (0 Critical / 5 Important / 12 Minor) — L17 README finding now routed to queue (counts as Minor applied, not user-decision); Ship-ready: 13/20 Yes (raw), 7/20 With fixes (raw, all fixes-applied); ~14 filtered out, 7 deferred (2× 4a + 5× 4b), 1 routed to user decision (L19 only). Single-pass mode — no auto re-run; user drives any pass-2 by explicit request.`
 
 **Note on cycle numbering:** This pass is the FIRST pass of the THIRD distinct review cycle for this project. Cycles 1-2 (passes 4-12 = 9 passes) reviewed the Phase 1 `phase-1-domain` branch in-place before its squash-merge as PR #7. Cycle 3 (this pass) reviews `main` after that merge.
 
