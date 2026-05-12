@@ -37,10 +37,15 @@ def test_stage_state_str_coerces_to_value() -> None:
 # --- StageError ----------------------------------------------------------
 
 
-def test_stage_error_constructs_with_code_and_description() -> None:
+def test_stage_error_stores_code() -> None:
     err = StageError(code="ocr_engine_failed", description="Docling raised IOError")
 
     assert err.code == "ocr_engine_failed"
+
+
+def test_stage_error_stores_description() -> None:
+    err = StageError(code="ocr_engine_failed", description="Docling raised IOError")
+
     assert err.description == "Docling raised IOError"
 
 
