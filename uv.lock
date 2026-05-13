@@ -646,11 +646,11 @@ requires-dist = [
     { name = "jsonschema", specifier = ">=4.26" },
     { name = "modelscope", specifier = ">=1.36" },
     { name = "ollama", specifier = ">=0.6" },
-    { name = "pydantic", specifier = ">=2.10" },
+    { name = "pydantic", specifier = ">=2.13" },
     { name = "pydantic-settings", specifier = ">=2.14" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "rapidocr-onnxruntime", specifier = ">=1.4" },
-    { name = "structlog", specifier = ">=25.0" },
+    { name = "structlog", specifier = ">=25.5" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.46" },
 ]
 
