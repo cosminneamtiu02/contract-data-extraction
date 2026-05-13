@@ -57,6 +57,13 @@ if TYPE_CHECKING:
 # text. Matches the Literal value on OcrConfig.engine (run_config.py).
 _ENGINE_NAME = "docling"
 
+# Sentinel for distinguishing "result has no `errors` attribute at all" from
+# "result.errors is an empty list" in the non-SUCCESS conversion path below.
+# Distinct sentinel rather than `None` because Docling could conceivably
+# return None explicitly; using a module-private object guarantees no upstream
+# value can collide.
+_ERRORS_ATTR_MISSING: object = object()
+
 
 def _build_default_converter(ocr_config: OcrConfig) -> DocumentConverter:
     """Build and return the production DocumentConverter per plan §2.5.
@@ -78,6 +85,12 @@ def _build_default_converter(ocr_config: OcrConfig) -> DocumentConverter:
     from modelscope import snapshot_download
 
     # One-time download; cached after first run in ~/.cache.
+    # TODO(phase-6-hardening): pin `revision=<commit-sha>` once the Phase 6
+    # validation gate (`scripts/validate_ocr.py`) selects a known-good model
+    # snapshot. Default behavior fetches the floating `main` HEAD of the
+    # RapidAI/RapidOCR modelscope repo — a supply-chain trust gap flagged by
+    # Lens 10 of the 2026-05-13 review cycle on this branch. The downloaded
+    # ONNX files are loaded directly by the runtime with no checksum check.
     model_dir = Path(snapshot_download(repo_id="RapidAI/RapidOCR"))
     det = str(model_dir / "onnx" / "PP-OCRv5" / "det" / "ch_PP-OCRv5_server_det.onnx")
     rec = str(model_dir / "onnx" / "PP-OCRv5" / "rec" / "ch_PP-OCRv5_rec_server_infer.onnx")
@@ -210,10 +223,19 @@ class DoclingOcrEngine:
             # `.error_message` text). Without this, operators get only the
             # status enum repr and no signal about which page or rule failed.
             # `getattr` keeps the engine robust across Docling versions that
-            # might rename/drop the attribute.
-            errors_detail = getattr(result, "errors", None) or "<no per-page errors reported>"
+            # might rename/drop the attribute. Sentinel kept distinct from an
+            # empty list: a present-but-empty `errors` list means Docling
+            # reported the failure without per-page records (an upstream gap
+            # to flag, not the same as an attribute being missing).
+            raw_errors = getattr(result, "errors", _ERRORS_ATTR_MISSING)
+            if raw_errors is _ERRORS_ATTR_MISSING:
+                errors_detail = "<no per-page errors attribute on result>"
+            elif not raw_errors:
+                errors_detail = "<docling reported empty errors list>"
+            else:
+                errors_detail = repr(raw_errors)
             msg = f"docling reported conversion status {result.status!r}: {errors_detail}"
-            raise OcrError(msg)
+            raise OcrError(msg) from None
 
         document = result.document
         text = document.export_to_markdown()
