@@ -101,3 +101,70 @@ naming the env-var mechanism — the env var is documented in
 after divergence" criterion as the Phase 6 directory qualifiers above.
 
 ---
+
+### 2026-05-13 — Mention Ollama runtime prerequisite in Quick start
+
+**Source:** Panel single-cycle pass3 standalone review against `origin/main`,
+Lens 17 (Documentation completeness, Minor). Routed to this file per CLAUDE.md
+`feedback-readme-queue`.
+
+**Affected README section:** `## Quick start` (or wherever the runnable
+instructions live — currently the section listing `uv sync`, `uv run pytest`,
+etc.).
+
+**Issue:** README's Quick start instructions describe `uv sync && uv run pytest && uv run ruff check && uv run mypy` — all of which work without Ollama installed because no test in the current suite hits a real Ollama (the LLM layer uses `FakeOllamaClient` exclusively). However, a contributor following Quick start to completion has no signal that **Ollama itself must be installed locally and the `gemma4:e2b-it-q4_K_M` model pulled** before the service can do useful work. This is also tracked as Phase 6 task 6.6 ("README with run instructions") and 6.8 (idle-shutdown caveat).
+
+**Proposed change:** Add a sub-section under Quick start (or as a separate
+"Runtime prerequisites" section) along the lines of:
+
+```markdown
+### Runtime prerequisites
+
+The service calls a local **Ollama** instance at `http://127.0.0.1:11434` for
+LLM extraction. Install Ollama from <https://ollama.com> and pull the model:
+
+    ollama pull gemma4:e2b-it-q4_K_M
+
+The repo's test suite uses fake clients and does NOT require Ollama to be
+running; this prerequisite applies only when running the service against real
+contracts.
+```
+
+**Rationale:** Catches the "I followed Quick start and tests pass — why doesn't
+the service work?" failure mode. Convergent with Phase 6 task 6.6 in the plan;
+adding the line now (queued for the user's next README pass) front-loads the
+information without waiting for the full Phase 6 README rewrite.
+
+---
+
+### 2026-05-13 — Add LICENSE pointer (MIT) to README
+
+**Source:** Panel single-cycle pass3 standalone review against `origin/main`,
+Lens 17 (Documentation completeness, Minor). Routed to this file per CLAUDE.md
+`feedback-readme-queue`.
+
+**Affected README section:** End of file (new short "License" section), OR
+inline reference under an existing section.
+
+**Issue:** `LICENSE` is present in the repo root (MIT, dated 2026, owner Cosmin
+Neamtiu) and is correctly referenced in `pyproject.toml` via
+`license-files = ["LICENSE"]`. README does not mention the license anywhere —
+no SPDX comment, no "See LICENSE" line, no licensing badge.
+
+**Proposed change:** Add a brief "License" section to README:
+
+```markdown
+## License
+
+MIT — see [`LICENSE`](LICENSE) for the full text.
+```
+
+Alternative: an SPDX-style annotation in README's frontmatter:
+`<!-- SPDX-License-Identifier: MIT -->`.
+
+**Rationale:** Standard GitHub convention. Most consumers (incl. linters,
+SPDX scanners, GitHub's own license-detection UI) read both `LICENSE` and the
+README. Surfacing the license string from README is a 2-line addition with
+zero downside.
+
+---
