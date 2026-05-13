@@ -537,10 +537,7 @@ extraction-service/
 │   │   └── test_result_store.py
 │   ├── ocr/
 │   │   ├── test_docling_engine.py
-│   │   └── data/
-│   │       ├── sample_clean.pdf
-│   │       ├── sample_with_watermark.pdf
-│   │       └── sample_with_logo.pdf
+│   │   └── data/    # PDFs gitignored per §17.3 in 2026-05-12-phase-2-ocr-spec-deviations.md; resolved via $EXTRACTION_OCR_SAMPLES_DIR at test collection time
 │   ├── pipeline/
 │   │   ├── test_ocr_worker.py
 │   │   ├── test_llm_worker.py
@@ -551,8 +548,6 @@ extraction-service/
 │   │   ├── test_post_contracts.py
 │   │   ├── test_get_contracts.py
 │   │   └── test_idle_shutdown.py
-│   └── golden/
-│       └── (placeholder for OCR golden outputs, gitignored if too large)
 │
 ├── config/                          # (Phase 6 — not yet created)
 │   ├── run_config.example.yaml
@@ -686,7 +681,7 @@ Each phase is **its own git worktree** so phases can be reviewed/merged independ
 | # | Task | File(s) | RED test | GREEN impl | Verify |
 |---|---|---|---|---|---|
 | 0.1 | Initialize uv project | `pyproject.toml`, `.python-version`, `uv.lock` | — (one-off bootstrap) | `uv init --package extraction-service`, edit pyproject.toml from Section 5.1 above, `uv sync` | `uv run python -c "import extraction_service"` |
-| 0.2 | Create src/ layout | `src/extraction_service/__init__.py`, `src/extraction_service/__main__.py` | `tests/test_smoke.py` asserts `import extraction_service` works | empty `__init__.py`; `__main__.py` with `def main() -> None: print("ok")` | `uv run pytest tests/test_smoke.py` |
+| 0.2 | Create src/ layout | `src/extraction_service/__init__.py`, `src/extraction_service/__main__.py` | `tests/test_smoke.py` asserts `import extraction_service` works | empty `__init__.py`; `__main__.py` with `def main() -> None: pass` (no-op stub; `print` would violate the T20 rule wired in Task 0.3) | `uv run pytest tests/test_smoke.py` |
 | 0.3 | Add ruff config | (already in pyproject.toml) | none | apply [tool.ruff.lint] block from Section 5.1 | `uv run ruff check src tests` clean |
 | 0.4 | Add mypy strict config | (already in pyproject.toml) | none | apply [tool.mypy] block | `uv run mypy src tests` clean |
 | 0.5 | Add pytest config | (already in pyproject.toml) | none | apply [tool.pytest.ini_options] | `uv run pytest` shows 2 passing tests (smoke — import + entrypoint sentinels) |
@@ -724,9 +719,9 @@ Each phase is **its own git worktree** so phases can be reviewed/merged independ
 | # | Task | File | RED test | GREEN impl | Verify |
 |---|---|---|---|---|---|
 | 2.1 | `OcrResult` + `OcrEngine` Protocol | `src/extraction_service/ocr/base.py` | `test_ocr_engine_protocol_accepts_structural_conformer` + `test_ocr_engine_protocol_rejects_non_conformer` (the original `test_ocr_engine_protocol_compliance` was split into accepts/rejects pair during implementation) | `OcrResult` Pydantic model (text, page_count, engine_name); `OcrEngine` `Protocol` with async `extract(pdf_bytes: bytes) -> OcrResult` | mypy + pytest |
-| 2.2 | `FakeOcrEngine` for tests | `tests/fakes/fake_ocr.py` | (helper, no test) | implements OcrEngine, returns configurable text | imports in subsequent tests |
+| 2.2 | `FakeOcrEngine` for tests | `tests/fakes/fake_ocr.py` | `tests/fakes/test_fake_ocr.py` — 6 tests including `test_fake_ocr_engine_satisfies_ocr_engine_protocol` (Protocol-conformance signature-drift guard) | implements OcrEngine, returns configurable text | imports in subsequent tests |
 | 2.3 | `DoclingOcrEngine` skeleton | `src/extraction_service/ocr/docling_engine.py` | (no dedicated construction-only test — constructor coverage is transitive through every extract test which injects a stub via `_converter_factory` and would fail with AttributeError if `_converter` were left unset; **deviation §17.15:** the planned `test_docling_engine_construct` was removed because asserting on a private attribute breached the project's underscore-prefix convention) | wrap Section 2.5 setup; constructor builds DocumentConverter | pytest |
-| 2.4 | DoclingOcrEngine.extract returns text | `src/extraction_service/ocr/docling_engine.py` | `test_docling_extract_clean_pdf` — pass a tiny PDF (committed to `tests/ocr/data/sample_clean.pdf`), assert returned text contains expected snippet (**deviation §17.3:** replaced by parametrised `test_docling_extract_against_sample` over `$EXTRACTION_OCR_SAMPLES_DIR`; no PDFs committed) | implement `extract`: call `converter.convert(BytesIO(pdf_bytes))`, return markdown | pytest (slow) |
+| 2.4 | DoclingOcrEngine.extract returns text | `src/extraction_service/ocr/docling_engine.py` | `test_docling_extract_clean_pdf` — pass a tiny PDF (committed to `tests/ocr/data/sample_clean.pdf`), assert returned text contains expected snippet (**deviation §17.3:** replaced by parametrised `test_docling_extract_against_sample` over `$EXTRACTION_OCR_SAMPLES_DIR`; no PDFs committed plus `tests/ocr/_metrics.word_recall` + `tests/ocr/test_word_recall.py` (7 tests pin the baseline-overlap metric used by the parametrised real-OCR test)) | implement `extract`: call `converter.convert(BytesIO(pdf_bytes))`, return markdown | pytest (slow) |
 | 2.5 | DoclingOcrEngine handles watermark sample | `tests/ocr/test_docling_engine.py::test_watermark_text_captured` | add `sample_with_watermark.pdf` (you provide one or render one synthetically); assert OCR result contains watermark word (**deviation §17.1:** task DROPPED — watermarks are not a relevant signal on the real contract corpus) | (no impl change if 2.4 works; this is a verification test) | pytest |
 | 2.6 | DoclingOcrEngine handles logo text sample | `tests/ocr/test_docling_engine.py::test_logo_text_captured` | similar with `sample_with_logo.pdf` (**deviation §17.2:** REFOCUSED — logo-text extraction folded into the §17.3 parametrised real-OCR test; semantic logo identification deferred) | (verification only) | pytest |
 | 2.7 | `OcrEngineFactory` | `src/extraction_service/ocr/factory.py` | `test_factory_returns_docling_for_docling_config` | switch on `run_config.ocr.engine` string; raise on unknown (**deviation §17.4:** "raise on unknown" omitted — closed `Literal["docling"]` makes mypy the exhaustiveness guard, no runtime `case _:` needed) | pytest |
