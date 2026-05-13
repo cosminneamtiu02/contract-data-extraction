@@ -207,6 +207,7 @@ def test_stage_record_is_frozen() -> None:
 def test_stage_record_complete_accepts_extracted_payload() -> None:
     # data_parsing stage's Phase 4 worker writes the validated JSON here
     # (docs/plan.md §3.2). Default for non-LLM stages: None.
+    # State transition is covered separately by test_stage_record_complete_transitions_state_to_done.
     record = StageRecord().start(now=T0)
 
     finished = record.complete(
@@ -214,7 +215,6 @@ def test_stage_record_complete_accepts_extracted_payload() -> None:
         extracted={"contract_number": "C-001", "amount_eur": 1000},
     )
 
-    assert finished.state == StageState.DONE
     assert finished.extracted == {"contract_number": "C-001", "amount_eur": 1000}
 
 
