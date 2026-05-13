@@ -135,10 +135,11 @@ target-version = "py313"
 # developer feedback. Zero current violations. Defense-in-depth for later phases.
 # G added 2026-05-13 (Lens 08): flake8-logging-format catches f-string log calls
 # (`logger.info(f"...")`) and %-style logger usage that bypass lazy evaluation.
-# log_config.py wires `logging` into structlog's stdlib bridge; Phase 2-4
-# workers will emit log lines and the structlog bridge is exactly where G004
-# anti-patterns would land silently. Zero current violations — same proactive
-# pattern as BLE, ANN, PL.
+# log_config.py uses structlog.PrintLoggerFactory directly; the only stdlib
+# `logging` touch is logging.INFO as the filter level. Phase 3+ workers that
+# use standard logging.getLogger() calls will route through structlog's stdlib
+# bridge, where G004/LOG violations would land silently. Zero current
+# violations — same proactive pattern as BLE, ANN, PL.
 # DTZ added 2026-05-13 (Lens 08): flake8-datetimez catches `datetime.now()`
 # without `tz=` and `datetime.utcnow()` (deprecated in 3.12, naive in semantics).
 # Active datetime use sites: domain/stage.py and domain/record.py both call
@@ -155,10 +156,10 @@ target-version = "py313"
 # call sites (`do_thing(True)`) and boolean-trap definitions. Phase 3-5 worker
 # retry flags, HTTP query params, and lifecycle booleans will multiply; FBT
 # prevents the silent positional-call defect class. Zero current violations.
-# LOG added 2026-05-13 (Lens 08): flake8-logging catches logging.warn (removed
-# in 3.13), logging.WARN constant, and `extra=` kwargs that conflict with
-# reserved LogRecord attrs. log_config.py wires stdlib logging into structlog's
-# bridge; Phase 3+ workers emit through that bridge. Zero current violations.
+# LOG added 2026-05-13 (Lens 08): flake8-logging catches logging.warn
+# (deprecated since 3.12, PEP 594), logging.WARN constant, and `extra=` kwargs
+# that conflict with reserved LogRecord attrs. Phase 3+ workers will emit
+# through structlog's stdlib bridge. Zero current violations.
 select = ["E", "F", "I", "B", "UP", "ASYNC", "PIE", "SIM", "RET", "ARG", "PTH", "TID", "T20", "RUF", "C4", "FURB", "PT", "EM", "TRY", "TCH", "N", "S", "BLE", "PL", "ANN", "G", "DTZ", "A", "FBT", "LOG"]
 ignore = ["E501"]
 
