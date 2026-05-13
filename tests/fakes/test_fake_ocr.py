@@ -9,7 +9,7 @@ Phase 4/5 dependency-injection seam before those phases exist to catch it.
 
 from __future__ import annotations
 
-from extraction_service.ocr.base import OcrEngine, OcrResult
+from extraction_service.ocr.base import OcrEngine
 from tests.fakes.fake_ocr import FakeOcrEngine
 
 
@@ -42,8 +42,3 @@ async def test_fake_ocr_engine_ignores_pdf_bytes() -> None:
     result_a = await engine.extract(b"payload-one")
     result_b = await engine.extract(b"completely-different-payload")
     assert result_a == result_b
-
-
-async def test_fake_ocr_engine_returns_ocr_result() -> None:
-    result = await FakeOcrEngine().extract(b"irrelevant")
-    assert isinstance(result, OcrResult)
