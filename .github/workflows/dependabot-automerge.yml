@@ -9,6 +9,11 @@
 # and merges immediately, even if CI is red. Required checks (set on the
 # ruleset, NOT here): backend-checks, darwin-checks, Analyze (python),
 # Analyze (actions).
+#
+# Triggers only on pull_request types: [opened, synchronize, reopened] —
+# never on `labeled`, `closed`, or other PR events. The `user.login` guard
+# below pairs with this trigger filter to ensure only Dependabot's own
+# author-context PRs can enter the auto-merge path.
 
 name: Dependabot auto-merge
 
