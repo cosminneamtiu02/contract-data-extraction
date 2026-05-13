@@ -103,6 +103,12 @@ packages = ["src/extraction_service"]
 # future build-backend swap or hatchling-plugin change cannot accidentally
 # ship .pyc artifacts.
 exclude = ["**/__pycache__"]
+# Explicit py.typed inclusion — PEP 561 marker promotion from default
+# package-data inclusion to a static build-config property. Defends against
+# hatchling-plugin swaps or contributor-added `include = [...]` patterns
+# from silently dropping the marker. Verification gate already covers via
+# wheel inspection, but belt-and-braces.
+force-include = { "src/extraction_service/py.typed" = "extraction_service/py.typed" }
 
 [tool.ruff]
 line-length = 100
