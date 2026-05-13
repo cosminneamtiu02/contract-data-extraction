@@ -15,6 +15,22 @@ import pytest
 from pydantic import ValidationError
 
 
+def test_fake_ollama_client_satisfies_chat_client_protocol() -> None:
+    """Mirrors the OCR pattern: pin protocol conformance at the runtime-checkable boundary.
+
+    The production ``OllamaLlmClient`` declares ``_ChatClientProtocol`` as
+    ``@runtime_checkable``. Without this assertion, a signature drift in
+    ``FakeOllamaClient.chat`` (parameter rename, return-type change,
+    sync/async flip) would silently break the Phase 4/5 dependency-injection
+    seam before those phases exist to catch it. Mirrors
+    ``tests/fakes/test_fake_ocr.py::test_fake_ocr_engine_satisfies_ocr_engine_protocol``.
+    """
+    from extraction_service.llm.client import _ChatClientProtocol
+    from tests.fakes.fake_ollama import FakeOllamaClient
+
+    assert isinstance(FakeOllamaClient(), _ChatClientProtocol)
+
+
 async def test_fake_ollama_client_default_content_is_empty_json() -> None:
     """No-argument form returns a response whose content is an empty JSON object."""
     from tests.fakes.fake_ollama import FakeOllamaClient
