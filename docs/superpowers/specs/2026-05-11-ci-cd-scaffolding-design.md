@@ -2017,3 +2017,58 @@ The user drives any next-step decision: (a) merge the PR as-is (the branch is in
 - `uv run pre-commit run --all-files`: all 14 hooks green
 
 **Per-cycle status line (compact):** `Cycle 2 on chore/panel-review-fixes-2026-05-13: 8 commits applied (6 fixes + 1 format-recovery + this §17.31 with embedded CLAUDE.md pointer bump); 3 Important + 4 Minor fixes after filter; 2 strong convergent findings (L11+L15 on darwin slow-marker, L17+L01 on §5 forward-decl qualifiers); Ship-ready (pre-fix): 14/20 Yes, 6/20 With fixes; Clean lenses: 3/20 (L07, L09, L19); ~21 findings filter-dropped; 0 new deferrals; 1 prior-cycle disposition reversed (L01 fake_ollama.py qualifier — reversed by L17 convergence). New HEAD: this audit commit. Continuing → Cycle 3.`
+
+---
+
+### 17.32. Cycle-3 of fresh 8-cycle loop on `chore/panel-review-fixes-2026-05-13` (sonnet) — 5 applied fixes
+
+**HEAD at cycle start:** `ad60ee9` (terminal commit of §17.31).
+
+**Dispatch:** 20 lenses, `model: sonnet`, `run_in_background: true`, clean prompts.
+
+**Lens verdicts (pre-fix):** 15/20 Yes ship-ready; 5/20 With fixes (L01, L02, L11, L12, L13, L17, L18). Clean lenses (zero findings): 4/20 (L04, L07, L08, L09, L10, L14, L15, L16 returned with only filter-droppable Minors).
+
+**Pre-filter findings:** 0 Critical, ~5 Important (L01×1 exit criteria, L11×1 comment factual drift, L13×1 self-flawed analysis, L17×1 §5 directory blocks, L18×1 redundant config), ~25 Minor.
+
+**Senior-dev filter pass:** ~21 findings dropped. Notable rejections:
+- L02 c04212a `style:` type rename — commit already pushed to shared branch (effectively historical-immutable per project policy against force-push to shared branches).
+- L02/L03 other historical-immutable squash-type findings (merged main commits).
+- L04 PYI rule family — preemptive add-suppression with no plausible future violation in scope (no .pyi stub files planned).
+- L05 `from None` on raise outside except — ceremonial style preference.
+- L06 `_ENGINE_NAME` rename, `RetryOnCode` re-export — debatable.
+- L07 base.py FastAPI docstring forward-reference — anticipatory context, not factually wrong.
+- L10 modelscope TODO — already documented and deferred to Phase 6.
+- L11 lockfile-sync `action` group comment minor wording, codeql expression complexity — hair-splitting on already-precise comments.
+- L13 `issubclass` loop critique — lens's suggested fix uses tuple-form (OR-semantics) which is incorrect for testing chain (AND-semantics); pytest assert rewriting handles failure signal.
+- L14 `baseline_for` fixture explicit `scope=` annotation — purely cosmetic.
+- L15 darwin coverage observation — accepted §17.2 deferral.
+- L16 `pytest_runtest_setup` enforcement hook for ocr_sample_pdf composability — preemptive tightening with no current violator.
+- L18 SHA-pinning of `Yelp/detect-secrets`/`pre-commit-hooks` revs — doctrinal preference.
+- L19 `.vscode/*` "team" wording, `.env.example` comment duplication — hair-splitting.
+- L20 fastapi-stack group transitives concern — flawed analysis (the update-types: [patch, minor] filter prevents any major-bump bypass regardless of grouping).
+
+**Convergent findings promoted to load-bearing:** none in cycle-3. Each applied fix landed via a single lens (no ≥2-lens convergence on the same item this cycle). The C2-style convergence pattern thinned out as the trivial drift items had already been caught.
+
+**Applied fixes (Layer A, 4 commits):**
+
+1. `02abcef` — `docs(ci): correct workflow_dispatch concurrency comment in ci.yml` — L11. Old comment claimed the SHA suffix prevented PR-vs-workflow_dispatch collisions, but `github.ref` already distinguishes those (`refs/pull/N/merge` vs `refs/heads/X`). The SHA suffix actually achieves: back-to-back manual workflow_dispatch runs on the same branch each get their own group instead of cancelling each other. Code behavior unchanged; comment accuracy.
+2. `239b33b` — `build(pre-commit): drop redundant files: filter from uv-lock-check hook` — L18. Cycle-1 commit `678fa93` introduced the hook with both `always_run: true` AND `files:` filter. The `files:` key is inert under `always_run: true` — the hook runs unconditionally. Misleading config; dropped `files:`. Behavior unchanged.
+3. `f542680` — `build(deps): fix pyproject comment cross-references (mypy, ruff)` — L12 × 2 (workflow-gap rule #3 — audit-comment factual drift, third occurrence in this loop). pytest-cov comment referenced `mypy (>=2.0)` but cycle-0 tightened to `>=2.1`; updated. ruff comment claimed tracks-the-locked-minor-as-pytest-cov but pytest-cov tracks the locked-MAJOR — cross-reference re-pointed to mypy.
+4. `2d69773` — `docs(plan): qualify §5 forward-decl directories + sync §6.4 exit criteria` — L17 Important + L01 Minor. Same partial-sweep pattern as cycle-2's §5 single-file qualifier fix, now extended to entire directory blocks: `src/extraction_service/{llm,pipeline,http}/` and `tests/{pipeline,http,e2e}/` got `(Phase N — not yet created)` markers. Plus the §6.4 Phase 2 exit criteria line "watermarks/logos captured" got the §17.1/§17.2 deviation annotation.
+
+**This §17.32 audit entry (Layer B)** + CLAUDE.md `§17 latest` pointer bumped §17.31 → §17.32.
+
+**Workflow-gap audit (per §17.23 MAX-CAP diagnosis):**
+1. **Test split + missed plan sync** — not applicable (no test changes this cycle).
+2. **CLAUDE.md terminology / pointer leaks** — pointer bump in this same commit per established pattern.
+3. **Prior-cycle audit-comment factual drift** — fired AGAIN this cycle (pytest-cov + ruff cross-references). Rule #3 is the most active workflow-gap pattern; each cycle's audit comments tend to drift relative to other audit comments. This is the THIRD occurrence in the current loop (cycle-0 mypy, cycle-2 pydantic/structlog, cycle-3 pytest-cov/ruff).
+
+**Verification gate (post-applied, all green):**
+- `uv lock --check`: clean
+- `uv run ruff check src tests`: All checks passed!
+- `uv run ruff format --check src tests`: 38 files already formatted
+- `uv run mypy src tests`: Success — no issues found in 38 source files
+- `uv run pytest -q -m "not slow"`: 137 passed, 1 deselected in 2.05s
+- `uv run pre-commit run --all-files`: all 14 hooks green
+
+**Per-cycle status line (compact):** `Cycle 3 on chore/panel-review-fixes-2026-05-13: 5 commits applied (4 fixes + this §17.32 with embedded CLAUDE.md pointer bump); 4 Important + 1 Minor fixes after filter; 0 strong convergent findings; Ship-ready (pre-fix): 15/20 Yes, 5/20 With fixes; Clean lenses: 4/20 (L04 / L08 / L09 / L14 zero-action — others had filter-dropped Minors); ~21 findings filter-dropped (incl. 2 false-positives: L13 issubclass-tuple-form OR-vs-AND semantics, L20 fastapi-stack-bypass flawed reasoning); 0 new deferrals; 0 prior-cycle deferrals reversed. New HEAD: this audit commit. Workflow-gap rule #3 (audit-comment drift) fired its THIRD occurrence in this loop. Continuing → Cycle 4.`
