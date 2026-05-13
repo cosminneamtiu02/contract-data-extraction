@@ -2554,3 +2554,56 @@ Layer B (this audit, sequential):
 3. **Prior-cycle audit-comment factual drift** — Fired AGAIN (L01 Phase 2/3 stale pointers; L12 pyproject comment cluster; L02 §17.39 count + duplicate-title double-counting). Pattern is now the most persistent class of finding across the loop history. The §17.38-proposed Workflow-Gap Rule #4 (pre-audit grep checklist) remains pending in CLAUDE.md and was not actioned this cycle either. **Restated for cycle 3+:** before writing an audit commit, the synthesizer should run a 2-grep checklist over recently-touched config / spec / CLAUDE.md files to surface comment-vs-current-state drift.
 
 **Per-cycle status line (compact):** `Cycle 2 closed. Commits applied: 6 (4 Layer A0 small + 1 Layer A1 sonnet-dispatched + this Layer B audit). Fixes by severity (post-filter): 0 Critical / 3 Important / 6 Minor (L02's 3 Crit findings addressed via forward-pointer index in this audit entry rather than per-commit edits — immutable on branch). Convergence: 1 multi-lens (CLAUDE.md §17-latest pointer staleness, L01+L17). Ship-ready (pre-fix): 14/20 Yes, 6/20 With fixes, 0 No. Clean lenses (0 actionable after filter): 8/20. Filtered out: ~123 findings. Deferred new this cycle: 0. Prior-cycle deferrals reversed: 0 (cycle-1's 3 user-decision items — StageError rename, ResponseError wrap, ClientMode demote — were explicitly confirmed "keep as-is / wait for Phase 4" by user in cycle 1's Section 5; synthesizer self-decision in loop mode honors that confirmation). New HEAD: this §17.40 audit commit. Continuing → Cycle 3 (per user "four more times" cap, 3 cycles remain).`
+
+### 17.41. Cycle 3 of auto-converge loop on `chore/panel-review-fixes-2026-05-13-pass3` (opus)
+
+**HEAD at cycle start:** `a0ea77c` (terminal commit of §17.40).
+
+**HEAD/BASE rule:** BASE_SHA = HEAD_SHA = `a0ea77c` (standalone-audit posture per user's "reviews current code" clarification carried forward from cycle 2).
+
+**Dispatch:** 20 lenses, `model: opus`, `run_in_background: true`, clean prompts (no §17 awareness, no "cycle 3" framing). Each lens carried the EXHAUSTIVE PASS RULE verbatim. No carryover from §17.40.
+
+**Lens verdicts (pre-fix):** 15/20 Yes ship-ready. 5/20 With fixes: L01 (Important — plan §6.3 task 1.1 + §6.5 task 3.1 sync), L02 (Critical x3 — same commit-attribution-race repeats from §17.39, already addressed via §17.40 forward-pointer index), L03 (Minor — convergent with L01 on task 1.1), L11 (Important x4 — workflow-comment-precision items), L17 (Minor x4 — all README queue items already in queue). 0 No. L19 reported a fully-clean result (0 Critical / 0 Important / 0 Minor) — first cycle with a "clean" lens verdict in the loop's history.
+
+**Pre-filter findings:** **3 Critical** (L02's repeat references to §17.39 commit-attribution race — already in the forward-pointer index, NO new action), **9 Important**, **~95 Minor**. Total ~107 raw findings (~25 fewer than cycle 2's ~132; convergence is visibly biting).
+
+**Senior-dev filter pass:** ~95 of ~107 raw findings dropped. Notable patterns:
+- **All 3 L02 Critical repeats** filtered as "already addressed" — §17.40's forward-pointer index is the canonical remediation; cycle 3 took no new action. L02's own report acknowledged the forward-pointer remediation is complete.
+- **L17 4 Minors** all routed to the existing README queue entries (no new queue additions, no Edit on README.md).
+- **L10's 9 minors** all defense-in-depth (action SHA bumps available, baseline timestamp drift recurrent, scope inheritance from runner env paths that don't actually exist) — dropped per filter.
+- **L08's PEP 695 / future-import / ruff rule-family preemption observations** — 17 Minor in cycle 2 had already been distilled to 1 actionable substantive cosmetic by cycle 3 (the E501 ignore rationale), with the rest dropped.
+- **L13's tautology / smoke-test observations** — all documented sentinels per the existing module docstrings.
+- **L19 fully clean** — the first cycle to produce a lens with zero findings of any severity. Repository-hygiene posture has stabilized.
+
+**Convergent findings promoted:**
+- **Plan §6.3 task 1.1 ContractJob sync** — L01 Important + L03 Minor convergent. Workflow-gap rule #1 (test-addition-without-plan-sync) firing again: cycle-2 commit `81333a2` added `test_contract_job_rejects_unknown_field` + `extra="forbid"` without bumping the task 1.1 row, mirroring the same sync gap that cycle-2's `db42233` closed for task 1.4. Cycle-2 §17.40's audit explicitly ruled this "N/A" under a too-narrow rule-#1 reading; cycle 3 caught the symmetric drift convergent across two lenses. Addressed at `2ce7261`.
+
+**Synthesizer-decided (single-lens but substantive):**
+- **Plan §6.5 task 3.1 test-name drift** (L01 Important): plan listed `test_ollama_client_calls_correct_endpoint` but cycle-1 commit `967dbe3` consolidated it into `test_ollama_client_emits_canonical_chat_call_shape`. Two-part fix: rename in plan (`2ce7261`) + new Phase 3 spec §17.6 entry documenting both the rename AND the broader meta-pattern that Phase 3 task tables list only seed RED tests while the ~40-test suite is enumerated in the spec deviation log (per the Phase 2 §17.15 precedent). Addressed at `3642447`.
+- **codeql.yml branch-protection contract comment** (L11 Important): no inline comment on the matrix job-name documenting it as part of the branch-protection required-status-check contract. A future rename would silently break `gh pr merge --auto`. Addressed at `a9c8b4b`.
+- **dependabot-automerge job-permissions rationale expansion** (L11 Important): the comment named only `gh pr merge --auto`'s scope-requirement, omitting `dependabot/fetch-metadata`'s incidental coverage. A future contributor reading the rationale could narrow `pull-requests: write` to `read` and break the auto-merge mutation. Comment now enumerates both consumers with an explicit anti-narrowing warning. Addressed at `7703627`.
+- **pyproject.toml E501 ignore rationale** (L08 Minor — substantive consistency fix): the ONE config decision in the entire ruff block without an inline rationale, breaking the file's own "every config decision has a comment" pattern. Added 8-line block. Addressed at `a4902b8`.
+
+**L02's Critical-tier repeats (no action this cycle, already resolved):**
+- `0342c17` "feat(domain)" but content is Phase 3 spec §17.5 — resolved via §17.40 forward-pointer index.
+- `2d4366c` "ci(automerge)" but content is `llm/client.py` JSONDecodeError wrap — resolved via §17.40 forward-pointer index.
+- `d6509a6` "docs(pyproject)" includes BOTH pyproject + dependabot-automerge — resolved via §17.40 forward-pointer index.
+
+L02 explicitly confirmed in its report that the §17.40 record is "accurate and complete" — no new audit action needed. The 3 Critical lens-level severity tier is a faithful enumeration of the still-broken commit attribution; the resolution is the audit-trail not a commit rewrite (the commits are pushed and immutable).
+
+**Filter pattern observation (vs. cycle 2):**
+- Raw volume dropped from ~132 to ~107 (~18% decrease).
+- Important count dropped from 6 to 9 — but cycle 3's 9 Important includes the 3 L02 repeats that get filtered to zero-action; substantively 6 Important were actionable, same as cycle 2.
+- Multi-lens convergence rate held steady (cycle 2: 1 multi-lens; cycle 3: 1 multi-lens) — the audit-comment-drift pattern is the persistent class.
+- 1 fully-clean lens this cycle (L19) vs. zero in cycle 2 — convergence-quality bellwether.
+
+**No new Workflow-Gap firings caused by this cycle's dispatch:**
+- Layer A0 only (5 sequential main-convo commits + 1 audit) — no parallel agent dispatch, so the §17.39 pre-commit-hook race could not recur.
+- §17.40's recommended "per-spec-file pointer-sweep" was actioned in cycle 2 itself (`43fdaf2` bumped both Phase 2 §17.18 + Phase 3 §17.5 pointers); cycle 3 audit needs only the single CI/CD pointer bump (this commit).
+
+**Workflow-gap audit (per §17.23 MAX-CAP diagnosis):**
+1. **Test split + missed plan sync** — Fired AGAIN (L01 + L03 convergent on §6.3 task 1.1; same pattern as §17.40's "test added without plan sync" workflow-gap that §17.40 itself ruled "N/A"). Resolved by `2ce7261` (rule extended: test ADDITIONS that belong to a §6 task table row must sync the plan even when the addition isn't a split). **Recommendation:** add "test-addition (not just split) requires plan sync" as a clarifying clause to CLAUDE.md known workflow gaps rule #1.
+2. **CLAUDE.md terminology/pointer leaks** — Fired (CI/CD spec §17.41 needs its own pointer bump §17.40 → §17.41 in CLAUDE.md, applied in this audit commit). No carryover staleness from §17.40 (cycle-2 audit caught up all three spec pointers).
+3. **Prior-cycle audit-comment factual drift** — Fired again but at a lower rate: L08's E501-missing-rationale was the dominant audit-comment-completeness gap this cycle (1 actionable item); L11's branch-protection / fetch-metadata rationale gaps are workflow-rationale-precision (separate sub-class). The §17.38-proposed Rule #4 pre-audit grep checklist remains pending in CLAUDE.md.
+
+**Per-cycle status line (compact):** `Cycle 3 closed. Commits applied: 6 (5 Layer A0 small + this Layer B audit). Fixes by severity (post-filter): 0 Critical / 3 Important / 1 Minor + 1 substantive-cosmetic (E501 rationale) = 5 actionable. L02's 3 Crit repeats filtered to zero-action (already resolved via §17.40 forward-pointer index). Convergence: 1 multi-lens (plan §6.3 task 1.1 ContractJob sync, L01+L03). Ship-ready (pre-fix): 15/20 Yes, 5/20 With fixes, 0 No. Clean lenses (0 findings any severity): 1/20 (L19 — first cycle with a fully-clean lens; convergence-quality bellwether). Filtered out: ~95 findings. Deferred new this cycle: 0. Prior-cycle deferrals reversed: 0. New HEAD: this §17.41 audit commit. Continuing → Cycle 4 (per user "four more times" cap, 2 cycles remain).`
