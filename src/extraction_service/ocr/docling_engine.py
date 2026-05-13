@@ -33,7 +33,7 @@ from __future__ import annotations
 import asyncio
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 from extraction_service.domain.errors import OcrEmptyOutputError, OcrError
 from extraction_service.ocr.base import OcrResult
@@ -61,8 +61,9 @@ _ENGINE_NAME = "docling"
 # "result.errors is an empty list" in the non-SUCCESS conversion path below.
 # Distinct sentinel rather than `None` because Docling could conceivably
 # return None explicitly; using a module-private object guarantees no upstream
-# value can collide.
-_ERRORS_ATTR_MISSING: object = object()
+# value can collide. `Final` makes the reassignment-prevention explicit at the
+# type-system layer — mypy will reject any code that tries to rebind this name.
+_ERRORS_ATTR_MISSING: Final[object] = object()
 
 
 def _build_default_converter(ocr_config: OcrConfig) -> DocumentConverter:
