@@ -120,6 +120,10 @@ target-version = "py313"
 
 [tool.ruff.lint]
 # EM/TRY/TCH added 2026-05-12 per Phase 1 panel review (Lens 04 + Lens 08).
+# TCH category prefix renamed to TC on 2026-05-13 (ruff 0.15.x): TCH###
+# rule codes are deprecated and remapped to TC### with a warning. Rule
+# meanings unchanged. Source docstrings in src/ already use modern TC001/
+# TC003 codes; this select-list update closes the config-vs-docstring drift.
 # N/S added 2026-05-12 per Phase 1 panel re-run (Lens 08 + Lens 10): N catches
 # pep8-naming drift (incl. N818 *Error suffix on exception classes — names
 # normalised in this same pass), S catches bandit security smells.
@@ -160,7 +164,7 @@ target-version = "py313"
 # (deprecated since 3.12, PEP 594), logging.WARN constant, and `extra=` kwargs
 # that conflict with reserved LogRecord attrs. Phase 3+ workers will emit
 # through structlog's stdlib bridge. Zero current violations.
-select = ["E", "F", "I", "B", "UP", "ASYNC", "PIE", "SIM", "RET", "ARG", "PTH", "TID", "T20", "RUF", "C4", "FURB", "PT", "EM", "TRY", "TCH", "N", "S", "BLE", "PL", "ANN", "G", "DTZ", "A", "FBT", "LOG"]
+select = ["E", "F", "I", "B", "UP", "ASYNC", "PIE", "SIM", "RET", "ARG", "PTH", "TID", "T20", "RUF", "C4", "FURB", "PT", "EM", "TRY", "TC", "N", "S", "BLE", "PL", "ANN", "G", "DTZ", "A", "FBT", "LOG"]
 ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
