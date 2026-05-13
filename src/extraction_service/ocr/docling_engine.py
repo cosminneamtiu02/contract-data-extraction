@@ -279,7 +279,9 @@ class DoclingOcrEngine:
             else:
                 errors_detail = "; ".join(
                     getattr(e, "error_message", repr(e))
-                    for e in cast("list[object]", raw_errors)  # getattr returns object; runtime is a list
+                    for e in cast(
+                        "list[object]", raw_errors
+                    )  # getattr returns object; runtime is a list
                 )
             msg = f"docling reported conversion status {result.status!r}: {errors_detail}"
             raise OcrError(msg)
