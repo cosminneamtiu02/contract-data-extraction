@@ -46,7 +46,9 @@ if TYPE_CHECKING:
     # keep cold-start import cost low.
     from collections.abc import Callable
 
-    from docling.document_converter import DocumentConverter  # no stubs for docling
+    # docling ships py.typed at its locked version; mypy resolves it natively
+    # (no [[tool.mypy.overrides]] entry needed for docling.*).
+    from docling.document_converter import DocumentConverter
 
     from extraction_service.config.run_config import OcrConfig
 
@@ -65,9 +67,11 @@ def _build_default_converter(ocr_config: OcrConfig) -> DocumentConverter:
     ``_converter_factory`` kwarg on ``DoclingOcrEngine`` instead.
     """
     # Deferred to runtime to avoid import-time network calls.
-    # mypy's ``ignore_missing_imports = true`` override for ``docling.*`` and
-    # ``modelscope.*`` (pyproject.toml [[tool.mypy.overrides]]) already
-    # suppresses missing-stub errors — no per-import ``# type: ignore`` needed.
+    # docling ships py.typed at its locked version (resolved natively by
+    # mypy), and pyproject.toml's [[tool.mypy.overrides]] sets
+    # ignore_missing_imports = true for `modelscope.*` (and `rapidocr.*`),
+    # the genuinely stub-less packages. Together these suppress
+    # missing-stub errors — no per-import `# type: ignore` needed.
     from docling.datamodel.base_models import InputFormat
     from docling.datamodel.pipeline_options import PdfPipelineOptions, RapidOcrOptions
     from docling.document_converter import DocumentConverter, PdfFormatOption
