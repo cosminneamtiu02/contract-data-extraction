@@ -78,5 +78,7 @@ async def retry_extraction[T](
     # code, or retriable code on the final attempt). Present only to
     # satisfy mypy's "missing return" check without an `assert` that would
     # trip ruff S101 in production code.
-    msg = "unreachable: retry_extraction loop exited without returning or raising"  # pragma: no cover
+    msg = (
+        "unreachable: retry_extraction loop exited without returning or raising"  # pragma: no cover
+    )
     raise RuntimeError(msg)  # pragma: no cover

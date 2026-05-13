@@ -8,6 +8,11 @@ the Phase 2 spec at
 the Phase 0.5 spec at
 `docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md §17`.
 
+**Namespace note:** `§17.N` here is the Phase 3 namespace and is independent
+of the CI/CD spec's `§17.N` and the Phase 2 spec's `§17.N`. When citing a
+deviation across files, always qualify with the filename (e.g. "phase-3 spec
+§17.1 deferred `prewarm.py`") to disambiguate.
+
 ---
 
 ## §17.1 — `scripts/prewarm.py` exit-criterion DEFERRED to Phase 6
@@ -31,8 +36,11 @@ which makes it a manual / ops artifact rather than a unit-test concern;
 in lifespan, before returning ready, send a trivial chat to Ollama")
 which calls the same code path from the FastAPI lifespan; (3) Phase 3's
 genuine deliverable is the LLM-client *library* code, which is
-verifiable end-to-end via the 15-test suite against `FakeOllamaClient`
-without needing real Ollama.
+verifiable end-to-end via the unit-test suite against `FakeOllamaClient`
+without needing real Ollama. (No specific test count is pinned here —
+it drifts as panel reviews add coverage; the authoritative count is
+whatever `uv run pytest -q tests/unit/test_llm_*.py
+tests/fakes/test_fake_ollama.py` reports at the time of reading.)
 
 **How to apply:** Treat Phase 3 as complete when unit tests pass and the
 verification gate (`uv run ruff check`, `uv run mypy`, `uv run pytest`,
