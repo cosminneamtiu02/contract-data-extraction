@@ -164,9 +164,11 @@ class OllamaLlmClient:
             overflow from generic LLM failure modes.
         ollama.ResponseError:
             Any other Ollama-side error (e.g. malformed request, server
-            error) re-raised unchanged. Tasks 3.6/3.7 may add further
-            mapping; for now non-overflow ``ResponseError`` is intentionally
-            transparent.
+            error) re-raised unchanged. Tasks 3.6 (dev-mode debug capture)
+            and 3.7 (timeout) extend this method but do not remap
+            non-overflow ``ResponseError`` — it stays intentionally
+            transparent so callers can distinguish overflow / timeout /
+            other failure modes by exception class.
         json.JSONDecodeError:
             If Ollama returns content that is not valid JSON despite
             ``format`` enforcement (e.g. model truncation mid-token).

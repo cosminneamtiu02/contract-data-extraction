@@ -7,7 +7,8 @@ pipeline wires together:
     wrapper around ``ollama.AsyncClient`` that submits prompts and returns
     parsed JSON dicts.
   - ``PromptTemplate`` — reads a prompt-template file once at construction
-    time and renders it with ``ocr_text`` and ``domain_schema``.
+    time and renders it with ``ocr_text`` (substitutes ``{ocr_text}``) and
+    ``domain_schema`` (rendered into ``{schema_json}`` after ``json.dumps``).
   - ``validate_extracted_data`` — runs ``jsonschema.validate`` on the
     parsed dict, raising ``SchemaInvalidError`` on failure.
   - ``retry_extraction`` — generic async retry wrapper keyed off the

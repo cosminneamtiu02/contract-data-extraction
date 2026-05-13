@@ -100,7 +100,7 @@ class FakeOllamaClient:
         messages: list[dict[str, str]] | None = None,
         format: dict[str, Any] | None = None,  # noqa: A002  -- mirrors ollama SDK param name
         options: dict[str, Any] | None = None,
-        **_extras: object,  # forward-compat: tasks 3.6/3.7 add keep_alive, stream, etc.
+        **_extras: object,  # forward-compat: Phase 4/5 wiring may pass extra ollama.AsyncClient.chat kwargs (e.g. keep_alive, stream)
     ) -> FakeChatResponse:
         """Record the call arguments and return (or raise) per configuration.
 
