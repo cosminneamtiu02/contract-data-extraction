@@ -1,8 +1,10 @@
-"""Tests for run_llm_worker (plan §6.6 task 4.5).
+"""Tests for run_llm_worker (plan §6.6 tasks 4.5 + 4.6).
 
 The LLM worker is a long-running coroutine that drains interstage_queue,
-calls an OllamaLlmClient through retry_extraction, strips SIDE_CHANNEL_KEYS
-from the result, validates the schema, and writes the result to the ResultStore.
+calls an OllamaLlmClient through retry_extraction (with validate-inside-retry),
+strips SIDE_CHANNEL_KEYS from the result, and writes the result to the
+ResultStore — or, on terminal failure (retries exhausted OR non-retriable
+code), records data_parsing.state=FAILED.
 
 Each test exercises one behaviour in isolation (one assertion target per
 test, behaviour-named). All tests cancel the worker task after processing
@@ -18,7 +20,7 @@ from uuid import UUID, uuid4
 import pytest
 
 from extraction_service.config.run_config import RetryConfig
-from extraction_service.domain.errors import LlmError
+from extraction_service.domain.errors import ContextOverflowError, LlmError, SchemaInvalidError
 from extraction_service.domain.record import ContractRecord
 from extraction_service.domain.stage import StageRecord, StageState
 from extraction_service.llm.client import OllamaLlmClient
@@ -26,7 +28,7 @@ from extraction_service.llm.prompt import PromptTemplate
 from extraction_service.pipeline.llm_worker import run_llm_worker
 from extraction_service.pipeline.state import OcrCompleted, PipelineState
 from extraction_service.settings import Settings
-from tests.fakes.fake_ollama import FakeChatResponse, FakeOllamaClient
+from tests.fakes.fake_ollama import FakeChatMessage, FakeChatResponse, FakeOllamaClient
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -293,3 +295,389 @@ async def test_llm_worker_uses_retry_extraction_for_llm_failed_code(
     record = await state.result_store.get(completed.contract_id)
     assert record is not None
     assert record.data_parsing.state == StageState.DONE
+
+
+# ---------------------------------------------------------------------------
+# Task 4.6: retry-count and terminal-failure behaviour
+# ---------------------------------------------------------------------------
+
+
+async def _wait_for_data_parsing_state(
+    state: PipelineState,
+    contract_id: UUID,
+    target: StageState,
+    *,
+    wait_seconds: float = 2.0,
+) -> None:
+    """Poll until data_parsing.state reaches the target state or raise TimeoutError."""
+    async with asyncio.timeout(wait_seconds):
+        while True:
+            record = await state.result_store.get(contract_id)
+            if record is not None and record.data_parsing.state == target:
+                return
+            await asyncio.sleep(0.01)
+
+
+class _CountingChatClient:
+    """Inner-chat-client stand-in that counts ``chat`` calls and returns/raises
+    according to a constant configuration.
+
+    Used by 4.6 tests to assert ``client.extract`` is invoked exactly
+    ``max_retries + 1`` times on every-attempt-fails scenarios.
+    """
+
+    def __init__(self, *, content: str = "{}", raise_exc: Exception | None = None) -> None:
+        self.call_count = 0
+        self._content = content
+        self._raise_exc = raise_exc
+
+    async def chat(
+        self,
+        *,
+        model: str = "",
+        messages: list[dict[str, str]] | None = None,
+        format: dict[str, Any] | None = None,  # noqa: A002  -- mirrors ollama SDK param name
+        options: dict[str, Any] | None = None,
+        **_extras: object,
+    ) -> FakeChatResponse:
+        # Reference unused parameters so ruff/mypy do not flag the thin counting wrapper.
+        _ = model, messages, format, options
+        self.call_count += 1
+        if self._raise_exc is not None:
+            raise self._raise_exc
+        return FakeChatResponse(message=FakeChatMessage(content=self._content))
+
+
+def _settings_with(tmp_path: Path, *, max_retries: int) -> Settings:
+    """Build a Settings instance overriding max_retries (the retry-count knob)."""
+    return Settings(run_config=tmp_path / "run.yaml", max_retries=max_retries)
+
+
+async def _seed_record_for(state: PipelineState, contract_id: UUID) -> None:
+    """Seed an intake-done + ocr-done record so the LLM worker has somewhere to write."""
+    t = datetime.now(UTC)
+    await state.result_store.create(
+        contract_id,
+        ContractRecord(
+            intake=StageRecord(state=StageState.DONE, started_at=t, completed_at=t),
+            ocr=StageRecord(state=StageState.DONE, started_at=t, completed_at=t),
+        ),
+    )
+
+
+@pytest.mark.asyncio
+async def test_llm_worker_retries_on_schema_invalid_max_times(
+    tmp_path: Path, prompt_template: PromptTemplate
+) -> None:
+    """When every attempt yields schema-invalid output, the worker retries
+    exactly max_retries + 1 times before giving up (plan §6.6 task 4.6 seed)."""
+    settings = _settings_with(tmp_path, max_retries=3)
+    # Inner returns valid JSON that violates the schema (missing required "field").
+    # validate_extracted_data raises SchemaInvalidError inside the retried function
+    # → retry_extraction retries up to max_retries.
+    inner = _CountingChatClient(content='{"wrong_field": "v"}')
+    client = OllamaLlmClient(client=inner, model="test-model")
+    retry_config = RetryConfig(retry_on=["schema_invalid"])
+
+    state = PipelineState.from_settings(settings)
+    contract_id = uuid4()
+    await _seed_record_for(state, contract_id)
+    await state.interstage_queue.put(OcrCompleted(contract_id=contract_id, ocr_text="x"))
+
+    task: asyncio.Task[None] = asyncio.create_task(
+        run_llm_worker(
+            state=state,
+            client=client,
+            prompt_template=prompt_template,
+            domain_schema=_SIMPLE_SCHEMA,
+            retry_config=retry_config,
+        )
+    )
+    await _wait_for_data_parsing_state(state, contract_id, StageState.FAILED)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    # 1 initial attempt + 3 retries = 4 total calls.
+    assert inner.call_count == 4
+
+
+@pytest.mark.asyncio
+async def test_llm_worker_records_data_parsing_failed_after_retries_exhausted(
+    tmp_path: Path, prompt_template: PromptTemplate
+) -> None:
+    """After exhausting retries the record's data_parsing stage is FAILED."""
+    settings = _settings_with(tmp_path, max_retries=1)
+    inner = _CountingChatClient(content='{"wrong_field": "v"}')
+    client = OllamaLlmClient(client=inner, model="test-model")
+    retry_config = RetryConfig(retry_on=["schema_invalid"])
+
+    state = PipelineState.from_settings(settings)
+    contract_id = uuid4()
+    await _seed_record_for(state, contract_id)
+    await state.interstage_queue.put(OcrCompleted(contract_id=contract_id, ocr_text="x"))
+
+    task: asyncio.Task[None] = asyncio.create_task(
+        run_llm_worker(
+            state=state,
+            client=client,
+            prompt_template=prompt_template,
+            domain_schema=_SIMPLE_SCHEMA,
+            retry_config=retry_config,
+        )
+    )
+    await _wait_for_data_parsing_state(state, contract_id, StageState.FAILED)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    final = await state.result_store.get(contract_id)
+    assert final is not None
+    assert final.data_parsing.state == StageState.FAILED
+
+
+@pytest.mark.asyncio
+async def test_llm_worker_records_stage_error_code_after_retries_exhausted(
+    tmp_path: Path, prompt_template: PromptTemplate
+) -> None:
+    """The terminal exception's code lands on data_parsing.error.code."""
+    settings = _settings_with(tmp_path, max_retries=1)
+    inner = _CountingChatClient(content='{"wrong_field": "v"}')
+    client = OllamaLlmClient(client=inner, model="test-model")
+    retry_config = RetryConfig(retry_on=["schema_invalid"])
+
+    state = PipelineState.from_settings(settings)
+    contract_id = uuid4()
+    await _seed_record_for(state, contract_id)
+    await state.interstage_queue.put(OcrCompleted(contract_id=contract_id, ocr_text="x"))
+
+    task: asyncio.Task[None] = asyncio.create_task(
+        run_llm_worker(
+            state=state,
+            client=client,
+            prompt_template=prompt_template,
+            domain_schema=_SIMPLE_SCHEMA,
+            retry_config=retry_config,
+        )
+    )
+    await _wait_for_data_parsing_state(state, contract_id, StageState.FAILED)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    final = await state.result_store.get(contract_id)
+    assert final is not None
+    assert final.data_parsing.error is not None
+    assert final.data_parsing.error.code == SchemaInvalidError.code
+
+
+@pytest.mark.asyncio
+async def test_llm_worker_does_not_retry_when_max_retries_zero(
+    tmp_path: Path, prompt_template: PromptTemplate
+) -> None:
+    """max_retries=0 means one attempt only — no retries on failure."""
+    settings = _settings_with(tmp_path, max_retries=0)
+    inner = _CountingChatClient(content='{"wrong_field": "v"}')
+    client = OllamaLlmClient(client=inner, model="test-model")
+    retry_config = RetryConfig(retry_on=["schema_invalid"])
+
+    state = PipelineState.from_settings(settings)
+    contract_id = uuid4()
+    await _seed_record_for(state, contract_id)
+    await state.interstage_queue.put(OcrCompleted(contract_id=contract_id, ocr_text="x"))
+
+    task: asyncio.Task[None] = asyncio.create_task(
+        run_llm_worker(
+            state=state,
+            client=client,
+            prompt_template=prompt_template,
+            domain_schema=_SIMPLE_SCHEMA,
+            retry_config=retry_config,
+        )
+    )
+    await _wait_for_data_parsing_state(state, contract_id, StageState.FAILED)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert inner.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_llm_worker_succeeds_on_second_attempt_when_first_raises_retriable_error(
+    tmp_path: Path, prompt_template: PromptTemplate
+) -> None:
+    """Retry-then-succeed: invalid on call 1, valid on call 2, record DONE."""
+    settings = _settings_with(tmp_path, max_retries=1)
+
+    class _FlipFlopChatClient:
+        """Returns invalid JSON on call 1, valid JSON on call 2+."""
+
+        def __init__(self) -> None:
+            self.call_count = 0
+
+        async def chat(
+            self,
+            *,
+            model: str = "",
+            messages: list[dict[str, str]] | None = None,
+            format: dict[str, Any] | None = None,  # noqa: A002  -- ollama SDK name
+            options: dict[str, Any] | None = None,
+            **_extras: object,
+        ) -> FakeChatResponse:
+            _ = model, messages, format, options
+            self.call_count += 1
+            content = '{"field": "v"}' if self.call_count > 1 else '{"wrong_field": "v"}'
+            return FakeChatResponse(message=FakeChatMessage(content=content))
+
+    inner = _FlipFlopChatClient()
+    client = OllamaLlmClient(client=inner, model="test-model")
+    retry_config = RetryConfig(retry_on=["schema_invalid"])
+
+    state = PipelineState.from_settings(settings)
+    contract_id = uuid4()
+    await _seed_record_for(state, contract_id)
+    await state.interstage_queue.put(OcrCompleted(contract_id=contract_id, ocr_text="x"))
+
+    task: asyncio.Task[None] = asyncio.create_task(
+        run_llm_worker(
+            state=state,
+            client=client,
+            prompt_template=prompt_template,
+            domain_schema=_SIMPLE_SCHEMA,
+            retry_config=retry_config,
+        )
+    )
+    await _wait_for_data_parsing_state(state, contract_id, StageState.DONE)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    final = await state.result_store.get(contract_id)
+    assert final is not None
+    assert final.data_parsing.extracted == {"field": "v"}
+
+
+@pytest.mark.asyncio
+async def test_llm_worker_does_not_retry_non_retriable_error_code(
+    tmp_path: Path, prompt_template: PromptTemplate
+) -> None:
+    """Errors whose .code is absent from retry_on propagate after one attempt."""
+    settings = _settings_with(tmp_path, max_retries=3)
+    # ContextOverflowError → code "context_overflow"; retry_on excludes it,
+    # so retry_extraction re-raises immediately on attempt 1.
+    inner = _CountingChatClient(raise_exc=ContextOverflowError("over the window"))
+    client = OllamaLlmClient(client=inner, model="test-model")
+    retry_config = RetryConfig(retry_on=["schema_invalid"])
+
+    state = PipelineState.from_settings(settings)
+    contract_id = uuid4()
+    await _seed_record_for(state, contract_id)
+    await state.interstage_queue.put(OcrCompleted(contract_id=contract_id, ocr_text="x"))
+
+    task: asyncio.Task[None] = asyncio.create_task(
+        run_llm_worker(
+            state=state,
+            client=client,
+            prompt_template=prompt_template,
+            domain_schema=_SIMPLE_SCHEMA,
+            retry_config=retry_config,
+        )
+    )
+    await _wait_for_data_parsing_state(state, contract_id, StageState.FAILED)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    # ContextOverflowError surfaces from the chat layer (OllamaLlmClient maps it);
+    # retry_extraction MUST NOT retry on a non-retriable code → exactly 1 call.
+    assert inner.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_llm_worker_continues_after_one_job_fails(
+    tmp_path: Path, prompt_template: PromptTemplate
+) -> None:
+    """One bad job does not kill the worker — subsequent jobs still process."""
+    settings = _settings_with(tmp_path, max_retries=0)
+
+    state_machine = {"calls": 0}
+    success_content = '{"field": "v"}'
+    failure_content = '{"wrong_field": "v"}'
+
+    class _StatefulChatClient:
+        async def chat(
+            self,
+            *,
+            model: str = "",
+            messages: list[dict[str, str]] | None = None,
+            format: dict[str, Any] | None = None,  # noqa: A002
+            options: dict[str, Any] | None = None,
+            **_extras: object,
+        ) -> FakeChatResponse:
+            _ = model, messages, format, options
+            state_machine["calls"] += 1
+            content = failure_content if state_machine["calls"] == 1 else success_content
+            return FakeChatResponse(message=FakeChatMessage(content=content))
+
+    inner = _StatefulChatClient()
+    client = OllamaLlmClient(client=inner, model="test-model")
+    retry_config = RetryConfig(retry_on=["schema_invalid"])
+
+    state = PipelineState.from_settings(settings)
+    first_id = uuid4()
+    second_id = uuid4()
+    for cid in (first_id, second_id):
+        await _seed_record_for(state, cid)
+    await state.interstage_queue.put(OcrCompleted(contract_id=first_id, ocr_text="x"))
+    await state.interstage_queue.put(OcrCompleted(contract_id=second_id, ocr_text="y"))
+
+    task: asyncio.Task[None] = asyncio.create_task(
+        run_llm_worker(
+            state=state,
+            client=client,
+            prompt_template=prompt_template,
+            domain_schema=_SIMPLE_SCHEMA,
+            retry_config=retry_config,
+        )
+    )
+    await _wait_for_data_parsing_state(state, second_id, StageState.DONE)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    second_final = await state.result_store.get(second_id)
+    assert second_final is not None
+    assert second_final.data_parsing.state == StageState.DONE
+
+
+@pytest.mark.asyncio
+async def test_llm_worker_calls_task_done_after_failed_job(
+    tmp_path: Path, prompt_template: PromptTemplate
+) -> None:
+    """interstage_queue.unfinished_tasks reaches zero even when the job fails."""
+    settings = _settings_with(tmp_path, max_retries=0)
+    inner = _CountingChatClient(content='{"wrong_field": "v"}')
+    client = OllamaLlmClient(client=inner, model="test-model")
+    retry_config = RetryConfig(retry_on=["schema_invalid"])
+
+    state = PipelineState.from_settings(settings)
+    contract_id = uuid4()
+    await _seed_record_for(state, contract_id)
+    await state.interstage_queue.put(OcrCompleted(contract_id=contract_id, ocr_text="x"))
+
+    task: asyncio.Task[None] = asyncio.create_task(
+        run_llm_worker(
+            state=state,
+            client=client,
+            prompt_template=prompt_template,
+            domain_schema=_SIMPLE_SCHEMA,
+            retry_config=retry_config,
+        )
+    )
+    await _wait_for_data_parsing_state(state, contract_id, StageState.FAILED)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert state.interstage_queue._unfinished_tasks == 0  # type: ignore[attr-defined]  # CPython internal attr; no public equivalent in asyncio.Queue
