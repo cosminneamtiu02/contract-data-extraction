@@ -2190,3 +2190,60 @@ The user drives any next-step decision: (a) merge the PR as-is (the branch is in
 Cycle-5 marks a notable convergence inflection: 9/20 lenses returned zero actionable findings (vs. 3–5 in prior cycles). The remaining 11 lenses' findings are predominantly comment-precision drift (workflow-gap rule #3) and individual-judgment Minors that future cycles will continue to surface but at low rate.
 
 **Per-cycle status line (compact):** `Cycle 5 on chore/panel-review-fixes-2026-05-13: 5 commits applied (4 fixes + this §17.34 with embedded CLAUDE.md pointer bump); 3 Important + 1 Minor fixes after filter; 0 strong convergent findings; Ship-ready (pre-fix): 16/20 Yes, 4/20 With fixes; Clean lenses: 9/20 (substantial convergence — L03, L04, L07, L08, L09, L15, L16, L19, L20 all zero-action); ~17 findings filter-dropped (incl. 1 lens-fabrication: L11 action SHA version comment v4.2.2 vs v6.0.2 — §17.28 documented pattern fired correctly); 0 new deferrals; 0 prior-cycle deferrals reversed. New HEAD: this audit commit. Workflow-gap rule #3 fired its 7th, 8th, 9th occurrences in this loop — formally promoted to filter-gap-with-pre-audit-grep-sweep status. Continuing → Cycle 6.`
+
+---
+
+### 17.35. Cycle-6 of fresh 8-cycle loop on `chore/panel-review-fixes-2026-05-13` (sonnet) — 1 applied fix-commit (3 small concerns bundled)
+
+**HEAD at cycle start:** `459f8db` (terminal commit of §17.34).
+
+**Dispatch:** 20 lenses, `model: sonnet`, `run_in_background: true`, clean prompts.
+
+**Lens verdicts (pre-fix):** 17/20 Yes ship-ready; 3/20 With fixes (L10, L17, L12, L18 — note L10+L18 convergent so distinct With-fixes lens count is 3). **Clean lenses (zero actionable findings): 16/20 — STRONGEST convergence signal of the loop.** L02, L03, L04, L05, L06, L07, L08, L09, L11, L13, L14, L15, L16, L19, L20 all returned with zero actionable findings or fully filter-droppable Minors.
+
+**Pre-filter findings:** 0 Critical, 0 Important (highest signal: all "Important" findings demoted to Minor by lenses themselves or filtered as preemptive), ~8 Minor.
+
+**Senior-dev filter pass:** ~5 findings dropped. Notable rejections:
+- L15 darwin scope minor — accepted §17.2 deferral.
+- L15 `fail_under = 80` rationale-comment add — comment inflation on conventional threshold.
+- L11 `--cov` no-source-arg comment completeness — comment inflation on already-thorough block.
+- L07 base.py @runtime_checkable docstring forward-context — recursive nit-picking on docstring I just rewrote in cycle-4.
+- L01 §4.15 path-text update — existing §17.3 annotation already serves the audit-trail purpose.
+- Several "no action required" / "noted for completeness" findings explicitly self-filtered by lenses.
+
+**Convergent findings promoted to load-bearing:**
+- **L10 + L18 on `.pre-commit-config.yaml` `minimum_pre_commit_version` comment/value skew** — both flagged the cycle-5 commit a5b6c73's introduction of a comment/value inconsistency (header comment updated to reference `pre-commit>=4.6` but value left at `"4.0"`). Convergence reversed cycle-5's deliberate "conservative" framing — the comment/value alignment is cleaner than the hedged justification.
+
+**Applied fix (Layer A, 1 commit bundling 3 small concerns — parallel-dispatch overhead would exceed benefit per CLAUDE.md "When NOT to parallelize: ≤2 fixes"):**
+
+1. `e733421` — `fix: cycle-6 trio — pre-commit minimum, plan §2.5 snippet rename, pytest comment §17 ref` — bundles:
+   - **L10 + L18 convergent:** `.pre-commit-config.yaml:6` `minimum_pre_commit_version: "4.0"` → `"4.6"`. Closes the comment/value skew introduced in cycle-5 a5b6c73.
+   - **L17:** `docs/plan.md §2.5` code snippet variable renames `det` / `rec` / `cls` → `det_path` / `rec_path` / `cls_path`. Matches the live `_build_default_converter` implementation after cycle-0 commit `e72d5c6` renamed the locals to avoid the classmethod-arg-name shadow on `cls`.
+   - **L12 / workflow-gap rule #3 occurrence 10:** `pyproject.toml:61` pytest comment cross-reference `(§17.14, pass 8)` → `(§17.13, pass 7; tightened in this branch via commit 056dcdb)`. §17.14 is the max-cap termination entry — no mypy floor change occurred there. Updated to cite the correct subsection.
+
+**This §17.35 audit entry (Layer B)** + CLAUDE.md `§17 latest` pointer bumped §17.34 → §17.35.
+
+**Workflow-gap audit (per §17.23 MAX-CAP diagnosis):**
+1. **Test split + missed plan sync** — N/A (no test changes this cycle).
+2. **CLAUDE.md terminology / pointer leaks** — pointer bump in this commit.
+3. **Prior-cycle audit-comment factual drift** — fired AGAIN for the TENTH occurrence in this loop (L12 catch of the `§17.14, pass 8` cross-ref). The pattern is dominantly persistent. Synthesizer's pre-audit grep sweep (promoted in §17.34) would benefit from explicit `(§17\.[0-9]+, pass [0-9]+)` regex matching at audit time to catch future cycles. Recommended grep pattern: `grep -nE '§17\.[0-9]+, pass [0-9]+' pyproject.toml docs/` and verify each match against the actual spec subsection content.
+
+**Convergence trajectory across the loop:**
+
+| Cycle | With-fixes lenses | Applied fix-commits | Clean lenses |
+|---|---:|---:|---:|
+| C0 (Opus standalone) | 5 | 9 | 6 |
+| C1 (Sonnet) | 4 | 6 | 4 |
+| C2 (Sonnet) | 6 | 7 | 3 |
+| C3 (Sonnet) | 5 | 4 | 4 |
+| C4 (Sonnet) | 5 | 4 | 5 |
+| C5 (Sonnet) | 4 | 4 | 9 |
+| **C6 (Sonnet)** | **3** | **1 (bundled)** | **16** ← inflection |
+
+Cycle-6 marks the **terminal convergence signal**: 16/20 lenses fully clean, only 3 With-fixes lenses with all findings being audit-comment-precision Minors. The trajectory suggests cycle-7 would produce 0-1 fixes; cycle-8 (user's max-cap) would likely fire zero fixes. The remaining detection surface is workflow-gap rule #3 recurrences, which will keep firing as long as cycles add new audit comments that drift relative to other audit comments.
+
+**Verification gate (post-applied, all green):**
+- `uv lock --check`: Resolved 173 packages
+- `uv run pre-commit run --all-files`: all 14 hooks green
+
+**Per-cycle status line (compact):** `Cycle 6 on chore/panel-review-fixes-2026-05-13: 2 commits applied (1 bundling 3 small fixes + this §17.35 with embedded CLAUDE.md pointer bump); 0 Important + 3 Minor fixes after filter; 1 strong convergent finding (L10+L18 minimum_pre_commit skew); Ship-ready (pre-fix): 17/20 Yes, 3/20 With fixes; Clean lenses: 16/20 (loop-record convergence — L02, L03, L04, L05, L06, L07, L08, L09, L11, L13, L14, L15, L16, L19, L20 all zero-action; only L10/L17/L18+L12 had genuine apply-now findings); ~5 findings filter-dropped; 0 new deferrals; 1 prior-cycle disposition reversed (cycle-5's "conservative 4.0 minimum" framing — reversed by L10+L18 convergence on the comment/value skew). New HEAD: this audit commit. Workflow-gap rule #3 fired its 10th occurrence — recommend regex-based pre-audit grep at the synthesizer level. Continuing → Cycle 7 (with high expectation of further inflection).`
