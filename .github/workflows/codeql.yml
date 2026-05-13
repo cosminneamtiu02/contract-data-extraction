@@ -57,6 +57,7 @@ jobs:
         uses: github/codeql-action/init@68bde559dea0fdcac2102bfdf6230c5f70eb485e  # v4.35.4
         with:
           languages: ${{ matrix.language }}
+          build-mode: none  # Explicit none for both python (default-aligned, default-shift-proofed) and actions (only legal value)
           # Default query suite ("security"). No paths-ignore on day one;
           # revisit if signal-to-noise becomes problematic.
 
