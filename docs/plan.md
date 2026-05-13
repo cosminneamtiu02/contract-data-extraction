@@ -93,7 +93,8 @@ import os
 # One-time download (cached). Models live in ~/.cache.
 # Filenames updated 2026-05-13 to match the current modelscope layout
 # and switch the rec model to Latin script for German contracts —
-# see docs/superpowers/specs/2026-05-12-phase-2-ocr-spec-deviations.md §17.16.
+# see docs/superpowers/specs/2026-05-12-phase-2-ocr-spec-deviations.md §17.16;
+# det model swapped server → mobile per §17.17 in the same file (23-63× speedup, char parity).
 model_dir = snapshot_download(repo_id="RapidAI/RapidOCR")
 det = os.path.join(model_dir, "onnx", "PP-OCRv5", "det", "ch_PP-OCRv5_det_mobile.onnx")
 rec = os.path.join(model_dir, "onnx", "PP-OCRv5", "rec", "latin_PP-OCRv5_rec_mobile.onnx")
