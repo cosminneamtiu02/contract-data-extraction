@@ -67,7 +67,7 @@ dev = [
     # Floor tracks the locked major (7.1.0); pytest-cov 7.0 dropped pytest 7.x
     # support and changed --cov-fail-under semantics. A fresh-machine resolve
     # could silently lock 6.x otherwise. Matches the tracks-the-locked-major
-    # convention applied to pytest (>=9.0), pytest-asyncio (>=1.0), mypy (>=2.0).
+    # convention applied to pytest (>=9.0), pytest-asyncio (>=1.0), mypy (>=2.1).
     "pytest-cov>=7.0",
     # Floor pinned at 6.115 (locked: 6.152.6); 6.x has no cross-major break
     # currently — the specific 6.115 floor pins a defensive lower bound below
@@ -83,7 +83,7 @@ dev = [
     # every minor is effectively a major bump. The >=0.9 floor permitted a
     # fresh-machine resolve to 0.9.x, which predates the PL and ANN rule
     # families added in cycle 2 — a 0.9.x resolve would silently drop those
-    # lint gates. Same tracks-the-locked-minor convention as pytest-cov (>=7.0).
+    # lint gates. Same tracks-the-locked-minor convention as mypy (>=2.1).
     "ruff>=0.15",
     # Stub floors mirror the runtime floors in [project].dependencies so a
     # future lockfile regeneration on a fresh machine can't drift the stub
