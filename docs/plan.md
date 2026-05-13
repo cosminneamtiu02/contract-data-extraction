@@ -713,7 +713,7 @@ Each phase is **its own git worktree** so phases can be reviewed/merged independ
 
 ### 6.4 Phase 2 — OCR layer
 
-**Goal:** Pluggable OCR engine abstraction; one real implementation (Docling + RapidOCR + PP-OCRv5); golden tests against committed sample PDFs.
+**Goal:** Pluggable OCR engine abstraction; one real implementation (Docling + RapidOCR + PP-OCRv5); validated OCR tests against local sample PDFs (**deviation §17.3:** sample PDFs are gitignored and resolved via `$EXTRACTION_OCR_SAMPLES_DIR`, NOT committed; "golden tests" wording is pre-deviation).
 
 **Worktree:** `phase-2-ocr`
 
@@ -725,9 +725,9 @@ Each phase is **its own git worktree** so phases can be reviewed/merged independ
 | 2.4 | DoclingOcrEngine.extract returns text | `src/extraction_service/ocr/docling_engine.py` | `test_docling_extract_clean_pdf` — pass a tiny PDF (committed to `tests/ocr/data/sample_clean.pdf`), assert returned text contains expected snippet (**deviation §17.3:** replaced by parametrised `test_docling_extract_against_sample` over `$EXTRACTION_OCR_SAMPLES_DIR`; no PDFs committed) | implement `extract`: call `converter.convert(BytesIO(pdf_bytes))`, return markdown | pytest (slow) |
 | 2.5 | DoclingOcrEngine handles watermark sample | `tests/ocr/test_docling_engine.py::test_watermark_text_captured` | add `sample_with_watermark.pdf` (you provide one or render one synthetically); assert OCR result contains watermark word (**deviation §17.1:** task DROPPED — watermarks are not a relevant signal on the real contract corpus) | (no impl change if 2.4 works; this is a verification test) | pytest |
 | 2.6 | DoclingOcrEngine handles logo text sample | `tests/ocr/test_docling_engine.py::test_logo_text_captured` | similar with `sample_with_logo.pdf` (**deviation §17.2:** REFOCUSED — logo-text extraction folded into the §17.3 parametrised real-OCR test; semantic logo identification deferred) | (verification only) | pytest |
-| 2.7 | `OcrEngineFactory` | `src/extraction_service/ocr/factory.py` | `test_factory_returns_docling_for_docling_config` | switch on `run_config.ocr.engine` string; raise on unknown | pytest |
-| 2.8 | OCR engine respects timeout | `src/extraction_service/ocr/docling_engine.py` | `test_docling_extract_timeout` — patch the converter to sleep 5s, set timeout 1s, assert `asyncio.TimeoutError` | wrap `.convert()` call in `asyncio.wait_for` (Docling is sync; run via `loop.run_in_executor`) | pytest |
-| 2.9 | OCR error wraps as OcrError | `src/extraction_service/ocr/docling_engine.py` | `test_docling_extract_empty_output_raises_ocr_empty_output` (patch to return empty), `test_docling_internal_exception_wraps_as_ocr_engine_failed` | try/except in extract, map to `OcrError` subclasses | pytest |
+| 2.7 | `OcrEngineFactory` | `src/extraction_service/ocr/factory.py` | `test_factory_returns_docling_for_docling_config` | switch on `run_config.ocr.engine` string; raise on unknown (**deviation §17.4:** "raise on unknown" omitted — closed `Literal["docling"]` makes mypy the exhaustiveness guard, no runtime `case _:` needed) | pytest |
+| 2.8 | OCR engine respects timeout | `src/extraction_service/ocr/docling_engine.py` | `test_docling_extract_timeout` — patch the converter to sleep 5s, set timeout 1s, assert `asyncio.TimeoutError` | wrap `.convert()` call in `asyncio.wait_for` (Docling is sync; run via `loop.run_in_executor`) (**deviation §17.9:** implementation uses `asyncio.to_thread` instead of `loop.run_in_executor` — equivalent Python 3.9+ idiom) | pytest |
+| 2.9 | OCR error wraps as OcrError | `src/extraction_service/ocr/docling_engine.py` | `test_docling_extract_empty_output_raises_ocr_empty_output` (patch to return empty), `test_docling_internal_exception_wraps_as_ocr_engine_failed` (**deviation §17.5:** third test added for `ConversionStatus.FAILURE`; **deviation §17.6:** `TimeoutError` propagates unwrapped — not mapped to `OcrError`) | try/except in extract, map to `OcrError` subclasses | pytest |
 
 **Validation gate:** Before declaring Phase 2 done, run `scripts/validate_ocr.py` on a real folder of 5–10 of your actual contracts. Manually inspect the OCR output. If watermark/logo text is missed, do not proceed — iterate on engine config (try `PP-OCRv5_server_det` vs `PP-OCRv5_mobile_det`, try Tesseract `deu_frak` as fallback).
 
