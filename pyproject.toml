@@ -42,6 +42,7 @@ dependencies = [
     "modelscope>=1.36",
     # Floor tracks the locked minor (4.26.x).
     "jsonschema>=4.26",
+    # Floor tracks the locked minor (6.0.x).
     "pyyaml>=6.0",
     # Floor tracks the locked minor (0.28.x); httpx is pre-1.0 and the
     # 0.27→0.28 boundary changed the default transport behavior.
@@ -94,6 +95,7 @@ dev = [
     "pre-commit>=4.6",
     # Floor tracks the locked minor (2.10.x).
     "pip-audit>=2.10",
+    # Floor tracks the locked minor (1.5.x).
     "detect-secrets>=1.5",
 ]
 
