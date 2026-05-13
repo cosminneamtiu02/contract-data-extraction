@@ -275,6 +275,12 @@ filterwarnings = [
     "error::DeprecationWarning",
     "error::pytest.PytestUnraisableExceptionWarning",
 ]
+# xfail markers that unexpectedly PASS should fail the run, not silently
+# pass — defense-in-depth for Phase 3+ test authors.  Consistent with the
+# existing strictness posture: --strict-markers, --strict-config, and
+# filterwarnings error:: are already set.  Zero current @pytest.mark.xfail
+# uses today; closes a Phase 3-6 test-author footgun before it can land.
+xfail_strict = true
 
 [tool.coverage.run]
 source = ["src/extraction_service"]
