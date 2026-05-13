@@ -284,13 +284,13 @@ class DoclingOcrEngine:
                     )  # getattr returns object; runtime is a list
                 )
             msg = f"docling reported conversion status {result.status!r}: {errors_detail}"
-            raise OcrError(msg)
+            raise OcrError(msg) from None
 
         document = result.document
         text = document.export_to_markdown()
         if not text or not text.strip():
             msg = "docling produced empty OCR output"
-            raise OcrEmptyOutputError(msg)
+            raise OcrEmptyOutputError(msg) from None
 
         return OcrResult(
             text=text,

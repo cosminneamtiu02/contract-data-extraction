@@ -9,6 +9,11 @@ on:
     # Weekly Monday 06:00 UTC — catches newly-published query rules even
     # when no PRs land that week.
     - cron: '0 6 * * 1'
+  # Manual escape hatch for on-demand re-scans (e.g., after a CodeQL query
+  # database refresh, after a forced push that cleared a stale SARIF, or
+  # when the weekly schedule is insufficient). Mirrors the ci.yml trigger
+  # pattern.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -18,6 +23,13 @@ concurrency:
   # concurrent PR scan don't collapse into the same group and cancel each
   # other (the short-circuit `github.event_name == 'push' && github.sha || 'pr'`
   # otherwise routes `schedule` into the `pr` bucket).
+  # GitHub Actions expression semantics: `&&` and `||` return the last
+  # truthy/falsy operand (truthy-wins short-circuit), so the chained ternary
+  # `(push && sha) || (schedule && 'scheduled') || 'pr'` evaluates as:
+  #   push      → sha                (non-empty, truthy)
+  #   schedule  → 'scheduled'
+  #   pr / workflow_dispatch / else → 'pr'
+  # Do not refactor without preserving this semantics.
   group: codeql-${{ github.ref }}-${{ github.event_name == 'push' && github.sha || github.event_name == 'schedule' && 'scheduled' || 'pr' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 

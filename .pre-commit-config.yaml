@@ -19,16 +19,23 @@ repos:
         # would otherwise pass local hooks but fail in CI. Surfaced by Lens 18
         # (Pre-commit hooks & local DX) in the 2026-05-13 panel review.
       - id: ruff-check
+        # `pass_filenames: false` + explicit `src tests` scope mirrors the CI
+        # invocation in .github/workflows/ci.yml exactly. Without it the hook
+        # only checks staged Python files; a partial-stage commit could pass
+        # locally while failing CI on an unstaged peer file's violation.
         name: ruff check
-        entry: uv run ruff check
+        entry: uv run ruff check src tests
         language: system
-        types_or: [python, pyi]
+        pass_filenames: false
+        always_run: true
         require_serial: true
       - id: ruff-format
+        # Same scope-mirror rationale as ruff-check above.
         name: ruff format
-        entry: uv run ruff format --check
+        entry: uv run ruff format --check src tests
         language: system
-        types_or: [python, pyi]
+        pass_filenames: false
+        always_run: true
         require_serial: true
       - id: mypy
         name: mypy

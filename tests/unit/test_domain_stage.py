@@ -257,7 +257,6 @@ def test_stage_record_start_with_default_now_uses_current_time() -> None:
     default would silently leave ``started_at`` at ``None``."""
     record = StageRecord().start()
 
-    assert record.state == StageState.IN_PROGRESS
     assert record.started_at is not None
     assert record.started_at.tzinfo is not None
 
@@ -272,7 +271,6 @@ def test_stage_record_complete_with_default_now_uses_current_time() -> None:
 
     finished = record.complete()
 
-    assert finished.state == StageState.DONE
     assert finished.completed_at is not None
     assert finished.completed_at.tzinfo is not None
     assert finished.duration_ms is not None
@@ -290,7 +288,6 @@ def test_stage_record_fail_with_default_now_uses_current_time() -> None:
 
     failed = record.fail(error=error)
 
-    assert failed.state == StageState.FAILED
     assert failed.completed_at is not None
     assert failed.completed_at.tzinfo is not None
     assert failed.duration_ms is not None

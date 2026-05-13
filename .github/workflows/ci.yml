@@ -93,7 +93,25 @@ jobs:
         # report type; without the explicit flag the missing-line output
         # is fragile across pytest-cov versions; the CLI flag is the
         # supported route under pytest-cov.
-        run: uv run pytest -q --tb=short -m "not slow" --cov --cov-report=term-missing
+        run: uv run pytest -q --tb=short -m "not slow" --cov --cov-report=term-missing --cov-report=xml:reports/coverage.xml --junitxml=reports/junit.xml
+
+      - name: Upload backend test artifacts
+        # JUnit XML enables GitHub's native PR test-results surface; coverage
+        # XML preserves the coverage detail beyond log expiry for follow-up
+        # analysis. if: always() ensures failures upload too — the diagnosis
+        # cost of a flaky-test PR drops sharply when the JUnit file is on the
+        # PR's artifacts list.
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: backend-test-reports
+          path: reports/
+          retention-days: 30
+          # Surface absence as a log annotation (warn) rather than silently ignoring it.
+          # The step exists to upload diagnostic artifacts on failure (if: always());
+          # if pytest fails before generating reports/* (import error, collection failure),
+          # `ignore` would silence the very signal the step is designed to capture.
+          if-no-files-found: warn
 
       - name: Dependency CVE scan
         # Default pip-audit behavior fails CI on any CVE found in the
@@ -154,4 +172,8 @@ jobs:
         # Smoke-only — catches arm64 wheel resolution failures for docling,
         # rapidocr-onnxruntime, modelscope, and any future native-extension
         # dep before it bites in production. `--tb=short` mirrors backend-checks.
+        # `--cov` is INTENTIONALLY omitted here: backend-checks owns the
+        # coverage gate; running coverage on darwin would double-count and
+        # the smoke scope wouldn't change the resulting percentage. Do not
+        # add --cov to this job.
         run: uv run pytest -q --tb=short -m "not slow" tests/test_smoke.py
