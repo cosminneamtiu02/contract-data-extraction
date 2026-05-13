@@ -91,15 +91,19 @@ from modelscope import snapshot_download
 import os
 
 # One-time download (cached). Models live in ~/.cache.
+# Filenames updated 2026-05-13 to match the current modelscope layout
+# and switch the rec model to Latin script for German contracts —
+# see docs/superpowers/specs/2026-05-12-phase-2-ocr-spec-deviations.md §17.12.
 model_dir = snapshot_download(repo_id="RapidAI/RapidOCR")
-det = os.path.join(model_dir, "onnx", "PP-OCRv5", "det", "ch_PP-OCRv5_server_det.onnx")
-rec = os.path.join(model_dir, "onnx", "PP-OCRv5", "rec", "ch_PP-OCRv5_rec_server_infer.onnx")
-cls = os.path.join(model_dir, "onnx", "PP-OCRv4", "cls", "ch_ppocr_mobile_v2.0_cls_infer.onnx")
+det = os.path.join(model_dir, "onnx", "PP-OCRv5", "det", "ch_PP-OCRv5_det_mobile.onnx")
+rec = os.path.join(model_dir, "onnx", "PP-OCRv5", "rec", "latin_PP-OCRv5_rec_mobile.onnx")
+cls = os.path.join(model_dir, "onnx", "PP-OCRv4", "cls", "ch_ppocr_mobile_v2.0_cls_mobile.onnx")
 
 ocr_options = RapidOcrOptions(
     det_model_path=det,
     rec_model_path=rec,
     cls_model_path=cls,
+    lang=["latin"],  # align tokeniser with rec_model_path; default is ["chinese"]
     force_full_page_ocr=True,  # critical: don't skip regions
 )
 

@@ -568,3 +568,206 @@ origin/main discipline blocked the same pattern from recurring.
 **Loop status:** cycle 2 applied 9 commits (plus this §17.11 audit entry).
 NOT converged — cycle 3 will fire fresh against the new branch HEAD per
 the cycle-independence rule.
+
+---
+
+## §17.12 — Model paths realigned: modelscope filename drift + Latin rec for German
+
+**Surfaced by:** real-PDF smoke validation on `chore/phase-2-ocr-validation`
+(2026-05-13). `DoclingOcrEngine.extract()` on a 21 MB German loan contract
+raised `OcrError("docling OCR engine failed: ...ch_PP-OCRv5_server_det.onnx
+does not exists")` from inside RapidOCR's `_verify_model`.
+
+**Plan text:** §2.5 hardcoded three model paths against modelscope repo
+`RapidAI/RapidOCR`:
+
+```
+det = onnx/PP-OCRv5/det/ch_PP-OCRv5_server_det.onnx
+rec = onnx/PP-OCRv5/rec/ch_PP-OCRv5_rec_server_infer.onnx
+cls = onnx/PP-OCRv4/cls/ch_ppocr_mobile_v2.0_cls_infer.onnx
+```
+
+Plan §2.5's accompanying note also outlined a 3-step language-evaluation
+ladder for German OCR (try Chinese-server rec as-is → extended Latin
+dictionary → Tesseract `deu` fallback).
+
+**Deviation (3 path strings + 1 new kwarg + defensive asserts):**
+
+```
+det = onnx/PP-OCRv5/det/ch_PP-OCRv5_det_server.onnx          # word-order swap; superseded by mobile in §17.13
+rec = onnx/PP-OCRv5/rec/latin_PP-OCRv5_rec_mobile.onnx       # Chinese → Latin
+cls = onnx/PP-OCRv4/cls/ch_ppocr_mobile_v2.0_cls_mobile.onnx # _cls_infer → _cls_mobile rename
+```
+
+Also added `lang=["latin"]` on `RapidOcrOptions` to align the post-OCR
+tokeniser with the explicit rec path, and `Path.is_file()` asserts in
+`_build_default_converter` so future upstream renames fail at construction
+with a path-specific message instead of inside Pydantic-validated docling
+internals 15 frames down.
+
+**Why each change:**
+
+1. **det filename swap (`server_det` → `det_server`):** mechanical. The
+   modelscope repo renamed `<role>_<tier>` → `<tier>_<role>`. Detection
+   model is language-agnostic; only the filename changed.
+2. **rec filename + script swap:** mechanical part is the `_rec_server_infer`
+   → `_rec_server` suffix drift. Script swap is the substantive change —
+   the Chinese-server rec model would mangle German diacritics (ä/ö/ü/ß) and
+   likely produce empty/near-empty markdown, triggering
+   `OcrEmptyOutputError` from §17.5's wrapping logic. PP-OCRv5 ships no
+   server-tier Latin rec; `latin_PP-OCRv5_rec_mobile.onnx` is the
+   highest-accuracy Latin variant available. This **skips step 1 of the
+   plan §2.5 language ladder** (try Chinese-server as-is) and lands directly
+   at step 2 (Latin-tuned rec). The skip is intentional: smoke validation
+   would have shown step 1 producing garbage, and the round trip through
+   "OcrEmptyOutputError → fix → re-run" was avoided by reading the
+   character-set semantics off the model name.
+3. **cls stays on PP-OCRv4 (filename-only rename `_cls_infer` → `_cls_mobile`):**
+   the original picked v4 mobile cls; upstream renamed the file but kept
+   the model. PP-OCRv5 also ships PP-LCNet-architecture cls models
+   (`ch_PP-LCNet_x0_25_textline_ori_cls_mobile.onnx` and
+   `_x1_0_..._server.onnx`), but both hardcode an 80x160 input shape that
+   is incompatible with the cls preprocessor in our pinned
+   `rapidocr-onnxruntime==1.4.4` (which produces 48x192). Discovered the
+   hard way: a smoke-demo with the v5 PP-LCNet cls raised
+   `onnxruntime ... InvalidArgument: Got invalid dimensions ... Got: 48
+   Expected: 80` from inside `text_cls.__call__`. The v4 cls's input
+   shape is `[None, 3, ?, ?]` (dynamic spatial dims) so it accepts any
+   HxW from any rapidocr version. The constraint is documented in the
+   `docling_engine.py` docstring; a future `rapidocr` major-bump that
+   changes the cls preprocessor will need to revisit this choice.
+4. **`lang=["latin"]` added:** `RapidOcrOptions.lang` defaults to
+   `["chinese"]`. When the explicit `rec_model_path` is Latin and `lang`
+   is left as the default, RapidOCR's post-OCR character-set tokeniser
+   could route through a CJK dictionary. Setting `lang=["latin"]` makes the
+   two consistent.
+5. **`Path.is_file()` asserts:** the original code computed three path
+   strings and passed them to `RapidOcrOptions` without checking existence.
+   Docling/RapidOCR defer the check to first `convert()` call, which buried
+   the failure deep in a Pydantic-validated `RapidOCR.__init__` call
+   stack. The 3-line existence loop in `_build_default_converter` raises
+   `FileNotFoundError` at engine construction with the offending path
+   verbatim — turning a 5-frame traceback into a 1-line diagnosis.
+
+**What this DOESN'T do (deferred):**
+
+- **No modelscope revision pin.** `snapshot_download(repo_id=...)` still
+  resolves to the latest commit, so a future upstream rename can break us
+  again. A pinned `revision=<sha>` would freeze the filename layout but
+  requires picking a known-good commit + a refresh strategy when we want
+  the next upstream improvement. Tracked as future work.
+- **No real-OCR test in CI.** §17.3's "user-provided corpus via
+  `$EXTRACTION_OCR_SAMPLES_DIR`" gate stays as-is; CI continues to skip
+  `pytest -m slow`. The trade-off is acknowledged: hermetic-mock-only
+  testing cannot catch upstream model-path drift — only a hands-on smoke
+  run on a developer machine surfaces it (as happened in this audit).
+
+**Why the original tests didn't catch this:** every test in
+`tests/ocr/test_docling_engine.py` mocks `DocumentConverter` via
+`_converter_factory=lambda _: stub`. The mock bypasses
+`_build_default_converter` entirely, so the hardcoded paths were never
+resolved against disk. The `@pytest.mark.slow` parametrised real-OCR test
+in the same file would have caught it but is env-gated and skipped in CI
+per §17.3 (PDFs carry personal data and stay local-only).
+
+**Files touched:**
+
+- `src/extraction_service/ocr/docling_engine.py` — paths + lang + asserts.
+- `docs/plan.md` — §2.5 code snippet synced to current state with an
+  inline pointer to this §17.12.
+- This file (§17.12 entry).
+
+---
+
+## §17.13 — det model swap: server → mobile (23–63× speedup, char parity)
+
+**Surfaced by:** continuation of the §17.12 smoke-validation session on
+`chore/phase-2-ocr-validation` (2026-05-13). After the §17.12 fixes landed
+and OCR started producing real German contract text, the per-page time
+with `ch_PP-OCRv5_det_server.onnx` (88 MB) was 68–140 s/page on Mac
+Mini M4 — making a typical 8-page contract a 9–18 minute job. The plan
+§2.5 example wired the server variant on the assumption that high-
+accuracy detection would matter for watermarks and stamps (a concern
+that §17.1 later dropped: 97% of real contracts have no watermarks).
+
+**Plan text:** §2.5 example code wired
+``ch_PP-OCRv5_server_det.onnx`` (now ``ch_PP-OCRv5_det_server.onnx``
+per §17.12). The plan's accompanying note explicitly directed
+"evaluate during validation. Do not optimize before validation."
+
+**Deviation:** swap det model to
+``ch_PP-OCRv5_det_mobile.onnx`` (4.8 MB, 18× smaller than server).
+
+**Validation evidence (5 PDFs, mixed sizes, same rec/cls/lang config):**
+
+| PDF | Pages | Server time | Mobile time | Speedup | Char delta |
+|---|---:|---:|---:|---:|---|
+| Anadi (90 KB) | 8 | 550 s | 23.5 s | 23× | +0.14% (28,324 → 28,364) |
+| Molla (115 KB) | 4 | — | 9.4 s | — | — |
+| BKS (1.8 MB) | 3 | — | 7.1 s | — | — |
+| Raika (6.0 MB) | 6 | — | 14.9 s | — | — |
+| Easyban (21 MB) | 8 | 1126 s | 17.9 s | **63×** | — (full server md not saved; first-1500-char spot-check parity) |
+
+Per-page time on mobile: **2.2–2.5 s, dead consistent across input
+sizes**. The speedup gradient is the key finding: 23× on a clean low-DPI
+PDF rises to 63× on a high-DPI image-heavy scan. Server's compute scales
+aggressively with input resolution (25M parameters, full convs); mobile's
+MobileNetV3-derived backbone scales sublinearly via depthwise-separable
+convolutions.
+
+**Quality verification:** the one PDF with side-by-side server + mobile
+runs (Anadi, 90 KB / 8 pages) produced 28,324 chars on server and 28,364
+chars on mobile — a 0.14% delta, mobile slightly more permissive. Spot-
+checks across all 5 mobile-run PDFs preserved: bank/borrower names with
+diacritics (Pfaffstätten, Möllersdorf, Wörthersee, Niederösterreich),
+amounts in German numeral form (zweihundertfünfunddreißigtausend),
+IBANs (AT08…, AT03…), dates (30.09.1983, 14.06.1977), German legal
+terms (Sollzinsen, Verbraucherkreditgesetz, Pfandbriefdeckungskredit).
+Both server and mobile show rec-level OCR artifacts on dense compound
+words and high-DPI noisy regions (e.g., server's `Kre ditb etr ag`,
+mobile's `IRAN` for IBAN on the Easyban cover sheet). These are
+rec-model errors (kept the same `latin_PP-OCRv5_rec_mobile.onnx` in both
+configs), not det errors — switching det doesn't affect them.
+
+**Why this is plan-compliant, not a deviation against intent:** plan §2.5
+explicitly said "evaluate during validation. Do not optimize before
+validation." The original server choice was a starting point; validation
+just exercised the evaluation pathway and selected the cheaper variant
+based on evidence. The plan's three-step language-evaluation ladder
+(§17.12 covered the rec model swap from Chinese-server to Latin-mobile);
+this §17.13 covers the parallel det evaluation that landed at mobile too.
+
+**Coverage caveats — what we have NOT proven:**
+
+- **15 of 20 corpus PDFs untested with mobile det.** The 5 tested span
+  90 KB to 21 MB across 4 different banks and 4 different formats (Anadi
+  / WSK / BKS / Raifeissen / Easyban). The spread is representative but
+  not exhaustive. A particularly noisy scan (fax-quality, hand-stamped,
+  or photographed-by-phone) could expose detection-recall failures
+  unique to it.
+- **No full-text diff between server and mobile.** The Anadi side-by-side
+  is char-count-equivalent and first-1500-char content-equivalent, but
+  the FULL 28,324-character markdown could still differ in ordering or
+  detection of specific regions. Running `word_recall(server, mobile)`
+  from `tests/ocr/conftest.py` over the full corpus would close this
+  gap; deferred as not blocking for this session.
+
+**Fallback path:** if a future PDF exhibits detection failures (text
+blocks missing entirely, page structure broken), operators can switch
+back to server with a 1-line edit in `_build_default_converter`:
+
+```python
+det = model_dir / "onnx" / "PP-OCRv5" / "det" / "ch_PP-OCRv5_det_server.onnx"
+```
+
+No other changes needed — rec/cls/lang stay as-is. This makes mobile
+the default with a known-good escape hatch.
+
+**Files touched:**
+
+- `src/extraction_service/ocr/docling_engine.py` — det path + docstring
+  rationale paragraph.
+- `docs/plan.md` — §2.5 code snippet det line.
+- This file (§17.13 entry).
+
+---

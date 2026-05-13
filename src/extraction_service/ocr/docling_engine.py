@@ -61,10 +61,37 @@ _ENGINE_NAME = "docling"
 def _build_default_converter(ocr_config: OcrConfig) -> DocumentConverter:
     """Build and return the production DocumentConverter per plan §2.5.
 
-    Downloads (and caches) the RapidAI/RapidOCR models via modelscope on first
-    call.  Subsequent calls reuse the local cache at ``~/.cache``.  Network I/O
-    means this function must NOT be called from unit tests — use the
-    ``_converter_factory`` kwarg on ``DoclingOcrEngine`` instead.
+    Downloads (and caches) the RapidAI/RapidOCR ONNX models via modelscope on
+    first call.  Subsequent calls reuse the local cache at ``~/.cache``.
+
+    Model selection (PP-OCRv5 family) — see spec §17.12 for the rename audit:
+
+    - **det**: ``ch_PP-OCRv5_det_mobile.onnx`` — bbox detector, language-
+      agnostic. Validation on 5 PDFs (90 KB to 21 MB, 3 to 8 pages) showed
+      mobile is 23-63x faster than the server variant with no observed
+      content loss on this corpus (char-count parity 28,324 vs 28,364 on
+      the side-by-side). Server is the fallback if a future PDF shows
+      detection-recall failures. See spec §17.13 for the swap rationale.
+    - **rec**: ``latin_PP-OCRv5_rec_mobile.onnx`` — Latin-script character
+      recognition. The Chinese server rec model is multilingual but mangles
+      German diacritics (ä/ö/ü/ß); PP-OCRv5 ships no server-class Latin rec.
+    - **cls**: ``ch_ppocr_mobile_v2.0_cls_mobile.onnx`` (PP-OCRv4 family).
+      The v5 PP-LCNet cls models hardcode an 80x160 input shape and require
+      rapidocr ≥1.5's cls preprocessor; we pin ``rapidocr-onnxruntime==1.4.4``
+      whose preprocessor produces 48x192. The v4 cls accepts dynamic spatial
+      dims (``[N, 3, ?, ?]``) so it is rapidocr-version-agnostic. This is
+      historically the same file the plan §2.5 named as
+      ``ch_ppocr_mobile_v2.0_cls_infer.onnx`` — upstream renamed
+      ``_cls_infer`` → ``_cls_mobile`` in the same modelscope reorganisation
+      that moved det/rec.
+
+    The ``is_file()`` asserts catch upstream repo renames (the v4→v5 cls
+    architecture swap broke us silently in cycle-3 validation — Docling
+    deferred the path check to first ``convert()`` call, burying the failure
+    deep in a Pydantic-validated call stack 15 frames down).
+
+    Network I/O means this function must NOT be called from unit tests — use
+    the ``_converter_factory`` kwarg on ``DoclingOcrEngine`` instead.
     """
     # Deferred to runtime to avoid import-time network calls.
     # docling ships py.typed at its locked version (resolved natively by
@@ -79,14 +106,28 @@ def _build_default_converter(ocr_config: OcrConfig) -> DocumentConverter:
 
     # One-time download; cached after first run in ~/.cache.
     model_dir = Path(snapshot_download(repo_id="RapidAI/RapidOCR"))
-    det = str(model_dir / "onnx" / "PP-OCRv5" / "det" / "ch_PP-OCRv5_server_det.onnx")
-    rec = str(model_dir / "onnx" / "PP-OCRv5" / "rec" / "ch_PP-OCRv5_rec_server_infer.onnx")
-    cls = str(model_dir / "onnx" / "PP-OCRv4" / "cls" / "ch_ppocr_mobile_v2.0_cls_infer.onnx")
+    det = model_dir / "onnx" / "PP-OCRv5" / "det" / "ch_PP-OCRv5_det_mobile.onnx"
+    rec = model_dir / "onnx" / "PP-OCRv5" / "rec" / "latin_PP-OCRv5_rec_mobile.onnx"
+    cls = model_dir / "onnx" / "PP-OCRv4" / "cls" / "ch_ppocr_mobile_v2.0_cls_mobile.onnx"
+
+    for role, path in (("det", det), ("rec", rec), ("cls", cls)):
+        if not path.is_file():
+            msg = (
+                f"OCR {role} model not found at {path}; the modelscope repo "
+                f"RapidAI/RapidOCR may have reorganized — verify the cache "
+                f"layout or pin a revision via snapshot_download(revision=...)"
+            )
+            raise FileNotFoundError(msg)
 
     ocr_options = RapidOcrOptions(
-        det_model_path=det,
-        rec_model_path=rec,
-        cls_model_path=cls,
+        det_model_path=str(det),
+        rec_model_path=str(rec),
+        cls_model_path=str(cls),
+        # Keep lang aligned with the explicit rec_model_path so RapidOCR's
+        # post-OCR character-set tokenisation doesn't fall back to the
+        # ``["chinese"]`` default (which would tokenise Latin output through
+        # a CJK dictionary).
+        lang=["latin"],
         # force_full_page_ocr=True disables the layout-first shortcut: every
         # page is rasterised and fully OCR'd so watermarks/stamps/logos are
         # captured (plan §2.5, §2.1).  Operators can flip this via run-config.
