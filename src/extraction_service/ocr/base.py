@@ -5,10 +5,13 @@ backends. Carrying it as a ``typing.Protocol`` rather than an ``abc.ABC``
 keeps engines free of inheritance ceremony — any class with the right
 ``extract`` method shape is acceptable.
 
-``@runtime_checkable`` is set so tests and the FastAPI dependency-injection
-plumbing can do ``isinstance(obj, OcrEngine)``. The runtime check only
-verifies attribute presence; mypy is the load-bearing check that ``extract``
-has the right signature (``async`` returning ``OcrResult``).
+``@runtime_checkable`` is set so tests can assert structural conformance via
+``isinstance(impl, OcrEngine)`` (see ``tests/fakes/test_fake_ocr.py`` and
+``tests/unit/test_ocr_base.py``). The runtime check only verifies attribute
+presence; mypy is the load-bearing check that ``extract`` has the right
+signature (``async`` returning ``OcrResult``). Future Phase 5 FastAPI DI
+plumbing may benefit from the marker even though FastAPI resolves
+dependencies via ``Depends()`` rather than isinstance.
 """
 
 from typing import Protocol, runtime_checkable

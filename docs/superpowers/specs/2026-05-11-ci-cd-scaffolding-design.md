@@ -1824,3 +1824,426 @@ These three patterns are tactical refinements to add to CLAUDE.md `§Senior-dev 
 - Termination reason: **MAX-CAP-HIT** (cycle 5 produced 2 cosmetic Minor fixes, both substantive-cosmetic-doc-sync class)
 
 The user drives any next-step decision: (a) merge the PR as-is (the branch is in a clean, well-audited state with comprehensive trail); (b) request a restart loop (would likely produce 0-1 fixes given the trajectory and the 3 newly-identified hallucination patterns now filter-droppable); (c) merge after the user-decision items resolve (none in cycle 5 — auto-cycle mode self-decided).
+
+---
+
+### 17.29. Single-cycle standalone review on `chore/panel-review-fixes-2026-05-13` (fresh branch) — 9 applied fixes, no loop
+
+**Trigger:** user asked for a single-cycle 20-lens panel review against current `main` HEAD (`417d43d` — PR #10 Phase 2 OCR layer merge), explicitly opting OUT of cycle-loop mode ("do not go for the cycle where you run this 5 times. run it just once") and explicitly requesting `claude opus on max effort for each lane`. The branch `chore/panel-review-fixes-2026-05-13` was cut fresh from `origin/main` for this run; the same-named branch referenced in §17.24–§17.28 had been cleaned up after its loop merged.
+
+**HEAD at cycle start:** `417d43d` (origin/main).
+
+**Dispatch:** 20 lenses in a single assistant message, `subagent_type: general-purpose`, `model: opus`, `run_in_background: true`. Clean prompts (no carryover context — per cycle-independence rule). Per-lens out-of-scope guards intact.
+
+**Lens verdicts (pre-fix):** 14/20 Yes ship-ready (L01, L03, L04, L05, L06, L07, L09, L10, L11, L13, L14, L15, L16, L19); 6/20 With fixes (L02, L08, L12, L17, L18, L20). Lenses returning zero findings at any severity: 6 (L07, L09, L10, L11, L14, L16, L19).
+
+**Pre-filter findings:** 0 Critical, 5 Important (L02 × 2 historical-immutable, L17 × 2 CLAUDE.md phase-ledger, L18 × 1 CI-parity), ~42 Minor.
+
+**Senior-dev filter pass:** ~35 findings dropped — historical-immutable squash-message critiques on already-merged shared-branch commits, ceremonial preemptive ruff tightenings with no plausible-future-violation surface, intentional design choices documented in prior §17 entries (closed-Literal `case _:` ceremony, `_converter_factory` underscore on public test seam), accepted §17.2 / §17.9 / §17.11 deferrals (JUnit XML, version matrix, broader darwin scope), ceremonial SHA-pin/staging tightenings on pre-commit hooks.
+
+**Convergent findings promoted to load-bearing (≥2 lenses agreeing):**
+
+- **L17 + L01 on CLAUDE.md phase-ledger drift** — both lenses flagged "Phases 0, 0.5, 1 complete." (line 7), Superpowers-flow heading "(Phase 2+)" (line 9), skip-list "Phases 0/0.5/1 (already complete)" (line 52), and Phase 2 spec pointer "§17.15" (line 314). Convergence drove Layer A commit 1 (`c4b68e4`).
+- **L17 + L01 on docs/plan.md task-table drift** — both lenses flagged Task 0.2 GREEN cell `print("ok")` (would violate T20 wired by Task 0.3), Task 2.2 RED cell "(helper, no test)", §5 sample-PDF tree lacking §17.3 qualifier, `tests/golden/` placeholder. Convergence drove Layer A commit 2 (`bcf5251`).
+- **L20 self-convergence within `dependabot-automerge.yml`** — found ONE site of the "CodeQL /" prefix drift; while applying the fix the synthesizer caught a SECOND site of the same drift in `CLAUDE.md` "Project state notes" → "Branch protection live" line. Per workflow-gap rule #2 (CLAUDE.md terminology rename leaks), the synthesizer applied `grep -ni 'CodeQL / Analyze' .` to walk every hit before closing the fix. Both sites updated; CLAUDE.md update bundled into this §17.29 commit.
+
+**Applied fixes (Layer A, 8 commits, file-disjoint parallel dispatch via 6 subagents using `model: sonnet`):**
+
+1. `c4b68e4` — `docs(claude): sync phase ledger + spec pointers to current main state` — L17 + L01 convergent (load-bearing for Superpowers-flow trigger logic). CLAUDE.md line 7 (Phase 2 added to "complete" ledger), line 9 (Superpowers-flow heading: `Phase 2+` → `Phase 3+`), line 52 (skip-list update), line 314 (Phase 2 spec pointer §17.15 → §17.17).
+2. `bcf5251` — `docs(plan): sync §5 tree and §6.3/§6.4 task tables with current main state` — L01 + L17. Five drift items: Task 0.2 GREEN (`print("ok")` → `pass`), §5 sample-PDF tree (§17.3 qualifier added), §5 `tests/golden/` placeholder (dropped — superseded by §17.3), Task 2.2 RED (6 tests enumerated including `test_fake_ocr_engine_satisfies_ocr_engine_protocol`), Task 2.4 RED (`_metrics.word_recall` + `test_word_recall.py` anchored).
+3. `056dcdb` — `build(deps): tighten dep floors to locked-minor + close audit-comment drift` — L12. Six floors: `mypy>=2.0→2.1` (also closes audit-comment factual drift per §17.23 MAX-CAP workflow-gap rule #3 — old comment said "tested against locked 2.1.x" but floor permitted 2.0.x), `pre-commit>=4.0→4.6`, `pip-audit>=2.7→2.10`, `pydantic-settings>=2.6→2.14` (8 minor versions of slip closed), `jsonschema>=4.23→4.26`, `types-jsonschema>=4.23→4.26` (coupled per stubs-mirror-runtime convention). `uv.lock` unchanged.
+4. `e81a6b1` — `build(ruff): enable FBT + LOG rule families (defense-in-depth)` — L08. FBT (positional-boolean trap, plausible Phase 3–5 surface where worker retry flags + HTTP query params multiply), LOG (stdlib-logging bridge in `log_config.py` will see Phase 3+ traffic). Zero current violations under either. Filter dropped the other three L08 candidates (RSE, FLY, SLOT — no plausible-future-violation surface in scope; SLOT would also require non-zero-cost `__slots__ = ()` additions to the Exception hierarchy).
+5. `9423165` — `build(hatch): promote py.typed inclusion from default to explicit force-include` — L04. PEP 561 marker was shipped via hatchling's default package-data inclusion; promoted to explicit `force-include = { "src/extraction_service/py.typed" = "extraction_service/py.typed" }` so a future hatchling-plugin swap or contributor-added selective `include = [...]` block cannot silently drop it. Wheel-inspection step in the verification gate continues as belt-and-braces.
+6. `678fa93` — `build(pre-commit): add uv-lock-check hook for CI parity` — L18 (the only filter-surviving Important finding). CI runs `uv lock --check` (`ci.yml:57-58`); `.pre-commit-config.yaml` did not mirror. Load-bearing right now because this same PR bumps six dep floors — a developer running `pre-commit run --all-files` after editing `pyproject.toml` without re-running `uv lock` would pass local hooks while CI fails.
+7. `5f1cef8` — `docs(ci): drop "CodeQL /" prefix from required-check comment` — L20 (first site). GitHub's status-check API context for matrix jobs is the job name only; comment in `dependabot-automerge.yml` claimed required-check names as `CodeQL / Analyze (python)` / `CodeQL / Analyze (actions)` but the registered context strings are `Analyze (python)` / `Analyze (actions)`. Runtime auto-merge plumbing was already correct; this is doc-only.
+8. `e72d5c6` — `refactor(ocr): rename det/rec/cls locals to *_path in _build_default_converter` — L06. `cls` shadowed the classmethod-convention first-arg name; renamed in parallel with `det` / `rec` to preserve the RapidOCR kwargs-mirror symmetry (`det_model_path` / `rec_model_path` / `cls_model_path`). Internal to `_build_default_converter`; tests exercise via the `_converter_factory` injection seam, no test changes required.
+
+**Applied fix (Layer B, this commit) — 9th distinct fix:**
+
+9. **This §17.29 audit entry + CLAUDE.md pointer bump + CLAUDE.md "CodeQL /" prefix sweep** — bundles the audit log, the in-cycle CLAUDE.md `§17 latest` pointer bump (§17.28 → §17.29) per the established pattern, and the second site of the L20 finding caught by the workflow-gap-rule-#2 grep sweep ("Project state notes" → "Branch protection live" line still referenced `CodeQL / Analyze (python)`, `CodeQL / Analyze (actions)`; now corrected to `Analyze (python)`, `Analyze (actions)`).
+
+**Deferred — 4a (waiting on later phase):** L15 Minor × 4 — JUnit XML output (`--junitxml=…`), Python version matrix (3.13 only on both ubuntu and macOS), broader darwin scope (currently smoke-only), `Tests` step name cosmetic. All previously accepted as §17.2 / §17.9 / §17.11 deferrals per Phase 0.5 spec; no change in disposition.
+
+**Deferred — 4b (other reasons):**
+- L18 Minor: SHA-pinning for `Yelp/detect-secrets` and `pre-commit/pre-commit-hooks` `rev:` fields (doctrinal preference; tag-pinning is functional; Dependabot's pre-commit ecosystem handles both forms; signed-release-publisher trust gap is doctrinal, not operational).
+- L18 Minor: `stages: [pre-push]` selection for `mypy` and `pip-audit` hooks (DX tuning, not correctness; verification gate runs all stages explicitly via `pre-commit run --all-files`).
+- L18 Minor: `mixed-line-ending` hook (single-developer macOS project today; thin cost-benefit).
+- L13 Minor × 4: multi-assertion tests in `test_domain_record.py` round-trip and "fresh state" tests (lens's own assessment notes these "arguably represent single conceptual behaviors"; splitting would churn for no real defect).
+- L06 Minor: `_converter_factory` underscore on public test seam (documented current state; rename would touch test files and add no functional value).
+
+**Filter-dropped — historical-immutable (cannot rewrite merged shared-branch commit messages):**
+- L02 Important × 2 (`96ab536`, `f343855`): squash subjects used `chore:` where `feat:` / `fix:` constituents dominated per the documented squash-type rule. Process feedback only.
+- L02 Minor × 4: cycle-internal phrasing leaked into squash bodies, walls-of-text squash messages, ambiguous one-line subjects, scope-prefix-absent constituent messages.
+- L03 Minor × 4: scope-creep process-FYI items on historical merged PRs (cross-phase dep-floor sweep callouts, back-pointer subsections for deferral closures, neutral-scoping for post-merge panel-fix branches, originating-deferral references in PR titles).
+
+**Filter-dropped — ceremonial / intentional:**
+- L05 Minor × 2: closed-Literal `case _:` exhaustiveness commentary on `factory.py` and `log_config.py` — intentional per CI/CD spec §17.9 and Phase 2 spec §17.9; mypy's "Missing return statement" guard is load-bearing.
+- L08 Minor × 3: RSE (raise empty parens), FLY (.format → f-string), SLOT (`__slots__ = ()` on Exception subclasses) — preemptive add-suppression with no plausible-future-violation surface in scope; SLOT additionally fails the zero-cost-tightening rule.
+
+**Verification gate (post-Layer-A, all green):**
+- `uv lock --check`: Resolved 173 packages in 3ms ✓
+- `uv run ruff check src tests`: All checks passed (incl. new FBT + LOG families) ✓
+- `uv run ruff format --check src tests`: 38 files already formatted ✓
+- `uv run mypy src tests`: Success — no issues found in 38 source files ✓
+- `uv run pytest -q -m "not slow"`: 136 passed, 1 deselected in 2.14s ✓
+- `uv run pip-audit --skip-editable`: No known vulnerabilities found ✓
+- `uv run pre-commit run --all-files`: all 14 hooks green (including newly-added `uv-lock-check`) ✓
+- Wheel inspection (`uv build --wheel`): `extraction_service/py.typed` and `extraction_service-0.1.0.dist-info/licenses/LICENSE` both present in the built wheel ✓
+
+**Lens hallucinations / recurring drift patterns:** none surfaced this single-cycle run (the prior loop's §17.28 MAX-CAP diagnosis flagged three patterns — git-tracking-fabrication, action-version stale-training, gitignore-semantics-fabrication — none recurred under clean-prompts dispatch with stricter out-of-scope guards).
+
+**Single-cycle vs cycle-loop disposition:** user explicitly opted out of cycle-loop mode. Per CLAUDE.md, single-cycle mode preserves Section 5 (user-decision items) for explicit user input — but the synthesizer's filter found none rising to user-decision level (every finding routed deterministically to apply, filter-drop, or defer-with-rationale). The 9 applied fixes plus the 6 historical-immutable findings (2 Important + 4 Minor on already-merged commits) constitute the complete fix-set; nothing waits on user input.
+
+**Workflow-gap audit (per §17.23 MAX-CAP diagnosis):**
+1. **Test split + missed plan sync:** not applicable (no test splits this cycle); plan-sync was Layer-A item #2.
+2. **CLAUDE.md terminology / pointer leaks:** caught a partial-replacement-miss this cycle — L20's "CodeQL /" prefix fix on `dependabot-automerge.yml` was applied as Layer-A commit 7, but the SAME drift in CLAUDE.md "Project state notes" was caught by the workflow-gap-rule-#2 grep sweep at audit time and bundled into this §17.29 commit (Layer-B item 9). Rule #2 worked as designed.
+3. **Prior-cycle audit-comment factual drift:** mypy `>=2.0` floor with "tested against locked 2.1.x" comment was caught and fixed in Layer-A commit `056dcdb`; no other audit-comment drift surfaced.
+
+**Cycle terminal state:**
+- Cycle start HEAD: `417d43d` (`origin/main`)
+- Cycle end HEAD: this §17.29 audit commit (single-cycle terminal commit on `chore/panel-review-fixes-2026-05-13`)
+- Total cycles in this run: 1 (single-cycle by user instruction; no loop)
+- Commits in Layer A: 8 (six file-disjoint parallel fix commits, with the pyproject.toml agent producing 3 atomic commits internally)
+- Commits in Layer B: 1 (this audit entry + CLAUDE.md pointer bump + CLAUDE.md "CodeQL /" prefix sweep, single commit)
+- Total commits: 9
+- Fixes by severity: 0 Critical / 1 Important (L18 `uv-lock-check` hook) / ~17 individual edits across the 9 commits (clustered into 9 distinct fix-concerns)
+- Convergent findings detected and applied: 3 (L17+L01 on CLAUDE.md ledger, L17+L01 on plan.md drift, L20 self-convergence across two doc sites)
+- Termination reason: **single-cycle by user request** (not MAX-CAP, not zero-fix convergence)
+
+---
+
+### 17.30. Cycle-1 of fresh 8-cycle loop on `chore/panel-review-fixes-2026-05-13` (sonnet) — 6 applied fixes
+
+**Trigger:** user asked to rerun the panel review as a cycle loop with `sonnet` on medium effort, max-cap raised from default 5 → 8 ("do the cycle until there are no more fixes or until the 8th cycle is done"). Branch carries forward from §17.29; loop builds on the prior single-cycle state.
+
+**HEAD at cycle start:** `aa2df6f` (terminal commit of §17.29).
+
+**Dispatch:** 20 lenses, `model: sonnet`, `run_in_background: true`, clean prompts (no §17 awareness, no carryover).
+
+**Lens verdicts (pre-fix):** 16/20 Yes ship-ready; 4/20 With fixes (L10, L13, L15, L17, L18). Lenses returning zero findings at any severity: 4 (L05 noted Minor that lens itself rated non-defect, L07, L08, L09, L20).
+
+**Pre-filter findings:** 0 Critical, 5 Important (L11×1 self-demoted to Minor, L13×1 one-assertion-target violation, L15×1 darwin-checks scope undocumented, L17×3 §5 tree drift, L18×1 false-positive `default_language_version`), ~30 Minor.
+
+**Senior-dev filter pass:** ~22 findings dropped. Notable rejections:
+- L18 Important `default_language_version` rejected as false-positive: hooks use `language: system + entry: uv run X`; uv resolves Python via `.python-version`, making `default_language_version` not load-bearing for this config style. Lens claim applies only to `language: python` hooks (none exist).
+- L10 `.secrets.baseline` `generated_at` timestamp staleness rejected as ceremonial re-versioning churn (results: {} unchanged; cost-benefit thin).
+- L11 self-demoted findings preserved as Minor.
+- L15 darwin-checks scope undocumented rejected as 4a deferral (lens self-acknowledged).
+- L13 round-trip multi-assertion preserved as single-property-cluster per documented practical interpretation.
+- L16 wall-clock-agnostic warning comment rejected as thin cost-benefit (constraint not actually hidden).
+- L02/L03 historical-immutable preserved as skip.
+- L08 `PERF`/`PYI`/`FA`/`RSE`/`SLOT`/`COM`/`Q` rejected as ceremonial preemption (lens itself confirmed all are correct choices to omit).
+
+**Applied fixes (Layer A + B, 6 commits):**
+
+1. `4ba6a38` — `docs(ci): correct lockfile-sync concurrency comment cancellation scope` — L11 substantive cosmetic. Comment said `synchronize`/`opened`/`reopened` segregated into independent groups without mentioning that within a single group `cancel-in-progress: true` supersedes same-action events. Rewrite clarifies both halves.
+2. `7a4e6e7` — `build(deps): add detect-secrets rationale + align pyyaml comment style` — L12 substantive cosmetic × 2. `detect-secrets>=1.5` now carries the locked-minor rationale comment; `pyyaml>=6.0` comment now includes the `(6.0.x)` parenthetical to match the convention applied to every other dep floor in the file.
+3. `569ed25` — `build(pytest): add xfail_strict to ini_options` — L14 defense-in-depth (1 line). Closes the silent-unexpected-pass footgun for Phase 3-6 test authors; zero current `@pytest.mark.xfail` uses.
+4. `a80266f` — `test(domain): split duration_ms-is-none test into per-state pair` — L13 Important (one-assertion-target rule violation). Replaced combined test with `test_stage_record_duration_ms_is_none_when_pending` + `test_stage_record_duration_ms_is_none_when_in_progress_before_complete`. Test count 31 → 32.
+5. `28e629b` — `docs(plan): sync §5 tree subtrees with live filesystem state` — L17 Important × 3. `tests/ocr/` added `_metrics.py`, `conftest.py`, `test_factory.py`, `test_word_recall.py`; `tests/unit/` added `test_ocr_base.py`; `tests/fakes/` added `test_fake_ocr.py`. Phase 3+ aspirational pre-declarations preserved.
+6. `8459fc1` — `docs(plan): sync Task 1.3 test list with cycle-1 test split` — workflow-gap rule #1 (test split + missed plan sync) caught at Layer B per the post-split grep sweep the rule prescribes; same root-cause pattern as §17.23 MAX-CAP rule #1. Updated §6.3 Task 1.3 RED cell to enumerate the two new test names.
+
+**This §17.30 audit entry (Layer C, this commit)** + CLAUDE.md `§17 latest` pointer bumped §17.29 → §17.30.
+
+**Workflow-gap audit (per §17.23 MAX-CAP diagnosis):**
+1. **Test split + missed plan sync** — rule fired correctly. Layer-A test-split agent stopped at the §6.3 Task 1.3 grep hit and Layer-B plan-sync agent (in main convo) replaced the combined name. Rule worked as designed.
+2. **CLAUDE.md terminology / pointer leaks** — none surfaced this cycle (the prior §17.29 CodeQL-prefix sweep cleared all known sites).
+3. **Prior-cycle audit-comment factual drift** — none surfaced this cycle.
+
+**Verification gate (post-applied, all green):**
+- `uv lock --check`: clean
+- `uv run ruff check src tests`: clean
+- `uv run ruff format --check src tests`: clean
+- `uv run mypy src tests`: clean
+- `uv run pytest -q -m "not slow"`: 137 passed (was 136 — +1 from the test split)
+- `uv run pre-commit run --all-files`: all 14 hooks green
+
+**Per-cycle status line (compact):** `Cycle 1 on chore/panel-review-fixes-2026-05-13: 7 commits applied (6 fixes + this §17.30 with embedded CLAUDE.md pointer bump); 4 findings (0 Critical / 4 Important / 2 Minor by severity after filter); 0 strong convergent findings; Ship-ready (pre-fix): 16/20 Yes, 4/20 With fixes; Clean lenses: 4/20 (L07, L08, L09, L20); ~22 findings filter-dropped (incl. 1 false-positive: L18 default_language_version on language: system hooks); 0 new deferrals; 0 prior-cycle deferrals reversed. New HEAD: this audit commit. Continuing → Cycle 2.`
+
+---
+
+### 17.31. Cycle-2 of fresh 8-cycle loop on `chore/panel-review-fixes-2026-05-13` (sonnet) — 7 applied fixes + 1 format-recovery
+
+**HEAD at cycle start:** `6f40347` (terminal commit of §17.30).
+
+**Dispatch:** 20 lenses, `model: sonnet`, `run_in_background: true`, clean prompts.
+
+**Lens verdicts (pre-fix):** 14/20 Yes ship-ready; 6/20 With fixes (L01, L03, L05, L11, L12, L13, L17). Clean lenses (zero findings at any severity): 3/20 (L07, L09, L19 — though L19 had a defense-in-depth Minor surviving filter).
+
+**Pre-filter findings:** 0 Critical, 4 Important (L05×1 operator-DX, L12×1 pydantic floor drift, L13×1 one-assertion-target violation, L11×1 self-rated borderline), ~25 Minor.
+
+**Senior-dev filter pass:** ~21 findings dropped. Notable rejections:
+- L02/L03 historical-immutable findings (squash type rule on already-merged commits).
+- L04 `typing.TextIO` vs `collections.abc.IO[str]` — purely stylistic, no urgency.
+- L06 `RetryOnCode` name pattern alignment — debatable, no clear win.
+- L08 ERA/ISC rule families — preemptive add-suppression with no plausible-future-violation surface.
+- L10 `.secrets.baseline` `generated_at` timestamp staleness — ceremonial re-versioning churn.
+- L11 lockfile-sync concurrency comment "event type" wording nit, `defaults: run: shell: bash` absence — hair-splitting (Linux/macOS runners always default to bash; explicit `shell: bash` per-step already covers cases that need it).
+- L14 `asyncio_default_test_loop_scope` "undocumented" claim — incorrect, verified valid in pytest-asyncio 1.x via plugin source.
+- L16 module-level `T0` constant duplication — immutable, no risk; refactor cost > benefit.
+- L18 pytest-not-in-pre-commit comment — comment inflation on unambiguous config.
+- L20 dependabot.yml header comment imprecision — hair-splitting nit.
+
+**Convergent findings promoted to load-bearing (≥2 lenses agreeing):**
+
+- **L11 + L15 on darwin-checks slow-marker isolation** — both lenses flagged the missing `-m "not slow"` on the darwin pytest invocation; backend-checks carries it belt-and-braces, darwin-checks's file-scoped invocation provides equivalent isolation today (no slow tests in `tests/test_smoke.py`) but a future contributor adding `@pytest.mark.slow` would have no symmetric guard. Convergence drove Layer A commit 2 (`9753655`).
+- **L17 + L01 on §5 forward-declaration qualifiers** — both flagged missing "(Phase N — not yet created)" qualifiers on Phase 3/4 test files and `fake_ollama.py`. Phase 6 directories already carry such qualifiers; the Phase 3/4 entries were the inconsistency. Synthesizer initially deferred this on L01 alone but **reversed the disposition** upon L17 convergence per CLAUDE.md "convergence overrides the filter." Convergence drove Layer A commit 5 (`7e779ad`).
+
+**Applied fixes (Layer A, 6 commits + 1 format-recovery):**
+
+1. `4ba6a38`–`6f40347` — (cycle 1, already audited in §17.30)
+2. `152f64b` — `fix(ocr): extract .error_message from ConversionError items in non-SUCCESS branch` — L05 Important. Replaces opaque `repr(raw_errors)` with per-item `.error_message` extraction (fallback to `repr` per-item) in the Docling soft-failure path. Operator-DX improvement for investigating non-SUCCESS errors.
+3. `9753655` — `ci(workflows): add -m "not slow" to darwin-checks pytest for parity` — **L11 + L15 convergent**.
+4. `a1a83b4` — `build(deps): tighten pydantic + structlog floors to locked-minor` — L12. `pydantic>=2.10→2.13` (3-minor drift closed), `structlog>=25.0→25.5` (5-minor drift closed). Per §17.23 workflow-gap rule #3 (audit-comment factual drift). `uv.lock` specifier-metadata sync paired alongside; resolved versions unchanged.
+5. `8c7bed3` — `test(domain): trim redundant state assertion from extracted-payload test` — L13 Important. `test_stage_record_complete_accepts_extracted_payload` was asserting BOTH `state == DONE` (already covered by `test_stage_record_complete_transitions_state_to_done`) AND `extracted == {...}`. Removed the redundant state assertion. Test count unchanged; signal sharpness improved.
+6. `7e779ad` — `docs(plan): add "Phase N — not yet created" qualifiers to §5 forward-decls` — **L17 + L01 convergent**. 5 entries updated: `test_prompt_render.py`, `test_schema_validation.py`, `test_retry_policy.py` (Phase 3), `test_result_store.py` (Phase 4), `fake_ollama.py` (Phase 3).
+7. `8c50c87` — `chore(gitignore): add dmypy.json (mypy daemon status file)` — L19 defense-in-depth Minor. 1-line add; zero current violations.
+
+**Layer A recovery (Layer A.5):**
+
+8. `c04212a` — `style(ocr): ruff-format the cast() line introduced in cycle-2 C2A1` — recovery from C2A1's introduction of a line-length violation. The `cast("list[object]", raw_errors)` + inline comment exceeded ruff format's wrap threshold. Reformatted in a follow-up commit. The C2A3 agent's verification gate caught the issue but its self-stash test misread the cause as pre-existing; recovery in main-conversation flow.
+
+**Workflow-gap audit (per §17.23 MAX-CAP diagnosis):**
+1. **Test split + missed plan sync** — not applicable this cycle (no test splits; L13 fix was a trim, not a split).
+2. **CLAUDE.md terminology / pointer leaks** — pointer bump from §17.30 → §17.31 in this same commit per the established pattern.
+3. **Prior-cycle audit-comment factual drift** — caught and fixed again this cycle (pydantic/structlog floor drift was the same pattern as cycle-0's mypy fix in `056dcdb`; rule #3 working as intended even on a NEW manifestation).
+
+**Verification gate (post-applied, all green):**
+- `uv lock --check`: clean
+- `uv run ruff check src tests`: clean
+- `uv run ruff format --check src tests`: clean (after `c04212a` recovery)
+- `uv run mypy src tests`: clean (38 files)
+- `uv run pytest -q -m "not slow"`: 137 passed
+- `uv run pre-commit run --all-files`: all 14 hooks green
+
+**Per-cycle status line (compact):** `Cycle 2 on chore/panel-review-fixes-2026-05-13: 8 commits applied (6 fixes + 1 format-recovery + this §17.31 with embedded CLAUDE.md pointer bump); 3 Important + 4 Minor fixes after filter; 2 strong convergent findings (L11+L15 on darwin slow-marker, L17+L01 on §5 forward-decl qualifiers); Ship-ready (pre-fix): 14/20 Yes, 6/20 With fixes; Clean lenses: 3/20 (L07, L09, L19); ~21 findings filter-dropped; 0 new deferrals; 1 prior-cycle disposition reversed (L01 fake_ollama.py qualifier — reversed by L17 convergence). New HEAD: this audit commit. Continuing → Cycle 3.`
+
+---
+
+### 17.32. Cycle-3 of fresh 8-cycle loop on `chore/panel-review-fixes-2026-05-13` (sonnet) — 5 applied fixes
+
+**HEAD at cycle start:** `ad60ee9` (terminal commit of §17.31).
+
+**Dispatch:** 20 lenses, `model: sonnet`, `run_in_background: true`, clean prompts.
+
+**Lens verdicts (pre-fix):** 15/20 Yes ship-ready; 5/20 With fixes (L01, L02, L11, L12, L13, L17, L18). Clean lenses (zero findings): 4/20 (L04, L07, L08, L09, L10, L14, L15, L16 returned with only filter-droppable Minors).
+
+**Pre-filter findings:** 0 Critical, ~5 Important (L01×1 exit criteria, L11×1 comment factual drift, L13×1 self-flawed analysis, L17×1 §5 directory blocks, L18×1 redundant config), ~25 Minor.
+
+**Senior-dev filter pass:** ~21 findings dropped. Notable rejections:
+- L02 c04212a `style:` type rename — commit already pushed to shared branch (effectively historical-immutable per project policy against force-push to shared branches).
+- L02/L03 other historical-immutable squash-type findings (merged main commits).
+- L04 PYI rule family — preemptive add-suppression with no plausible future violation in scope (no .pyi stub files planned).
+- L05 `from None` on raise outside except — ceremonial style preference.
+- L06 `_ENGINE_NAME` rename, `RetryOnCode` re-export — debatable.
+- L07 base.py FastAPI docstring forward-reference — anticipatory context, not factually wrong.
+- L10 modelscope TODO — already documented and deferred to Phase 6.
+- L11 lockfile-sync `action` group comment minor wording, codeql expression complexity — hair-splitting on already-precise comments.
+- L13 `issubclass` loop critique — lens's suggested fix uses tuple-form (OR-semantics) which is incorrect for testing chain (AND-semantics); pytest assert rewriting handles failure signal.
+- L14 `baseline_for` fixture explicit `scope=` annotation — purely cosmetic.
+- L15 darwin coverage observation — accepted §17.2 deferral.
+- L16 `pytest_runtest_setup` enforcement hook for ocr_sample_pdf composability — preemptive tightening with no current violator.
+- L18 SHA-pinning of `Yelp/detect-secrets`/`pre-commit-hooks` revs — doctrinal preference.
+- L19 `.vscode/*` "team" wording, `.env.example` comment duplication — hair-splitting.
+- L20 fastapi-stack group transitives concern — flawed analysis (the update-types: [patch, minor] filter prevents any major-bump bypass regardless of grouping).
+
+**Convergent findings promoted to load-bearing:** none in cycle-3. Each applied fix landed via a single lens (no ≥2-lens convergence on the same item this cycle). The C2-style convergence pattern thinned out as the trivial drift items had already been caught.
+
+**Applied fixes (Layer A, 4 commits):**
+
+1. `02abcef` — `docs(ci): correct workflow_dispatch concurrency comment in ci.yml` — L11. Old comment claimed the SHA suffix prevented PR-vs-workflow_dispatch collisions, but `github.ref` already distinguishes those (`refs/pull/N/merge` vs `refs/heads/X`). The SHA suffix actually achieves: back-to-back manual workflow_dispatch runs on the same branch each get their own group instead of cancelling each other. Code behavior unchanged; comment accuracy.
+2. `239b33b` — `build(pre-commit): drop redundant files: filter from uv-lock-check hook` — L18. Cycle-1 commit `678fa93` introduced the hook with both `always_run: true` AND `files:` filter. The `files:` key is inert under `always_run: true` — the hook runs unconditionally. Misleading config; dropped `files:`. Behavior unchanged.
+3. `f542680` — `build(deps): fix pyproject comment cross-references (mypy, ruff)` — L12 × 2 (workflow-gap rule #3 — audit-comment factual drift, third occurrence in this loop). pytest-cov comment referenced `mypy (>=2.0)` but cycle-0 tightened to `>=2.1`; updated. ruff comment claimed tracks-the-locked-minor-as-pytest-cov but pytest-cov tracks the locked-MAJOR — cross-reference re-pointed to mypy.
+4. `2d69773` — `docs(plan): qualify §5 forward-decl directories + sync §6.4 exit criteria` — L17 Important + L01 Minor. Same partial-sweep pattern as cycle-2's §5 single-file qualifier fix, now extended to entire directory blocks: `src/extraction_service/{llm,pipeline,http}/` and `tests/{pipeline,http,e2e}/` got `(Phase N — not yet created)` markers. Plus the §6.4 Phase 2 exit criteria line "watermarks/logos captured" got the §17.1/§17.2 deviation annotation.
+
+**This §17.32 audit entry (Layer B)** + CLAUDE.md `§17 latest` pointer bumped §17.31 → §17.32.
+
+**Workflow-gap audit (per §17.23 MAX-CAP diagnosis):**
+1. **Test split + missed plan sync** — not applicable (no test changes this cycle).
+2. **CLAUDE.md terminology / pointer leaks** — pointer bump in this same commit per established pattern.
+3. **Prior-cycle audit-comment factual drift** — fired AGAIN this cycle (pytest-cov + ruff cross-references). Rule #3 is the most active workflow-gap pattern; each cycle's audit comments tend to drift relative to other audit comments. This is the THIRD occurrence in the current loop (cycle-0 mypy, cycle-2 pydantic/structlog, cycle-3 pytest-cov/ruff).
+
+**Verification gate (post-applied, all green):**
+- `uv lock --check`: clean
+- `uv run ruff check src tests`: All checks passed!
+- `uv run ruff format --check src tests`: 38 files already formatted
+- `uv run mypy src tests`: Success — no issues found in 38 source files
+- `uv run pytest -q -m "not slow"`: 137 passed, 1 deselected in 2.05s
+- `uv run pre-commit run --all-files`: all 14 hooks green
+
+**Per-cycle status line (compact):** `Cycle 3 on chore/panel-review-fixes-2026-05-13: 5 commits applied (4 fixes + this §17.32 with embedded CLAUDE.md pointer bump); 4 Important + 1 Minor fixes after filter; 0 strong convergent findings; Ship-ready (pre-fix): 15/20 Yes, 5/20 With fixes; Clean lenses: 4/20 (L04 / L08 / L09 / L14 zero-action — others had filter-dropped Minors); ~21 findings filter-dropped (incl. 2 false-positives: L13 issubclass-tuple-form OR-vs-AND semantics, L20 fastapi-stack-bypass flawed reasoning); 0 new deferrals; 0 prior-cycle deferrals reversed. New HEAD: this audit commit. Workflow-gap rule #3 (audit-comment drift) fired its THIRD occurrence in this loop. Continuing → Cycle 4.`
+
+---
+
+### 17.33. Cycle-4 of fresh 8-cycle loop on `chore/panel-review-fixes-2026-05-13` (sonnet) — 4 applied fix-commits
+
+**HEAD at cycle start:** `3192ba9` (terminal commit of §17.32).
+
+**Dispatch:** 20 lenses, `model: sonnet`, `run_in_background: true`, clean prompts.
+
+**Lens verdicts (pre-fix):** 15/20 Yes ship-ready; 5/20 With fixes (L01, L08, L09, L12, L17).
+
+**Pre-filter findings:** 0 Critical, 5 Important (L01×1 plan §7 best-practices drift, L08×0 demoted self-Minor on factual drift, L09×1 architectural opinion, L12×3 audit-comment drifts, L17×0 — same convergence with L01), ~25 Minor.
+
+**Senior-dev filter pass:** ~22 findings dropped. Notable rejections:
+- L02 on `aa2df6f` already-pushed shared-branch audit commit — effectively historical-immutable per project policy against force-push to shared branches.
+- L02 on `c04212a` `style:` type vs allowed type set — same as above, already pushed.
+- L09 architectural opinion ("move `build_ocr_engine` out of `__all__`") — contradicts documented intentional design (`ocr/__init__.py` docstring declares the three names the public surface) with no new evidence. Re-versioning prior-pass decisions for churn.
+- L10 SHA-pin preference for `Yelp/detect-secrets` and `pre-commit/pre-commit-hooks` — doctrinal preference; explicit prompt directive said not to flag, lens flagged anyway.
+- L11 loop-guard email-substring tightening — preemptive (no plausible future human username starts with `41898282+github-actions`).
+- L11 comment refinements about workflow_dispatch concurrency — recursive nit-picking on recently-rewritten audit comments.
+- L13 multi-property test clustering — single named-property cluster interpretation per documented practical reading.
+- L14 `-ra` rationale comment, `_resolve_samples_dir` forward-design — comment inflation / forward-design intent.
+- L15 darwin coverage observation, no-`--cov` comment — accepted §17.2 deferral + unambiguous config.
+- L16 `pytest_runtest_setup` enforcement, `uuid4()` in tests — preemptive tightening with no current violator.
+- L18 SHA-pin / stages / mixed-line-ending — doctrinal / DX tuning.
+- L19 `.md` line-ending `.gitattributes` entry — global rule already covers.
+- L20 loop-guard email pointer comment, automerge timeout-semantics comment — late-cycle hair-splitting.
+
+**Convergent findings promoted to load-bearing:**
+- **L01 + L17 on plan best-practices wording drift** — both flagged the same five-ish line items in §4.6, §4.15, §7 of `docs/plan.md` retaining pre-deviation wording without `(deviation §17.N)` qualifiers. Convergence drove Layer A commit 1.
+- **L07 docstring + project context on FastAPI DI mechanism** — Lens 07 caught the `@runtime_checkable` docstring in `base.py` factually misrepresenting FastAPI's DI mechanism (claims isinstance; reality is `Depends()`). Single-lens finding but reverses cycle-3's disposition with new evidence (the actual FastAPI mechanism description).
+
+**Applied fixes (Layer A, 4 commits):**
+
+1. `3c089e5` — `docs(plan): add §17.3/§17.9 deviation annotations to §4.6/§4.15/§7` — L01 + L17 convergent. Five line edits adding the same `(deviation §17.N in 2026-05-12-phase-2-ocr-spec-deviations.md)` qualifier already present on §6.4 task cells to the four "sister" mentions in best-practices/checklist sections (§4.6 testing, §4.15 sample data × 2, §7 async discipline, §7 testing). Same partial-sweep pattern as cycle-1 §17.30 (task-table sync + missed §5-tree) and cycle-2 §17.31 (§5 single-file vs directory-block).
+2. `dbe65ae` — `docs(ocr): correct @runtime_checkable docstring FastAPI DI mechanism claim` — L07. Docstring previously claimed Phase 5 FastAPI DI uses isinstance() against Protocol; rewrote to lead with the actual current test-conformance use (which IS load-bearing) and correctly noted FastAPI's actual mechanism is Depends()-based.
+3. `ff6c0dc` — `build(ruff): fix LOG + G rule audit-comment factual drift` — L08 × 2. LOG comment said `logging.warn` "removed in 3.13" (factually wrong — deprecated since 3.12 per PEP 594, still present in 3.13); G comment claimed `log_config.py` "wires `logging` into structlog's stdlib bridge" (factually wrong — uses `PrintLoggerFactory` directly; only `logging.INFO` touches stdlib as the filter level).
+4. `dff865d` — `build(deps): fix dep floor comment factual drift (3 edits)` — L12 × 3. ollama `(0.6.2)` → `(0.6.x)` (patch-level vs minor-series convention break); ruff `(0.15.12)` → `(0.15.x)` (same pattern); pytest-cov cross-reference removed `mypy (>=2.1)` from "tracks-the-locked-major" list (mypy's own comment says tracks-the-locked-MINOR).
+
+**This §17.33 audit entry (Layer B)** + CLAUDE.md `§17 latest` pointer bumped §17.32 → §17.33.
+
+**Workflow-gap audit (per §17.23 MAX-CAP diagnosis):**
+1. **Test split + missed plan sync** — N/A (no test splits this cycle).
+2. **CLAUDE.md terminology / pointer leaks** — pointer bump in this commit.
+3. **Prior-cycle audit-comment factual drift** — fired AGAIN this cycle (commits `ff6c0dc` and `dff865d` both fix this class of drift). FIFTH occurrence in the loop (cycle-0 mypy, cycle-2 pydantic/structlog, cycle-3 pytest-cov/ruff cross-ref, cycle-4 LOG/G/ollama/ruff/pytest-cov). The rule is the most active workflow-gap pattern. This is becoming a candidate for filter-gap promotion: every cycle's audit comments tend to drift relative to other audit comments, and the synthesizer should pre-emptively grep for "tracks the locked" / "removed in N.M" / "wires X into Y" comments at audit time rather than waiting for the next cycle's lens to flag each new drift.
+
+**Verification gate (post-applied, all green):**
+- `uv run ruff check src tests`: All checks passed!
+- `uv run mypy src tests`: Success — no issues found in 38 source files
+- `uv run pytest -q -m "not slow"`: 137 passed, 1 deselected in 2.65s
+- `uv lock --check`: clean
+- `uv run pre-commit run --all-files`: all 14 hooks green
+
+**Per-cycle status line (compact):** `Cycle 4 on chore/panel-review-fixes-2026-05-13: 5 commits applied (4 fixes + this §17.33 with embedded CLAUDE.md pointer bump); 3 Important + 2 Minor fixes after filter; 2 strong convergent findings (L01+L17 plan §7 drift, L07 single-lens with new evidence reversing C3 disposition); Ship-ready (pre-fix): 15/20 Yes, 5/20 With fixes; ~22 findings filter-dropped; 0 new deferrals; 0 prior-cycle deferrals reversed except the C3 L07 disposition reversed within-cycle. New HEAD: this audit commit. Workflow-gap rule #3 (audit-comment drift) fired its FIFTH occurrence in this loop — pattern is now a candidate for filter-gap promotion to the synthesizer's pre-audit grep sweep. Continuing → Cycle 5.`
+
+---
+
+### 17.34. Cycle-5 of fresh 8-cycle loop on `chore/panel-review-fixes-2026-05-13` (sonnet) — 4 applied fix-commits
+
+**HEAD at cycle start:** `e8fa571` (terminal commit of §17.33).
+
+**Dispatch:** 20 lenses, `model: sonnet`, `run_in_background: true`, clean prompts.
+
+**Lens verdicts (pre-fix):** 16/20 Yes ship-ready; 4/20 With fixes (L02, L11, L12, L13, L17, L18). **Clean lenses (zero findings at all severities or fully filter-dropped): 9/20 (L03, L04, L07, L08, L09, L15, L16, L19, L20)** — substantial convergence vs. earlier cycles (cycle-4 was 5 With fixes; cycle-3 was 5 With fixes; cycle-2 was 6 With fixes).
+
+**Pre-filter findings:** 0 Critical, ~3 Important (L02×0 demoted; L11×1 LENS-FABRICATION on action SHA version comment; L12×1 mypy cross-ref drift; L13×1 docstring stale), ~15 Minor.
+
+**Senior-dev filter pass:** ~17 findings dropped. Notable rejections:
+- **L11 LENS-FABRICATION** — claimed `de0fac2e4500dabe0009e67214ff5f5447ce83dd` is `v4.2.2` not `v6.0.2`. This is exactly the **"Lens stale-training fabrications on action versions"** pattern identified in §17.28 MAX-CAP diagnosis. Per the documented filter rule ("Action version claims must be trusted from the project's own comment, not the lens's training data"), dropped without verification. Counts as the 1st filter-fired-correctly-on-fabrication this loop.
+- L02 Important on already-pushed shared-branch commit bodies (e81a6b1 `logging.warn removed in 3.13`, 678fa93 `uv-lock-check files: load-bearing`) — both were later corrected by follow-on commits in the same loop; rewriting pushed shared-branch history is disallowed per project policy. The drift was corrected by design — that's the intended cycle pattern.
+- L05 `# noqa: BLE001` defensive add — preemptive, lens itself said "zero pressure to apply".
+- L06 cast() comment pedantry on `getattr` return type — hair-splitting.
+- L10 elevated-scopes-with-if-guard comment hardening — comment inflation on otherwise-clear guard.
+- L13/L17 doc precision pedantry on §17.9/§17.15 historical-rationale framing.
+- L19 stale baseline timestamp with empty results — cosmetic.
+
+**Convergent findings promoted to load-bearing:** none in cycle-5 (single-lens findings carrying weight on their own merits).
+
+**Applied fixes (Layer A, 4 commits):**
+
+1. `b551f59` — `docs(test): sync module docstring with §17.15 Task 2.3 test removal` — L13. The `tests/ocr/test_docling_engine.py` module docstring described "Task 2.3 — constructor-only tests" as present, but per §17.15 the dedicated construction-only test was dropped (constructor coverage is now transitive through every `extract` test via the `_converter_factory` injection seam). Updated docstring to accurately describe post-§17.15 state.
+2. `a5b6c73` — `docs(pre-commit): sync minimum_pre_commit_version comment with current pip floor` — L18 / workflow-gap rule #3 occurrence 7. Header comment referenced `pre-commit>=4.0` as the pip floor in pyproject.toml, but cycle-1 commit `056dcdb` tightened the floor to `>=4.6`. Comment was stale relative to the actual floor. The `minimum_pre_commit_version: "4.0"` VALUE was intentionally kept conservative; only the comment description was updated.
+3. `dd45116` — `build(deps): fix pytest mypy cross-reference + fastapi enumeration drift` — L12 × 2 / workflow-gap rule #3 occurrences 8 + 9. (a) pytest comment cross-referenced `mypy>=2.0`; cycle-0 commit `056dcdb` tightened mypy floor to `>=2.1`. Updated. (b) fastapi leading-comment enumeration listed 7 tracks-locked-minor deps but silently omitted 5 others (pydantic, pydantic-settings, structlog, jsonschema, pyyaml). Replaced the partial enumeration with a generic phrase to prevent re-drift on future dep additions.
+4. `ec2a5b0` — `docs(plan): add §17.17 reference to §2.5 code-snippet comment` — L01. §2.5 code-snippet comment mentioned §17.16 (rec model swap to Latin for German contracts) but did NOT mention §17.17 (det model server→mobile swap), even though the det-line path in the same snippet reflects the §17.17 change. Added the §17.17 cross-reference so a reader following the code comment finds the rationale for the det-mobile choice.
+
+**This §17.34 audit entry (Layer B)** + CLAUDE.md `§17 latest` pointer bumped §17.33 → §17.34.
+
+**Workflow-gap audit (per §17.23 MAX-CAP diagnosis):**
+1. **Test split + missed plan sync** — N/A (no test changes this cycle beyond docstring).
+2. **CLAUDE.md terminology / pointer leaks** — pointer bump in this commit per established pattern.
+3. **Prior-cycle audit-comment factual drift** — fired AGAIN for the SEVENTH, EIGHTH, and NINTH occurrence in this loop (a5b6c73 pre-commit-config comment, dd45116 × 2 pyproject cross-refs). Pattern is dominantly persistent — every cycle's audit comments tend to drift relative to other audit comments and floor values. **Now formally promoting this to filter-gap status:** future cycles should pre-emptively grep for `tracks the locked`, `removed in N.M`, `convergent with .*>=N.M`, `wires X into Y`, and similar audit-quality factual claims at audit time rather than waiting for the next cycle's lens to flag each individual drift. The synthesizer's pre-audit grep sweep is the proposed mitigation.
+
+**Lens fabrications / hallucination patterns surfaced and filter-handled:**
+- **L11 action SHA version comment** — claimed `de0fac2e...` → `v4.2.2` not `v6.0.2`. This is the documented "Lens stale-training fabrications on action versions" pattern (§17.28 MAX-CAP diagnosis recurrence). Filter rule fired correctly; no action taken.
+
+**Verification gate (post-applied, all green):**
+- `uv run ruff check src tests`: All checks passed!
+- `uv run mypy src tests`: Success — no issues found in 38 source files
+- `uv run pytest -q -m "not slow"`: 137 passed (1 skipped — slow real-OCR test correctly skipped without `EXTRACTION_OCR_SAMPLES_DIR`)
+- `uv lock --check`: clean
+- `uv run pre-commit run --all-files`: all 14 hooks green
+
+**Editor-only diagnostic note:** Pyright/Pylance flagged 10 spurious `_cfg is not accessed` / `_stream is not accessed` warnings on `tests/ocr/test_docling_engine.py` — Python convention is that underscore-prefixed parameters explicitly signal "intentionally unused." The project gates (ruff `ARG` family + mypy) handle this correctly; pyright's stricter default is editor-only noise, not part of the project's enforcement chain.
+
+**Convergence trajectory:**
+
+| Cycle | With-fixes lenses | Applied fix-commits | Clean lenses (zero findings or fully filter-dropped) |
+|---|---:|---:|---:|
+| C0 (Opus) | 5 | 9 | 6 |
+| C1 (Sonnet) | 4 | 6 | 4 |
+| C2 (Sonnet) | 6 | 7 | 3 |
+| C3 (Sonnet) | 5 | 4 | 4 |
+| C4 (Sonnet) | 5 | 4 | 5 |
+| C5 (Sonnet) | 4 | 4 | **9** |
+
+Cycle-5 marks a notable convergence inflection: 9/20 lenses returned zero actionable findings (vs. 3–5 in prior cycles). The remaining 11 lenses' findings are predominantly comment-precision drift (workflow-gap rule #3) and individual-judgment Minors that future cycles will continue to surface but at low rate.
+
+**Per-cycle status line (compact):** `Cycle 5 on chore/panel-review-fixes-2026-05-13: 5 commits applied (4 fixes + this §17.34 with embedded CLAUDE.md pointer bump); 3 Important + 1 Minor fixes after filter; 0 strong convergent findings; Ship-ready (pre-fix): 16/20 Yes, 4/20 With fixes; Clean lenses: 9/20 (substantial convergence — L03, L04, L07, L08, L09, L15, L16, L19, L20 all zero-action); ~17 findings filter-dropped (incl. 1 lens-fabrication: L11 action SHA version comment v4.2.2 vs v6.0.2 — §17.28 documented pattern fired correctly); 0 new deferrals; 0 prior-cycle deferrals reversed. New HEAD: this audit commit. Workflow-gap rule #3 fired its 7th, 8th, 9th occurrences in this loop — formally promoted to filter-gap-with-pre-audit-grep-sweep status. Continuing → Cycle 6.`
+
+---
+
+### 17.35. Cycle-6 of fresh 8-cycle loop on `chore/panel-review-fixes-2026-05-13` (sonnet) — 1 applied fix-commit (3 small concerns bundled)
+
+**HEAD at cycle start:** `459f8db` (terminal commit of §17.34).
+
+**Dispatch:** 20 lenses, `model: sonnet`, `run_in_background: true`, clean prompts.
+
+**Lens verdicts (pre-fix):** 17/20 Yes ship-ready; 3/20 With fixes (L10, L17, L12, L18 — note L10+L18 convergent so distinct With-fixes lens count is 3). **Clean lenses (zero actionable findings): 16/20 — STRONGEST convergence signal of the loop.** L02, L03, L04, L05, L06, L07, L08, L09, L11, L13, L14, L15, L16, L19, L20 all returned with zero actionable findings or fully filter-droppable Minors.
+
+**Pre-filter findings:** 0 Critical, 0 Important (highest signal: all "Important" findings demoted to Minor by lenses themselves or filtered as preemptive), ~8 Minor.
+
+**Senior-dev filter pass:** ~5 findings dropped. Notable rejections:
+- L15 darwin scope minor — accepted §17.2 deferral.
+- L15 `fail_under = 80` rationale-comment add — comment inflation on conventional threshold.
+- L11 `--cov` no-source-arg comment completeness — comment inflation on already-thorough block.
+- L07 base.py @runtime_checkable docstring forward-context — recursive nit-picking on docstring I just rewrote in cycle-4.
+- L01 §4.15 path-text update — existing §17.3 annotation already serves the audit-trail purpose.
+- Several "no action required" / "noted for completeness" findings explicitly self-filtered by lenses.
+
+**Convergent findings promoted to load-bearing:**
+- **L10 + L18 on `.pre-commit-config.yaml` `minimum_pre_commit_version` comment/value skew** — both flagged the cycle-5 commit a5b6c73's introduction of a comment/value inconsistency (header comment updated to reference `pre-commit>=4.6` but value left at `"4.0"`). Convergence reversed cycle-5's deliberate "conservative" framing — the comment/value alignment is cleaner than the hedged justification.
+
+**Applied fix (Layer A, 1 commit bundling 3 small concerns — parallel-dispatch overhead would exceed benefit per CLAUDE.md "When NOT to parallelize: ≤2 fixes"):**
+
+1. `e733421` — `fix: cycle-6 trio — pre-commit minimum, plan §2.5 snippet rename, pytest comment §17 ref` — bundles:
+   - **L10 + L18 convergent:** `.pre-commit-config.yaml:6` `minimum_pre_commit_version: "4.0"` → `"4.6"`. Closes the comment/value skew introduced in cycle-5 a5b6c73.
+   - **L17:** `docs/plan.md §2.5` code snippet variable renames `det` / `rec` / `cls` → `det_path` / `rec_path` / `cls_path`. Matches the live `_build_default_converter` implementation after cycle-0 commit `e72d5c6` renamed the locals to avoid the classmethod-arg-name shadow on `cls`.
+   - **L12 / workflow-gap rule #3 occurrence 10:** `pyproject.toml:61` pytest comment cross-reference `(§17.14, pass 8)` → `(§17.13, pass 7; tightened in this branch via commit 056dcdb)`. §17.14 is the max-cap termination entry — no mypy floor change occurred there. Updated to cite the correct subsection.
+
+**This §17.35 audit entry (Layer B)** + CLAUDE.md `§17 latest` pointer bumped §17.34 → §17.35.
+
+**Workflow-gap audit (per §17.23 MAX-CAP diagnosis):**
+1. **Test split + missed plan sync** — N/A (no test changes this cycle).
+2. **CLAUDE.md terminology / pointer leaks** — pointer bump in this commit.
+3. **Prior-cycle audit-comment factual drift** — fired AGAIN for the TENTH occurrence in this loop (L12 catch of the `§17.14, pass 8` cross-ref). The pattern is dominantly persistent. Synthesizer's pre-audit grep sweep (promoted in §17.34) would benefit from explicit `(§17\.[0-9]+, pass [0-9]+)` regex matching at audit time to catch future cycles. Recommended grep pattern: `grep -nE '§17\.[0-9]+, pass [0-9]+' pyproject.toml docs/` and verify each match against the actual spec subsection content.
+
+**Convergence trajectory across the loop:**
+
+| Cycle | With-fixes lenses | Applied fix-commits | Clean lenses |
+|---|---:|---:|---:|
+| C0 (Opus standalone) | 5 | 9 | 6 |
+| C1 (Sonnet) | 4 | 6 | 4 |
+| C2 (Sonnet) | 6 | 7 | 3 |
+| C3 (Sonnet) | 5 | 4 | 4 |
+| C4 (Sonnet) | 5 | 4 | 5 |
+| C5 (Sonnet) | 4 | 4 | 9 |
+| **C6 (Sonnet)** | **3** | **1 (bundled)** | **16** ← inflection |
+
+Cycle-6 marks the **terminal convergence signal**: 16/20 lenses fully clean, only 3 With-fixes lenses with all findings being audit-comment-precision Minors. The trajectory suggests cycle-7 would produce 0-1 fixes; cycle-8 (user's max-cap) would likely fire zero fixes. The remaining detection surface is workflow-gap rule #3 recurrences, which will keep firing as long as cycles add new audit comments that drift relative to other audit comments.
+
+**Verification gate (post-applied, all green):**
+- `uv lock --check`: Resolved 173 packages
+- `uv run pre-commit run --all-files`: all 14 hooks green
+
+**Per-cycle status line (compact):** `Cycle 6 on chore/panel-review-fixes-2026-05-13: 2 commits applied (1 bundling 3 small fixes + this §17.35 with embedded CLAUDE.md pointer bump); 0 Important + 3 Minor fixes after filter; 1 strong convergent finding (L10+L18 minimum_pre_commit skew); Ship-ready (pre-fix): 17/20 Yes, 3/20 With fixes; Clean lenses: 16/20 (loop-record convergence — L02, L03, L04, L05, L06, L07, L08, L09, L11, L13, L14, L15, L16, L19, L20 all zero-action; only L10/L17/L18+L12 had genuine apply-now findings); ~5 findings filter-dropped; 0 new deferrals; 1 prior-cycle disposition reversed (cycle-5's "conservative 4.0 minimum" framing — reversed by L10+L18 convergence on the comment/value skew). New HEAD: this audit commit. Workflow-gap rule #3 fired its 10th occurrence — recommend regex-based pre-audit grep at the synthesizer level. Continuing → Cycle 7 (with high expectation of further inflection).`

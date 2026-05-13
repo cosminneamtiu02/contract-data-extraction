@@ -1,13 +1,23 @@
-# Pin minimum pre-commit version to match `pre-commit>=4.0` in
+# Pin minimum pre-commit version to match `pre-commit>=4.6` in
 # [dependency-groups.dev]. A developer running an older globally-
 # installed pre-commit on a fresh machine (before `uv sync` puts the
 # locked version on path) gets a clear version error instead of
 # confusing hook-behavior differences.
-minimum_pre_commit_version: "4.0"
+minimum_pre_commit_version: "4.6"
 
 repos:
   - repo: local
     hooks:
+      - id: uv-lock-check
+        name: uv lock --check (lockfile freshness)
+        entry: uv lock --check
+        language: system
+        pass_filenames: false
+        always_run: true
+        # Mirrors ci.yml "Lockfile freshness check" step. A developer editing
+        # pyproject.toml (e.g. bumping a dep floor) without re-running `uv lock`
+        # would otherwise pass local hooks but fail in CI. Surfaced by Lens 18
+        # (Pre-commit hooks & local DX) in the 2026-05-13 panel review.
       - id: ruff-check
         name: ruff check
         entry: uv run ruff check

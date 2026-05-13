@@ -13,17 +13,20 @@ dependencies = [
     # Floor tracks the locked minor (fastapi 0.x is pre-1.0 where each
     # minor routinely breaks router signatures, lifespan API, and
     # response-model behavior). Same tracks-the-locked-minor convention
-    # applied to ollama / ruff / docling / uvicorn / modelscope / httpx /
-    # rapidocr-onnxruntime.
+    # applied to most runtime deps in this section.
     "fastapi>=0.136",
     # Floor tracks the locked minor (uvicorn 0.x is pre-1.0; an older floor
     # would permit a fresh resolve to a uvicorn that no longer ships the
     # ASGI lifespan shape FastAPI 0.136 expects).
     "uvicorn[standard]>=0.46",
-    "pydantic>=2.10",
-    "pydantic-settings>=2.6",
-    "structlog>=25.0",
-    # Floor tracks the locked minor (0.6.2); ollama is pre-1.0 where every
+    # Floor tracks the locked minor (2.13.x).
+    "pydantic>=2.13",
+    # Floor tracks the locked minor (2.14.x). Same locked-minor convention as
+    # pydantic above and the other ecosystem libs in this block.
+    "pydantic-settings>=2.14",
+    # Floor tracks the locked minor (25.5.x).
+    "structlog>=25.5",
+    # Floor tracks the locked minor (0.6.x); ollama is pre-1.0 where every
     # minor is breaking (0.4→0.5: async streaming overhaul; 0.5→0.6: response
     # model type changes). Phase 3 LLM worker targets the 0.6.x async API.
     "ollama>=0.6",
@@ -38,7 +41,9 @@ dependencies = [
     # Floor tracks the locked minor (1.36.x); modelscope 1.x follows
     # pre-1.0-style minor-breaking cadence.
     "modelscope>=1.36",
-    "jsonschema>=4.23",
+    # Floor tracks the locked minor (4.26.x).
+    "jsonschema>=4.26",
+    # Floor tracks the locked minor (6.0.x).
     "pyyaml>=6.0",
     # Floor tracks the locked minor (0.28.x); httpx is pre-1.0 and the
     # 0.27→0.28 boundary changed the default transport behavior.
@@ -53,7 +58,8 @@ dev = [
     # Floor mirrors locked major (pytest 9.0.3); 9.0 changed ini-key handling
     # for `importmode` (see addopts comment at the bottom of this file), so 8.x
     # cannot interpret the project's test config correctly.  Convergent with
-    # mypy>=2.0 (§17.14, pass 8) and pytest-asyncio>=1.0 (§17.11, pass 5).
+    # mypy>=2.1 (§17.13, pass 7; tightened in this branch via commit 056dcdb)
+    # and pytest-asyncio>=1.0 (§17.11, pass 5).
     "pytest>=9.0",
     # Floor mirrors the locked major (1.3.0); 0.x → 1.x changed the default
     # asyncio mode and added new ini keys — >=0.24 was stale.
@@ -61,30 +67,37 @@ dev = [
     # Floor tracks the locked major (7.1.0); pytest-cov 7.0 dropped pytest 7.x
     # support and changed --cov-fail-under semantics. A fresh-machine resolve
     # could silently lock 6.x otherwise. Matches the tracks-the-locked-major
-    # convention applied to pytest (>=9.0), pytest-asyncio (>=1.0), mypy (>=2.0).
+    # convention applied to pytest (>=9.0) and pytest-asyncio (>=1.0).
     "pytest-cov>=7.0",
     # Floor pinned at 6.115 (locked: 6.152.6); 6.x has no cross-major break
     # currently — the specific 6.115 floor pins a defensive lower bound below
     # which property-based test behavior has not been verified against this
     # codebase.
     "hypothesis>=6.115",
-    # Floor tracks the API surface the codebase was tested against (locked at
-    # 2.1.x); mypy 2.0 introduced breaking strict-mode flag semantics — same
-    # cross-major-correctness pattern as the pytest-asyncio floor fix.
-    "mypy>=2.0",
-    # Floor tracks the locked minor (0.15.12); ruff uses 0.x versioning where
+    # Floor tracks the locked minor (2.1.x). Cross-major (1.x → 2.x) was a
+    # deliberate bump for new strict-mode keys; mypy 2.0 introduced breaking
+    # strict-mode flag semantics — same cross-major-correctness pattern as
+    # the pytest-asyncio floor fix.
+    "mypy>=2.1",
+    # Floor tracks the locked minor (0.15.x); ruff uses 0.x versioning where
     # every minor is effectively a major bump. The >=0.9 floor permitted a
     # fresh-machine resolve to 0.9.x, which predates the PL and ANN rule
     # families added in cycle 2 — a 0.9.x resolve would silently drop those
-    # lint gates. Same tracks-the-locked-minor convention as pytest-cov (>=7.0).
+    # lint gates. Same tracks-the-locked-minor convention as mypy (>=2.1).
     "ruff>=0.15",
     # Stub floors mirror the runtime floors in [project].dependencies so a
     # future lockfile regeneration on a fresh machine can't drift the stub
     # major version away from the runtime package the stubs cover.
     "types-pyyaml>=6.0",
-    "types-jsonschema>=4.23",
-    "pre-commit>=4.0",
-    "pip-audit>=2.7",
+    # Floor mirrors jsonschema runtime floor (4.26.x) — stubs-mirror-runtime
+    # convention so a fresh-machine resolve can't drift the stub major version
+    # away from the runtime package the stubs cover.
+    "types-jsonschema>=4.26",
+    # Floor tracks the locked minor (4.6.x).
+    "pre-commit>=4.6",
+    # Floor tracks the locked minor (2.10.x).
+    "pip-audit>=2.10",
+    # Floor tracks the locked minor (1.5.x).
     "detect-secrets>=1.5",
 ]
 
@@ -94,6 +107,12 @@ packages = ["src/extraction_service"]
 # future build-backend swap or hatchling-plugin change cannot accidentally
 # ship .pyc artifacts.
 exclude = ["**/__pycache__"]
+# Explicit py.typed inclusion — PEP 561 marker promotion from default
+# package-data inclusion to a static build-config property. Defends against
+# hatchling-plugin swaps or contributor-added `include = [...]` patterns
+# from silently dropping the marker. Verification gate already covers via
+# wheel inspection, but belt-and-braces.
+force-include = { "src/extraction_service/py.typed" = "extraction_service/py.typed" }
 
 [tool.ruff]
 line-length = 100
@@ -116,10 +135,11 @@ target-version = "py313"
 # developer feedback. Zero current violations. Defense-in-depth for later phases.
 # G added 2026-05-13 (Lens 08): flake8-logging-format catches f-string log calls
 # (`logger.info(f"...")`) and %-style logger usage that bypass lazy evaluation.
-# log_config.py wires `logging` into structlog's stdlib bridge; Phase 2-4
-# workers will emit log lines and the structlog bridge is exactly where G004
-# anti-patterns would land silently. Zero current violations — same proactive
-# pattern as BLE, ANN, PL.
+# log_config.py uses structlog.PrintLoggerFactory directly; the only stdlib
+# `logging` touch is logging.INFO as the filter level. Phase 3+ workers that
+# use standard logging.getLogger() calls will route through structlog's stdlib
+# bridge, where G004/LOG violations would land silently. Zero current
+# violations — same proactive pattern as BLE, ANN, PL.
 # DTZ added 2026-05-13 (Lens 08): flake8-datetimez catches `datetime.now()`
 # without `tz=` and `datetime.utcnow()` (deprecated in 3.12, naive in semantics).
 # Active datetime use sites: domain/stage.py and domain/record.py both call
@@ -132,7 +152,15 @@ target-version = "py313"
 # `type`, `format`, `input` is easy to slip past review. Zero current violations
 # — same defense-in-depth pattern as G/DTZ/BLE/ANN/PL (verified via
 # `uv run ruff check --select A`).
-select = ["E", "F", "I", "B", "UP", "ASYNC", "PIE", "SIM", "RET", "ARG", "PTH", "TID", "T20", "RUF", "C4", "FURB", "PT", "EM", "TRY", "TCH", "N", "S", "BLE", "PL", "ANN", "G", "DTZ", "A"]
+# FBT added 2026-05-13 (Lens 08): flake8-boolean-trap catches positional-boolean
+# call sites (`do_thing(True)`) and boolean-trap definitions. Phase 3-5 worker
+# retry flags, HTTP query params, and lifecycle booleans will multiply; FBT
+# prevents the silent positional-call defect class. Zero current violations.
+# LOG added 2026-05-13 (Lens 08): flake8-logging catches logging.warn
+# (deprecated since 3.12, PEP 594), logging.WARN constant, and `extra=` kwargs
+# that conflict with reserved LogRecord attrs. Phase 3+ workers will emit
+# through structlog's stdlib bridge. Zero current violations.
+select = ["E", "F", "I", "B", "UP", "ASYNC", "PIE", "SIM", "RET", "ARG", "PTH", "TID", "T20", "RUF", "C4", "FURB", "PT", "EM", "TRY", "TCH", "N", "S", "BLE", "PL", "ANN", "G", "DTZ", "A", "FBT", "LOG"]
 ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
@@ -250,6 +278,12 @@ filterwarnings = [
     "error::DeprecationWarning",
     "error::pytest.PytestUnraisableExceptionWarning",
 ]
+# xfail markers that unexpectedly PASS should fail the run, not silently
+# pass — defense-in-depth for Phase 3+ test authors.  Consistent with the
+# existing strictness posture: --strict-markers, --strict-config, and
+# filterwarnings error:: are already set.  Zero current @pytest.mark.xfail
+# uses today; closes a Phase 3-6 test-author footgun before it can land.
+xfail_strict = true
 
 [tool.coverage.run]
 source = ["src/extraction_service"]

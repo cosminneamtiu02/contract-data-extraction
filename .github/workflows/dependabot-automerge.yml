@@ -7,8 +7,8 @@
 # `gh pr merge --auto --squash` is only safe when the main branch ruleset
 # has required status checks. Without them, --auto has nothing to wait for
 # and merges immediately, even if CI is red. Required checks (set on the
-# ruleset, NOT here): backend-checks, darwin-checks, CodeQL / Analyze
-# (python), CodeQL / Analyze (actions).
+# ruleset, NOT here): backend-checks, darwin-checks, Analyze (python),
+# Analyze (actions).
 
 name: Dependabot auto-merge
 

@@ -1,9 +1,11 @@
 """Tests for DoclingOcrEngine (plan §6.4 Phase 2, tasks 2.3 and 2.4).
 
-Task 2.3 — constructor-only tests: engine initialises and holds a non-None
-DocumentConverter. The ``_converter_factory`` kwarg is the DI seam that lets
-tests avoid real model downloads (network I/O in unit tests is unacceptable
-and the RapidOCR model dir won't exist in CI).
+Task 2.3 — constructor coverage is transitive: every ``extract`` test below
+constructs a ``DoclingOcrEngine`` via the ``_converter_factory`` injection
+seam, exercising the constructor implicitly. The dedicated construction-only
+test was dropped per Phase 2 spec §17.15 in
+``2026-05-12-phase-2-ocr-spec-deviations.md`` (Lens 06+13 convergent finding:
+asserting on a private attribute provides thin behavioural value).
 
 Task 2.4 — ``.extract()`` body. Two test layers:
 

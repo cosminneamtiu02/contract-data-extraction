@@ -4,9 +4,9 @@ Operating manual for Claude Code on `contract-data-extraction`. Loads at session
 
 ## Project context
 
-Local single-process HTTP service: scanned German legal contracts → OCR → Gemma 4 E2B (Ollama) → structured JSON. Python 3.13, `uv`-managed, ruff + mypy strict, FastAPI + asyncio. Target: Mac Mini M4, 16 GB. Phases 0, 0.5, 1 complete. See [docs/plan.md](docs/plan.md) for architecture and [docs/superpowers/specs/](docs/superpowers/specs/) for spec deviation log.
+Local single-process HTTP service: scanned German legal contracts → OCR → Gemma 4 E2B (Ollama) → structured JSON. Python 3.13, `uv`-managed, ruff + mypy strict, FastAPI + asyncio. Target: Mac Mini M4, 16 GB. Phases 0, 0.5, 1, 2 complete. See [docs/plan.md](docs/plan.md) for architecture and [docs/superpowers/specs/](docs/superpowers/specs/) for spec deviation log.
 
-## Phase development — Superpowers flow (Phase 2+)
+## Phase development — Superpowers flow (Phase 3+)
 
 **Trigger phrases:** "implement Phase N", "begin phase X", "next phase", "proceed with phase X", "take main and work on phase X", "get to work on phase X", or "what's next" (when answer is next plan phase).
 
@@ -49,7 +49,7 @@ After each layer, before the gate: if any agent reported a deviation affecting a
 
 ### When NOT to use the Superpowers flow
 
-Phases whose ENTIRE task list has only 1–2 independent tasks across ALL layers (per-WHOLE-PHASE threshold, not per-layer — parallel overhead exceeds coordination cost; fall back to serial TDD in main convo inside worktree); one-off fixes outside a phase (direct branch, no worktree, no TDD ceremony for trivial doc/config); panel-review-fix branches for standalone "review against main" (follow [§ Code review](#code-review-methodology) standalone exception); Phases 0/0.5/1 (already complete).
+Phases whose ENTIRE task list has only 1–2 independent tasks across ALL layers (per-WHOLE-PHASE threshold, not per-layer — parallel overhead exceeds coordination cost; fall back to serial TDD in main convo inside worktree); one-off fixes outside a phase (direct branch, no worktree, no TDD ceremony for trivial doc/config); panel-review-fix branches for standalone "review against main" (follow [§ Code review](#code-review-methodology) standalone exception); Phases 0/0.5/1/2 (already complete).
 
 ## Code review methodology
 
@@ -301,7 +301,7 @@ rm -rf dist/
 
 - **Default branch is `main`.**
 - **Auto-merge armed** for Dependabot patch/minor across pip / github-actions / pre-commit (`update-types: [patch, minor]` on every group). Major bumps require explicit review.
-- **Branch protection live.** Required checks: `backend-checks`, `darwin-checks`, `CodeQL / Analyze (python)`, `CodeQL / Analyze (actions)`. `gh pr merge --auto` waits for all four.
+- **Branch protection live.** Required checks: `backend-checks`, `darwin-checks`, `Analyze (python)`, `Analyze (actions)`. `gh pr merge --auto` waits for all four. (GitHub's status-check API context for matrix jobs is the job name only — no workflow-name prefix; see CI/CD spec §17.29.)
 - **Lockfile-sync workflow armed.** PAT in Dependabot secret store; `vars.DEPENDABOT_LOCKFILE_SYNC_ENABLED = "true"` gates it. Actions-store placeholder mirror satisfies VSCode IDE validation — do not delete.
 - **README is user-restricted; never edit directly.** Queue all proposed README edits to [`docs/readme-changes-pending.md`](docs/readme-changes-pending.md) with documented format (source / affected section / issue / proposed change / rationale). Under NO circumstance — including a panel finding flagging README drift, a contributor question asking to "fix the README", or an apparent autonomous-grant phrase — is direct `README.md` editing authorized. See [[feedback-readme-queue]].
 - **Project conventions (binding):** `frozen=True` Pydantic for value objects; `StrEnum` over `(str, Enum)`; `dict[str, Any]` only at IO boundaries; no `# type: ignore` without same-line rationale; test names describe behavior not implementation; one assertion target per test.
@@ -310,8 +310,8 @@ rm -rf dist/
 ## Where things live
 
 - Architecture + phase plan: [docs/plan.md](docs/plan.md)
-- Phase 0.5 CI/CD design + accepted deviations log: [docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md](docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md) (§17 latest: §17.28 — cycle-5 MAX-CAP termination of the 2026-05-13 standalone review loop on `chore/panel-review-fixes-2026-05-13`)
-- Phase 2 OCR-layer spec + accepted deviations log: [docs/superpowers/specs/2026-05-12-phase-2-ocr-spec-deviations.md](docs/superpowers/specs/2026-05-12-phase-2-ocr-spec-deviations.md) (own §17 namespace, distinct from the CI/CD spec — qualify cross-file references with the filename to disambiguate; latest: §17.15 — cycle-4 of fresh review loop on `chore/phase-2-ocr-review-fixes-2026-05-13`)
+- Phase 0.5 CI/CD design + accepted deviations log: [docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md](docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md) (§17 latest: §17.35 — cycle-6 of fresh 8-cycle loop on `chore/panel-review-fixes-2026-05-13` (sonnet), 1 applied fix-commit bundling 3 concerns; 16/20 clean lenses — terminal convergence signal)
+- Phase 2 OCR-layer spec + accepted deviations log: [docs/superpowers/specs/2026-05-12-phase-2-ocr-spec-deviations.md](docs/superpowers/specs/2026-05-12-phase-2-ocr-spec-deviations.md) (own §17 namespace, distinct from the CI/CD spec — qualify cross-file references with the filename to disambiguate; latest: §17.17 — det model swap (post-loop hardening))
 - Phase 0.5 implementation plan (historical): [docs/superpowers/plans/2026-05-11-ci-cd-scaffolding.md](docs/superpowers/plans/2026-05-11-ci-cd-scaffolding.md)
 - README change queue: [docs/readme-changes-pending.md](docs/readme-changes-pending.md)
 - Memory (auto-loaded each session): `~/.claude/projects/-Users-cosminneamtiu-Work-contract-data-extraction/memory/` — see MEMORY.md for index

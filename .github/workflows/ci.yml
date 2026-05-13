@@ -15,9 +15,10 @@ concurrency:
   # stale older run. push:main runs are keyed by SHA so back-to-back
   # squash-merges don't cancel earlier post-merge canary runs — the
   # invariant "main is always known-green" requires every commit on main
-  # to keep its CI record. workflow_dispatch on a feature branch must NOT
-  # collide with that branch's PR run — keyed by SHA so each manual
-  # dispatch gets its own group.
+  # to keep its CI record. github.ref already separates PR runs
+  # (refs/pull/N/merge) from workflow_dispatch runs (refs/heads/X); the
+  # SHA suffix gives back-to-back manual dispatches on the same branch
+  # their own group instead of cancelling each other.
   group: ci-${{ github.ref }}-${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.sha || 'pr' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
@@ -153,4 +154,4 @@ jobs:
         # Smoke-only — catches arm64 wheel resolution failures for docling,
         # rapidocr-onnxruntime, modelscope, and any future native-extension
         # dep before it bites in production. `--tb=short` mirrors backend-checks.
-        run: uv run pytest -q --tb=short tests/test_smoke.py
+        run: uv run pytest -q --tb=short -m "not slow" tests/test_smoke.py
