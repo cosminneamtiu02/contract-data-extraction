@@ -522,7 +522,7 @@ extraction-service/
 │   │   ├── __init__.py
 │   │   ├── fake_ocr.py          # deterministic OcrEngine
 │   │   ├── test_fake_ocr.py
-│   │   └── fake_ollama.py       # canned LLM responses
+│   │   └── fake_ollama.py       # canned LLM responses           # (Phase 3 — not yet created)
 │   ├── unit/
 │   │   ├── test_domain_errors.py
 │   │   ├── test_domain_job.py
@@ -533,10 +533,10 @@ extraction-service/
 │   │   ├── test_settings.py
 │   │   ├── test_run_config.py
 │   │   ├── test_ocr_base.py
-│   │   ├── test_prompt_render.py
-│   │   ├── test_schema_validation.py
-│   │   ├── test_retry_policy.py
-│   │   └── test_result_store.py
+│   │   ├── test_prompt_render.py                                  # (Phase 3 — not yet created)
+│   │   ├── test_schema_validation.py                              # (Phase 3 — not yet created)
+│   │   ├── test_retry_policy.py                                   # (Phase 3 — not yet created)
+│   │   └── test_result_store.py                                   # (Phase 4 — not yet created)
 │   ├── ocr/
 │   │   ├── _metrics.py
 │   │   ├── conftest.py
