@@ -3,5 +3,7 @@
 Concrete engines implement the ``OcrEngine`` Protocol from ``base`` and are
 wired by the Phase 4 pipeline via ``build_ocr_engine`` in ``factory``.
 ``__all__`` is intentionally not declared yet for the same reason as the
-top-level package (§17.9): an empty list would silently mask future exports.
+top-level package: an empty list would silently mask future exports until
+every contributor remembers to update the list — add ``__all__`` once there
+are real public exports to gate.
 """
