@@ -2126,3 +2126,67 @@ The user drives any next-step decision: (a) merge the PR as-is (the branch is in
 - `uv run pre-commit run --all-files`: all 14 hooks green
 
 **Per-cycle status line (compact):** `Cycle 4 on chore/panel-review-fixes-2026-05-13: 5 commits applied (4 fixes + this §17.33 with embedded CLAUDE.md pointer bump); 3 Important + 2 Minor fixes after filter; 2 strong convergent findings (L01+L17 plan §7 drift, L07 single-lens with new evidence reversing C3 disposition); Ship-ready (pre-fix): 15/20 Yes, 5/20 With fixes; ~22 findings filter-dropped; 0 new deferrals; 0 prior-cycle deferrals reversed except the C3 L07 disposition reversed within-cycle. New HEAD: this audit commit. Workflow-gap rule #3 (audit-comment drift) fired its FIFTH occurrence in this loop — pattern is now a candidate for filter-gap promotion to the synthesizer's pre-audit grep sweep. Continuing → Cycle 5.`
+
+---
+
+### 17.34. Cycle-5 of fresh 8-cycle loop on `chore/panel-review-fixes-2026-05-13` (sonnet) — 4 applied fix-commits
+
+**HEAD at cycle start:** `e8fa571` (terminal commit of §17.33).
+
+**Dispatch:** 20 lenses, `model: sonnet`, `run_in_background: true`, clean prompts.
+
+**Lens verdicts (pre-fix):** 16/20 Yes ship-ready; 4/20 With fixes (L02, L11, L12, L13, L17, L18). **Clean lenses (zero findings at all severities or fully filter-dropped): 9/20 (L03, L04, L07, L08, L09, L15, L16, L19, L20)** — substantial convergence vs. earlier cycles (cycle-4 was 5 With fixes; cycle-3 was 5 With fixes; cycle-2 was 6 With fixes).
+
+**Pre-filter findings:** 0 Critical, ~3 Important (L02×0 demoted; L11×1 LENS-FABRICATION on action SHA version comment; L12×1 mypy cross-ref drift; L13×1 docstring stale), ~15 Minor.
+
+**Senior-dev filter pass:** ~17 findings dropped. Notable rejections:
+- **L11 LENS-FABRICATION** — claimed `de0fac2e4500dabe0009e67214ff5f5447ce83dd` is `v4.2.2` not `v6.0.2`. This is exactly the **"Lens stale-training fabrications on action versions"** pattern identified in §17.28 MAX-CAP diagnosis. Per the documented filter rule ("Action version claims must be trusted from the project's own comment, not the lens's training data"), dropped without verification. Counts as the 1st filter-fired-correctly-on-fabrication this loop.
+- L02 Important on already-pushed shared-branch commit bodies (e81a6b1 `logging.warn removed in 3.13`, 678fa93 `uv-lock-check files: load-bearing`) — both were later corrected by follow-on commits in the same loop; rewriting pushed shared-branch history is disallowed per project policy. The drift was corrected by design — that's the intended cycle pattern.
+- L05 `# noqa: BLE001` defensive add — preemptive, lens itself said "zero pressure to apply".
+- L06 cast() comment pedantry on `getattr` return type — hair-splitting.
+- L10 elevated-scopes-with-if-guard comment hardening — comment inflation on otherwise-clear guard.
+- L13/L17 doc precision pedantry on §17.9/§17.15 historical-rationale framing.
+- L19 stale baseline timestamp with empty results — cosmetic.
+
+**Convergent findings promoted to load-bearing:** none in cycle-5 (single-lens findings carrying weight on their own merits).
+
+**Applied fixes (Layer A, 4 commits):**
+
+1. `b551f59` — `docs(test): sync module docstring with §17.15 Task 2.3 test removal` — L13. The `tests/ocr/test_docling_engine.py` module docstring described "Task 2.3 — constructor-only tests" as present, but per §17.15 the dedicated construction-only test was dropped (constructor coverage is now transitive through every `extract` test via the `_converter_factory` injection seam). Updated docstring to accurately describe post-§17.15 state.
+2. `a5b6c73` — `docs(pre-commit): sync minimum_pre_commit_version comment with current pip floor` — L18 / workflow-gap rule #3 occurrence 7. Header comment referenced `pre-commit>=4.0` as the pip floor in pyproject.toml, but cycle-1 commit `056dcdb` tightened the floor to `>=4.6`. Comment was stale relative to the actual floor. The `minimum_pre_commit_version: "4.0"` VALUE was intentionally kept conservative; only the comment description was updated.
+3. `dd45116` — `build(deps): fix pytest mypy cross-reference + fastapi enumeration drift` — L12 × 2 / workflow-gap rule #3 occurrences 8 + 9. (a) pytest comment cross-referenced `mypy>=2.0`; cycle-0 commit `056dcdb` tightened mypy floor to `>=2.1`. Updated. (b) fastapi leading-comment enumeration listed 7 tracks-locked-minor deps but silently omitted 5 others (pydantic, pydantic-settings, structlog, jsonschema, pyyaml). Replaced the partial enumeration with a generic phrase to prevent re-drift on future dep additions.
+4. `ec2a5b0` — `docs(plan): add §17.17 reference to §2.5 code-snippet comment` — L01. §2.5 code-snippet comment mentioned §17.16 (rec model swap to Latin for German contracts) but did NOT mention §17.17 (det model server→mobile swap), even though the det-line path in the same snippet reflects the §17.17 change. Added the §17.17 cross-reference so a reader following the code comment finds the rationale for the det-mobile choice.
+
+**This §17.34 audit entry (Layer B)** + CLAUDE.md `§17 latest` pointer bumped §17.33 → §17.34.
+
+**Workflow-gap audit (per §17.23 MAX-CAP diagnosis):**
+1. **Test split + missed plan sync** — N/A (no test changes this cycle beyond docstring).
+2. **CLAUDE.md terminology / pointer leaks** — pointer bump in this commit per established pattern.
+3. **Prior-cycle audit-comment factual drift** — fired AGAIN for the SEVENTH, EIGHTH, and NINTH occurrence in this loop (a5b6c73 pre-commit-config comment, dd45116 × 2 pyproject cross-refs). Pattern is dominantly persistent — every cycle's audit comments tend to drift relative to other audit comments and floor values. **Now formally promoting this to filter-gap status:** future cycles should pre-emptively grep for `tracks the locked`, `removed in N.M`, `convergent with .*>=N.M`, `wires X into Y`, and similar audit-quality factual claims at audit time rather than waiting for the next cycle's lens to flag each individual drift. The synthesizer's pre-audit grep sweep is the proposed mitigation.
+
+**Lens fabrications / hallucination patterns surfaced and filter-handled:**
+- **L11 action SHA version comment** — claimed `de0fac2e...` → `v4.2.2` not `v6.0.2`. This is the documented "Lens stale-training fabrications on action versions" pattern (§17.28 MAX-CAP diagnosis recurrence). Filter rule fired correctly; no action taken.
+
+**Verification gate (post-applied, all green):**
+- `uv run ruff check src tests`: All checks passed!
+- `uv run mypy src tests`: Success — no issues found in 38 source files
+- `uv run pytest -q -m "not slow"`: 137 passed (1 skipped — slow real-OCR test correctly skipped without `EXTRACTION_OCR_SAMPLES_DIR`)
+- `uv lock --check`: clean
+- `uv run pre-commit run --all-files`: all 14 hooks green
+
+**Editor-only diagnostic note:** Pyright/Pylance flagged 10 spurious `_cfg is not accessed` / `_stream is not accessed` warnings on `tests/ocr/test_docling_engine.py` — Python convention is that underscore-prefixed parameters explicitly signal "intentionally unused." The project gates (ruff `ARG` family + mypy) handle this correctly; pyright's stricter default is editor-only noise, not part of the project's enforcement chain.
+
+**Convergence trajectory:**
+
+| Cycle | With-fixes lenses | Applied fix-commits | Clean lenses (zero findings or fully filter-dropped) |
+|---|---:|---:|---:|
+| C0 (Opus) | 5 | 9 | 6 |
+| C1 (Sonnet) | 4 | 6 | 4 |
+| C2 (Sonnet) | 6 | 7 | 3 |
+| C3 (Sonnet) | 5 | 4 | 4 |
+| C4 (Sonnet) | 5 | 4 | 5 |
+| C5 (Sonnet) | 4 | 4 | **9** |
+
+Cycle-5 marks a notable convergence inflection: 9/20 lenses returned zero actionable findings (vs. 3–5 in prior cycles). The remaining 11 lenses' findings are predominantly comment-precision drift (workflow-gap rule #3) and individual-judgment Minors that future cycles will continue to surface but at low rate.
+
+**Per-cycle status line (compact):** `Cycle 5 on chore/panel-review-fixes-2026-05-13: 5 commits applied (4 fixes + this §17.34 with embedded CLAUDE.md pointer bump); 3 Important + 1 Minor fixes after filter; 0 strong convergent findings; Ship-ready (pre-fix): 16/20 Yes, 4/20 With fixes; Clean lenses: 9/20 (substantial convergence — L03, L04, L07, L08, L09, L15, L16, L19, L20 all zero-action); ~17 findings filter-dropped (incl. 1 lens-fabrication: L11 action SHA version comment v4.2.2 vs v6.0.2 — §17.28 documented pattern fired correctly); 0 new deferrals; 0 prior-cycle deferrals reversed. New HEAD: this audit commit. Workflow-gap rule #3 fired its 7th, 8th, 9th occurrences in this loop — formally promoted to filter-gap-with-pre-audit-grep-sweep status. Continuing → Cycle 6.`
