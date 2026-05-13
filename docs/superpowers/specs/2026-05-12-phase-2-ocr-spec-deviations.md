@@ -971,3 +971,159 @@ toward convergence (strictly-clean lens count growing each cycle:
 2 → 6 → 7; no convergent findings this cycle; cycle-1/2 fallout
 diminishing as the systemic-pattern scrubs land). Cycle 4 will fire
 fresh against the new branch HEAD per the cycle-independence rule.
+
+## §17.15 — Cycle-4 of fresh review loop on `chore/phase-2-ocr-review-fixes-2026-05-13`
+
+**Branch:** `chore/phase-2-ocr-review-fixes-2026-05-13`. Cycle-4 HEAD
+at dispatch = `7d7a6ef` (terminal commit of cycle 3 / §17.14 +
+cycle-tail pointer bump).
+
+**Cycle-4 findings tally (pre-filter):**
+
+- 20/20 lens reports returned cleanly.
+- Verdicts: 13 lenses **Yes**, 7 lenses **With fixes** (01, 05, 06,
+  08, 10, 13, 15, 17). Note: 7 With-fixes vs cycle-3's 4 — but on
+  inspection most cycle-4 "With fixes" verdicts came with single
+  Minor or single Important findings; the per-finding count is
+  similar.
+- Strictly-clean (zero issues): **2/20** — Lens 04 (type safety),
+  Lens 19 (repo hygiene). Below cycle-3's 7/20 but not regression:
+  the other "strictly-clean" cycle-3 lenses now carry at-most-one
+  filter-drop Minor each (no real defects).
+- Raw severity: 0 Critical / 6 Important / 16 Minor.
+
+**Convergent finding (2-lens):**
+
+- **Lens 06 Important + Lens 13 Important** on
+  `test_docling_engine_stores_converter_after_construction`'s
+  assertion against the private `engine._converter` attribute. Lens
+  06 framed it as a naming-discipline gap (underscore-prefix-means-
+  private breach); Lens 13 framed it as implementation-detail
+  testing (already-transitive constructor coverage via extract
+  tests). Same fix from independent scopes — promoted to load-
+  bearing fix. Removed the test in commit `63b9928`.
+
+**Reversal with new evidence (multi-cycle):**
+
+- **Lens 05 cycle-4 Important** (escalated from cycle-3 Minor):
+  the cycle-1 `from None` addition on the non-SUCCESS OcrError raise
+  was sound runtime code but misleading-to-readers (cycle-3 framing)
+  and semantically incorrect outside an except block (cycle-4
+  framing). Two-cycle convergence + concrete reader-confusion harm
+  articulation qualifies as the "new evidence" CLAUDE.md's reverse-
+  prior-fix rule requires. Reversed in commit `fe8a6d5`. The
+  underlying TRY200 defensive rationale was over-applied: TRY200
+  only fires inside `except` handlers.
+
+**New-this-cycle Important:**
+
+- **Lens 08 Important:** `_ERRORS_ATTR_MISSING: object = object()`
+  sentinel was bare-typed `object`. PEP 591 `Final[object]` is the
+  canonical pattern for module-level sentinels and constants:
+  signals reassignment-prevention intent both to readers and to
+  mypy. Applied in commit `642513d`.
+
+**Cycle-3 fallout caught by cycle-4:**
+
+- **Lens 01 Minor:** `docs/plan.md:724` Task 2.3 RED column still
+  named `test_docling_engine_construct` after cycle-3's rename to
+  `test_docling_engine_stores_converter_after_construction`. Cycle-3
+  fixed the test name but missed the plan sync — same "partial rename
+  leak" pattern (Known Workflow Gap #1) the loop has fired on every
+  cycle.
+- **Lens 17 Minor (systemic):** unqualified §17.3 in the §6.4 Goal
+  paragraph + multiple unqualified §17 refs in Tasks 2.5/2.6/2.7/2.9.
+  Same systemic class as cycles 1/2/3. Resolved structurally this
+  cycle by adding a single header sentence ("The §17 references in
+  the task table below all live in the same Phase 2 spec file unless
+  otherwise noted") that establishes the default scope, breaking the
+  per-row chore. Applied in commit `96358d3`.
+- **Lens 17 Minor (different sub-class):** `<pending push>` placeholder
+  strings in CI/CD-spec §17.26 and §17.28 compact status lines were
+  introduced by their originating cycle-3/cycle-5 commits on
+  `chore/panel-review-fixes-2026-05-13` and never backfilled. An
+  earlier branch-lineage commit `7e860eb` claimed §17.26/§17.27 used
+  the this-commit-anchored pattern but did not — placeholders
+  remained. Backfilled in commit `8fbed2d`.
+
+**Fixes applied this cycle (5 atomic per-concern commits):**
+
+| Commit | Subject | Lens(es) | Severity |
+|---|---|---|---|
+| `fe8a6d5` | fix(ocr): drop misleading `from None` on non-SUCCESS conversion raise | 05 (reversal of cycle-1) | Important (was cycle-1 Important; reversed cycle-4) |
+| `642513d` | refactor(ocr): annotate _ERRORS_ATTR_MISSING sentinel with Final[object] | 08 | Important |
+| `63b9928` | test(ocr): drop test_docling_engine_stores_converter_after_construction | 06+13 convergent | Important×2 (promoted) |
+| `96358d3` | docs(plan): qualify §6.4 Goal §17.3 ref + sync Task 2.3 RED column | 01, 17 | Minor×2 |
+| `8fbed2d` | docs(spec): backfill stale <pending push> placeholders | 17 | Minor×2 |
+
+**Headbutting decisions (synthesizer-resolved):**
+
+- **Lens 13 Important (4 FakeOcrEngine configurable-field tests):**
+  Same headbutting as cycles 2+3. Cycle-4 lens used sharper framing
+  but cited the same code, same tests, same project rules. **No
+  new evidence — KEEP** per cycles 2+3 defense (load-bearing for
+  Phase 4 pagination-tests / fields-fidelity contract).
+- **Lens 13 Minor borderline (dual-assert in
+  test_docling_extract_against_sample smoke path):** Same headbutting
+  as cycles 2+3. **KEEP** per cycle-2 cost-benefit defense (3x slow
+  real-OCR cost vs convention-strict split).
+- **Lens 13 Minor (Pydantic required-field tests in
+  test_ocr_base.py):** Same headbutting as cycles 2+3. **KEEP** per
+  cycle-2 "equivalent to test_ocr_result_is_frozen" defense.
+
+**Deferred — waiting on later phase (4a; re-flagged from cycles
+1-3, NO new evidence):**
+
+- Lens 10 Important: `modelscope.snapshot_download(repo_id=
+  "RapidAI/RapidOCR")` revision pin (in-code TODO intact, Phase 6
+  hardening unblocks).
+- Lens 15 Important: no JUnit XML artifact upload (Phase 6
+  hardening alongside `scripts/validate_ocr.py`).
+
+**Deferred — other reasons (4b):**
+
+- Lens 02 Minor (`52f066c` `docs+ci` compound type + `7e860eb`
+  missing scope + `a77e35b` `feat` vs `refactor` type): historical-
+  immutable on a shared/pushed branch per "prefer new commits over
+  amend" rule.
+- Lens 07 Minor (`_ENGINE_NAME` inline-vs-constant): same as
+  cycles 1-3 — synthesizer retains as Phase 3+ Literal-broadening
+  guardrail.
+- Lens 09 Minor (factory.py runtime-vs-TYPE_CHECKING import
+  asymmetry comment): comment-inflation on already-correct code.
+- Lens 13 Minor (additional `ConversionStatus` enum values not
+  tested): defense-in-depth without current defect.
+- Lens 17 Minor (additional unqualified §17 refs in
+  plan.md §6.4 Tasks 2.5/2.6/2.7/2.9): resolved structurally by the
+  Goal-paragraph header sentence added in commit `96358d3` — per-row
+  qualification no longer necessary.
+
+**Filter-dropped (ceremonial):**
+
+- Lens 03 Minor×2 (ruff `A` rule preemption note, CI/CD spec
+  §17.24-28 inclusion via branch lineage): both lens-self-rated as
+  "no action required."
+- Lens 06 Minor×2 (helper placement, threshold naming): lens-self-
+  rated "no rule violation" / "subjective."
+- Lens 11 Minor (comment-wrap mid-flag in ci.yml): cosmetic
+  readability with no runtime effect.
+- Lens 12 Minor (rapidocr-onnxruntime version verification note):
+  lens-self-rated "No action needed — noting only."
+- Lens 14 Minor×2 (ANN coverage observation, isolated_env
+  composition docstring): both observational, "no runtime impact."
+- Lens 16 Minor (pre-existing `/tmp` literals in test_run_config.
+  py): out-of-scope (not in diff).
+- Lens 18 Minor (pre-commit-hooks rev-comment style asymmetry):
+  lens-self-rated "very low value; style only."
+- Lens 20 Minor×2 (concurrency comment, theoretical author-label
+  filter): lens-self-rated "noted for completeness" / "zero
+  practical exposure."
+
+**Loop status:** cycle 4 applied 5 commits (plus this §17.15 audit
+entry and a cycle-tail CLAUDE.md pointer bump). Cycle-4 also
+delivered the loop's first explicit cycle-1-reversal-with-evidence
+(`from None`) — a positive signal that the multi-cycle evidence
+accumulation pattern works. Strictly-clean count dropped from
+7/20 → 2/20 but is misleading: the difference is filter-drop Minor
+findings, not new defects. 4/5 cycles used; cycle 5 will fire fresh
+per the cycle-independence rule and is the last cycle before MAX-CAP.

@@ -311,7 +311,7 @@ rm -rf dist/
 
 - Architecture + phase plan: [docs/plan.md](docs/plan.md)
 - Phase 0.5 CI/CD design + accepted deviations log: [docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md](docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md) (§17 latest: §17.28 — cycle-5 MAX-CAP termination of the 2026-05-13 standalone review loop on `chore/panel-review-fixes-2026-05-13`)
-- Phase 2 OCR-layer spec + accepted deviations log: [docs/superpowers/specs/2026-05-12-phase-2-ocr-spec-deviations.md](docs/superpowers/specs/2026-05-12-phase-2-ocr-spec-deviations.md) (own §17 namespace, distinct from the CI/CD spec — qualify cross-file references with the filename to disambiguate; latest: §17.14 — cycle-3 of fresh review loop on `chore/phase-2-ocr-review-fixes-2026-05-13`)
+- Phase 2 OCR-layer spec + accepted deviations log: [docs/superpowers/specs/2026-05-12-phase-2-ocr-spec-deviations.md](docs/superpowers/specs/2026-05-12-phase-2-ocr-spec-deviations.md) (own §17 namespace, distinct from the CI/CD spec — qualify cross-file references with the filename to disambiguate; latest: §17.15 — cycle-4 of fresh review loop on `chore/phase-2-ocr-review-fixes-2026-05-13`)
 - Phase 0.5 implementation plan (historical): [docs/superpowers/plans/2026-05-11-ci-cd-scaffolding.md](docs/superpowers/plans/2026-05-11-ci-cd-scaffolding.md)
 - README change queue: [docs/readme-changes-pending.md](docs/readme-changes-pending.md)
 - Memory (auto-loaded each session): `~/.claude/projects/-Users-cosminneamtiu-Work-contract-data-extraction/memory/` — see MEMORY.md for index
