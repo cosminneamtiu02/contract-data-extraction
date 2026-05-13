@@ -37,10 +37,10 @@ class OcrEngine(Protocol):
     (``docling_engine`` for production, ``tests/fakes/fake_ocr`` for tests).
 
     ``extract`` is async because production engines wrap synchronous OCR work
-    in ``loop.run_in_executor`` (see Phase 2 task 2.8 for the Docling
-    implementation). Returning ``OcrResult`` keeps the protocol typed end to
-    end — Phase 4's worker code can rely on ``.text`` / ``.page_count`` /
-    ``.engine_name`` being present on every implementation.
+    in ``asyncio.to_thread`` (see Phase 2 task 2.8 + spec deviation §17.9 for
+    the Docling implementation). Returning ``OcrResult`` keeps the protocol
+    typed end to end — Phase 4's worker code can rely on ``.text`` /
+    ``.page_count`` / ``.engine_name`` being present on every implementation.
     """
 
     async def extract(self, pdf_bytes: bytes) -> OcrResult: ...
