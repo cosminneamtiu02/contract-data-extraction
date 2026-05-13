@@ -284,7 +284,7 @@ class DoclingOcrEngine:
                     )  # getattr returns object; runtime is a list
                 )
             msg = f"docling reported conversion status {result.status!r}: {errors_detail}"
-            raise OcrError(msg)
+            raise OcrError(msg) from None
 
         document = result.document
         text = document.export_to_markdown()
