@@ -493,14 +493,14 @@ extraction-service/
 │       │   ├── docling_engine.py # Docling + RapidOCR PP-OCRv5
 │       │   └── factory.py       # build_ocr_engine(run_config) -> OcrEngine
 │       │
-│       ├── llm/
+│       ├── llm/                     # (Phase 3 — not yet created)
 │       │   ├── __init__.py
 │       │   ├── client.py        # OllamaClient wrapper (singleton)
 │       │   ├── prompt.py        # prompt template rendering
 │       │   ├── schema.py        # JSON schema validation of LLM output
 │       │   └── retry.py         # retry policy
 │       │
-│       ├── pipeline/
+│       ├── pipeline/            # (Phase 4 — not yet created)
 │       │   ├── __init__.py
 │       │   ├── state.py         # PipelineState (queues + result store)
 │       │   ├── result_store.py  # asyncio-safe in-memory dict
@@ -508,7 +508,7 @@ extraction-service/
 │       │   ├── llm_worker.py
 │       │   └── watchdog.py      # idle shutdown
 │       │
-│       └── http/
+│       └── http/                # (Phase 5 — not yet created)
 │           ├── __init__.py
 │           ├── app.py           # FastAPI app + lifespan
 │           ├── deps.py          # Depends() functions
@@ -544,17 +544,18 @@ extraction-service/
 │   │   ├── test_factory.py
 │   │   ├── test_word_recall.py
 │   │   └── data/    # PDFs gitignored per §17.3 in 2026-05-12-phase-2-ocr-spec-deviations.md; resolved via $EXTRACTION_OCR_SAMPLES_DIR at test collection time
-│   ├── pipeline/
+│   ├── pipeline/            # (Phase 4 — not yet created)
 │   │   ├── test_ocr_worker.py
 │   │   ├── test_llm_worker.py
 │   │   ├── test_watchdog.py
 │   │   └── test_pipeline_e2e.py
-│   ├── http/
+│   ├── http/                # (Phase 5 — not yet created)
 │   │   ├── test_health.py
 │   │   ├── test_post_contracts.py
 │   │   ├── test_get_contracts.py
 │   │   └── test_idle_shutdown.py
 │
+│   └── e2e/                 # (Phase 6 — not yet created)
 ├── config/                          # (Phase 6 — not yet created)
 │   ├── run_config.example.yaml
 │   ├── domain_model.example.json    # JSON Schema sample for a loan contract
@@ -736,7 +737,7 @@ Each phase is **its own git worktree** so phases can be reviewed/merged independ
 
 **Validation gate:** Before declaring Phase 2 done, run `scripts/validate_ocr.py` on a real folder of 5–10 of your actual contracts. Manually inspect the OCR output. If watermark/logo text is missed, do not proceed — iterate on engine config (try `PP-OCRv5_server_det` vs `PP-OCRv5_mobile_det`, try Tesseract `deu_frak` as fallback). (**deviation §17.8 in `2026-05-12-phase-2-ocr-spec-deviations.md`:** the `scripts/validate_ocr.py` script itself is deferred to Phase 6 task 6.2 — Phase 2 ships the parametrised slow real-OCR test in `tests/ocr/test_docling_engine.py` as the interim signal, gated on `$EXTRACTION_OCR_SAMPLES_DIR`.)
 
-**Exit criteria:** all OCR tests pass; manual validation on real samples confirms watermarks/logos captured. Commit, merge.
+**Exit criteria:** all OCR tests pass; manual validation on real samples confirms watermarks/logos captured. Commit, merge. (**deviation §17.1/§17.2 in 2026-05-12-phase-2-ocr-spec-deviations.md:** watermark test dropped; logo-text verification folded into §17.3 parametrised real-OCR test; manual validation confirmed per §17.17)
 
 ### 6.5 Phase 3 — LLM layer
 
