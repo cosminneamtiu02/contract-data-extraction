@@ -290,7 +290,7 @@ class DoclingOcrEngine:
         text = document.export_to_markdown()
         if not text or not text.strip():
             msg = "docling produced empty OCR output"
-            raise OcrEmptyOutputError(msg)
+            raise OcrEmptyOutputError(msg) from None
 
         return OcrResult(
             text=text,
