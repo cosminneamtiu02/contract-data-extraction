@@ -122,11 +122,11 @@ def _build_default_converter(ocr_config: OcrConfig) -> DocumentConverter:
     # loaded directly by the runtime with no checksum check — a supply-chain
     # trust gap that Phase 6 will close.
     model_dir = Path(snapshot_download(repo_id="RapidAI/RapidOCR"))
-    det = model_dir / "onnx" / "PP-OCRv5" / "det" / "ch_PP-OCRv5_det_mobile.onnx"
-    rec = model_dir / "onnx" / "PP-OCRv5" / "rec" / "latin_PP-OCRv5_rec_mobile.onnx"
-    cls = model_dir / "onnx" / "PP-OCRv4" / "cls" / "ch_ppocr_mobile_v2.0_cls_mobile.onnx"
+    det_path = model_dir / "onnx" / "PP-OCRv5" / "det" / "ch_PP-OCRv5_det_mobile.onnx"
+    rec_path = model_dir / "onnx" / "PP-OCRv5" / "rec" / "latin_PP-OCRv5_rec_mobile.onnx"
+    cls_path = model_dir / "onnx" / "PP-OCRv4" / "cls" / "ch_ppocr_mobile_v2.0_cls_mobile.onnx"
 
-    for role, path in (("det", det), ("rec", rec), ("cls", cls)):
+    for role, path in (("det", det_path), ("rec", rec_path), ("cls", cls_path)):
         if not path.is_file():
             msg = (
                 f"OCR {role} model not found at {path}; the modelscope repo "
@@ -136,9 +136,9 @@ def _build_default_converter(ocr_config: OcrConfig) -> DocumentConverter:
             raise FileNotFoundError(msg)
 
     ocr_options = RapidOcrOptions(
-        det_model_path=str(det),
-        rec_model_path=str(rec),
-        cls_model_path=str(cls),
+        det_model_path=str(det_path),
+        rec_model_path=str(rec_path),
+        cls_model_path=str(cls_path),
         # Keep lang aligned with the explicit rec_model_path so RapidOCR's
         # post-OCR character-set tokenisation doesn't fall back to the
         # ``["chinese"]`` default (which would tokenise Latin output through
