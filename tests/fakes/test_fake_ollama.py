@@ -36,7 +36,7 @@ async def test_fake_ollama_client_default_content_is_empty_json() -> None:
     from tests.fakes.fake_ollama import FakeOllamaClient
 
     fake = FakeOllamaClient()
-    response = await fake.chat(model="gemma3:4b", messages=[], format={}, options={})
+    response = await fake.chat(model="gemma4:e2b-it-q4_K_M", messages=[], format={}, options={})
 
     assert response.message.content == "{}"
 
@@ -46,7 +46,7 @@ async def test_fake_ollama_client_configurable_content() -> None:
     from tests.fakes.fake_ollama import FakeOllamaClient
 
     fake = FakeOllamaClient(content='{"party": "Acme GmbH"}')
-    response = await fake.chat(model="gemma3:4b", messages=[], format={}, options={})
+    response = await fake.chat(model="gemma4:e2b-it-q4_K_M", messages=[], format={}, options={})
 
     assert response.message.content == '{"party": "Acme GmbH"}'
 
@@ -56,9 +56,9 @@ async def test_fake_ollama_client_records_last_call_model() -> None:
     from tests.fakes.fake_ollama import FakeOllamaClient
 
     fake = FakeOllamaClient(content="{}")
-    await fake.chat(model="gemma3:12b", messages=[], format={}, options={})
+    await fake.chat(model="gemma4:e2b-it-q4_K_M", messages=[], format={}, options={})
 
-    assert fake.last_call["model"] == "gemma3:12b"
+    assert fake.last_call["model"] == "gemma4:e2b-it-q4_K_M"
 
 
 async def test_fake_ollama_client_records_last_call_messages() -> None:
@@ -67,7 +67,7 @@ async def test_fake_ollama_client_records_last_call_messages() -> None:
 
     messages = [{"role": "user", "content": "hello"}]
     fake = FakeOllamaClient(content="{}")
-    await fake.chat(model="gemma3:4b", messages=messages, format={}, options={})
+    await fake.chat(model="gemma4:e2b-it-q4_K_M", messages=messages, format={}, options={})
 
     assert fake.last_call["messages"] == messages
 
@@ -78,7 +78,7 @@ async def test_fake_ollama_client_records_last_call_format() -> None:
 
     schema = {"type": "object", "properties": {"name": {"type": "string"}}}
     fake = FakeOllamaClient(content='{"name": "Test"}')
-    await fake.chat(model="gemma3:4b", messages=[], format=schema, options={})
+    await fake.chat(model="gemma4:e2b-it-q4_K_M", messages=[], format=schema, options={})
 
     assert fake.last_call["format"] == schema
 
@@ -88,7 +88,9 @@ async def test_fake_ollama_client_records_last_call_options() -> None:
     from tests.fakes.fake_ollama import FakeOllamaClient
 
     fake = FakeOllamaClient(content="{}")
-    await fake.chat(model="gemma3:4b", messages=[], format={}, options={"temperature": 0})
+    await fake.chat(
+        model="gemma4:e2b-it-q4_K_M", messages=[], format={}, options={"temperature": 0}
+    )
 
     assert fake.last_call["options"] == {"temperature": 0}
 
@@ -101,7 +103,7 @@ async def test_fake_ollama_client_accepts_unknown_kwargs() -> None:
     # ``keep_alive`` and ``stream`` are not used by task-3.1 but will be added
     # by tasks 3.6/3.7 — the fake must not raise on unknown kwargs.
     response = await fake.chat(
-        model="gemma3:4b",
+        model="gemma4:e2b-it-q4_K_M",
         messages=[],
         format={},
         options={},
@@ -113,14 +115,22 @@ async def test_fake_ollama_client_accepts_unknown_kwargs() -> None:
 
 
 async def test_fake_ollama_client_last_call_updated_on_repeated_calls() -> None:
-    """last_call reflects the MOST RECENT call, not the first."""
+    """last_call reflects the MOST RECENT call, not the first.
+
+    Verified via ``messages`` payload variance because the project pins
+    a single sanctioned model variant (``gemma4:e2b-it-q4_K_M``); a
+    second-call *model* variance would require a non-E2B identifier,
+    which is forbidden post-§17.3 of the Phase 3 LLM spec deviations log.
+    """
     from tests.fakes.fake_ollama import FakeOllamaClient
 
     fake = FakeOllamaClient(content="{}")
-    await fake.chat(model="gemma3:4b", messages=[], format={}, options={})
-    await fake.chat(model="gemma3:12b", messages=[], format={}, options={})
+    first_messages = [{"role": "user", "content": "first"}]
+    second_messages = [{"role": "user", "content": "second"}]
+    await fake.chat(model="gemma4:e2b-it-q4_K_M", messages=first_messages, format={}, options={})
+    await fake.chat(model="gemma4:e2b-it-q4_K_M", messages=second_messages, format={}, options={})
 
-    assert fake.last_call["model"] == "gemma3:12b"
+    assert fake.last_call["messages"] == second_messages
 
 
 async def test_fake_ollama_client_records_last_call_before_raising() -> None:
@@ -139,9 +149,9 @@ async def test_fake_ollama_client_records_last_call_before_raising() -> None:
     fake = FakeOllamaClient(raise_exc=boom)
 
     with pytest.raises(RuntimeError):
-        await fake.chat(model="gemma3:4b", messages=[], format={}, options={})
+        await fake.chat(model="gemma4:e2b-it-q4_K_M", messages=[], format={}, options={})
 
-    assert fake.last_call["model"] == "gemma3:4b"
+    assert fake.last_call["model"] == "gemma4:e2b-it-q4_K_M"
 
 
 def test_fake_chat_message_is_frozen() -> None:

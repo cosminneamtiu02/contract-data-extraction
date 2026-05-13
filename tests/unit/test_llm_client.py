@@ -36,10 +36,10 @@ async def test_ollama_client_calls_correct_endpoint() -> None:
 
     payload = {"party": "Acme GmbH"}
     fake = FakeOllamaClient(content=json.dumps(payload))
-    client = OllamaLlmClient(client=fake, model="gemma3:4b")
+    client = OllamaLlmClient(client=fake, model="gemma4:e2b-it-q4_K_M")
     await client.extract(prompt="extract", schema={"type": "object"})
 
-    assert fake.last_call["model"] == "gemma3:4b"
+    assert fake.last_call["model"] == "gemma4:e2b-it-q4_K_M"
 
 
 async def test_ollama_client_passes_prompt_as_user_message() -> None:
@@ -49,7 +49,7 @@ async def test_ollama_client_passes_prompt_as_user_message() -> None:
 
     payload = {"clause": "§3"}
     fake = FakeOllamaClient(content=json.dumps(payload))
-    client = OllamaLlmClient(client=fake, model="gemma3:4b")
+    client = OllamaLlmClient(client=fake, model="gemma4:e2b-it-q4_K_M")
     await client.extract(prompt="analyse this contract", schema={})
 
     messages = fake.last_call["messages"]
@@ -64,7 +64,7 @@ async def test_ollama_client_passes_schema_as_format() -> None:
     schema = {"type": "object", "properties": {"name": {"type": "string"}}}
     payload = {"name": "Test"}
     fake = FakeOllamaClient(content=json.dumps(payload))
-    client = OllamaLlmClient(client=fake, model="gemma3:4b")
+    client = OllamaLlmClient(client=fake, model="gemma4:e2b-it-q4_K_M")
     await client.extract(prompt="extract", schema=schema)
 
     assert fake.last_call["format"] == schema
@@ -77,7 +77,7 @@ async def test_ollama_client_sets_temperature_zero() -> None:
 
     payload = {"result": True}
     fake = FakeOllamaClient(content=json.dumps(payload))
-    client = OllamaLlmClient(client=fake, model="gemma3:4b")
+    client = OllamaLlmClient(client=fake, model="gemma4:e2b-it-q4_K_M")
     await client.extract(prompt="extract", schema={})
 
     assert fake.last_call["options"] == {"temperature": 0}
@@ -90,7 +90,7 @@ async def test_ollama_client_returns_parsed_json_dict() -> None:
 
     payload = {"vertragspartner": "Müller AG", "laufzeit_monate": 12}
     fake = FakeOllamaClient(content=json.dumps(payload))
-    client = OllamaLlmClient(client=fake, model="gemma3:4b")
+    client = OllamaLlmClient(client=fake, model="gemma4:e2b-it-q4_K_M")
 
     result = await client.extract(prompt="extract", schema={})
 
@@ -116,7 +116,7 @@ async def test_context_overflow_raises_loudly() -> None:
         status_code=400,
     )
     fake = FakeOllamaClient(raise_exc=overflow_err)
-    client = OllamaLlmClient(client=fake, model="gemma3:4b")
+    client = OllamaLlmClient(client=fake, model="gemma4:e2b-it-q4_K_M")
 
     with pytest.raises(ContextOverflowError) as excinfo:
         await client.extract(prompt="huge prompt", schema={"type": "object"})
@@ -135,7 +135,7 @@ async def test_non_overflow_5xx_response_error_re_raises_unchanged() -> None:
 
     other_err = ResponseError("internal server error", status_code=500)
     fake = FakeOllamaClient(raise_exc=other_err)
-    client = OllamaLlmClient(client=fake, model="gemma3:4b")
+    client = OllamaLlmClient(client=fake, model="gemma4:e2b-it-q4_K_M")
 
     with pytest.raises(ResponseError):
         await client.extract(prompt="x", schema={})
@@ -157,7 +157,7 @@ async def test_http_400_without_overflow_keywords_re_raises_unchanged() -> None:
 
     non_overflow_400 = ResponseError("invalid model name requested", status_code=400)
     fake = FakeOllamaClient(raise_exc=non_overflow_400)
-    client = OllamaLlmClient(client=fake, model="gemma3:4b")
+    client = OllamaLlmClient(client=fake, model="gemma4:e2b-it-q4_K_M")
 
     with pytest.raises(ResponseError):
         await client.extract(prompt="x", schema={})
@@ -178,7 +178,7 @@ async def test_dev_mode_captures_raw_request_and_response() -> None:
     payload = {"k": "v"}
     raw_content = json.dumps(payload)
     fake = FakeOllamaClient(content=raw_content)
-    client = OllamaLlmClient(client=fake, model="gemma3:4b", mode="development")
+    client = OllamaLlmClient(client=fake, model="gemma4:e2b-it-q4_K_M", mode="development")
 
     result = await client.extract(prompt="hello", schema={"type": "object"})
 
@@ -197,7 +197,7 @@ async def test_production_mode_omits_debug_block() -> None:
 
     payload = {"k": "v"}
     fake = FakeOllamaClient(content=json.dumps(payload))
-    client = OllamaLlmClient(client=fake, model="gemma3:4b", mode="production")
+    client = OllamaLlmClient(client=fake, model="gemma4:e2b-it-q4_K_M", mode="production")
 
     result = await client.extract(prompt="hello", schema={})
 
@@ -215,7 +215,7 @@ async def test_dev_mode_default_is_production() -> None:
 
     payload = {"k": "v"}
     fake = FakeOllamaClient(content=json.dumps(payload))
-    client = OllamaLlmClient(client=fake, model="gemma3:4b")
+    client = OllamaLlmClient(client=fake, model="gemma4:e2b-it-q4_K_M")
 
     result = await client.extract(prompt="hello", schema={})
 
@@ -229,13 +229,13 @@ async def test_dev_mode_debug_request_contains_model_prompt_schema() -> None:
 
     payload = {"k": "v"}
     fake = FakeOllamaClient(content=json.dumps(payload))
-    client = OllamaLlmClient(client=fake, model="gemma3:4b", mode="development")
+    client = OllamaLlmClient(client=fake, model="gemma4:e2b-it-q4_K_M", mode="development")
     schema = {"type": "object", "properties": {"k": {"type": "string"}}}
 
     result = await client.extract(prompt="probe", schema=schema)
 
     assert result["_debug"]["request"] == {
-        "model": "gemma3:4b",
+        "model": "gemma4:e2b-it-q4_K_M",
         "prompt": "probe",
         "schema": schema,
     }
@@ -248,7 +248,7 @@ async def test_dev_mode_debug_response_content_is_raw_string() -> None:
 
     raw_content = '{"k": "v"}'
     fake = FakeOllamaClient(content=raw_content)
-    client = OllamaLlmClient(client=fake, model="gemma3:4b", mode="development")
+    client = OllamaLlmClient(client=fake, model="gemma4:e2b-it-q4_K_M", mode="development")
 
     result = await client.extract(prompt="x", schema={})
 
@@ -273,7 +273,7 @@ async def test_llm_timeout_raises_llm_failed() -> None:
     # scheduler jitter on a loaded CI runner (typically <5ms) is far below
     # the gap, so the test cannot flip into a false-pass under load.
     fake = FakeOllamaClient(content='{"k": "v"}', sleep_seconds=0.100)
-    client = OllamaLlmClient(client=fake, model="gemma3:4b", timeout_seconds=0.010)
+    client = OllamaLlmClient(client=fake, model="gemma4:e2b-it-q4_K_M", timeout_seconds=0.010)
 
     with pytest.raises(LlmError):
         await client.extract(prompt="x", schema={})
@@ -292,7 +292,7 @@ async def test_no_timeout_argument_does_not_apply_wait_for() -> None:
     from tests.fakes.fake_ollama import FakeOllamaClient
 
     fake = FakeOllamaClient(content='{"k": "v"}')
-    client = OllamaLlmClient(client=fake, model="gemma3:4b")  # no timeout
+    client = OllamaLlmClient(client=fake, model="gemma4:e2b-it-q4_K_M")  # no timeout
 
     result = await client.extract(prompt="x", schema={})
 
@@ -315,7 +315,7 @@ async def test_llm_timeout_chains_from_timeout_error() -> None:
     # scheduler jitter on a loaded CI runner (typically <5ms) is far below
     # the gap, so the test cannot flip into a false-pass under load.
     fake = FakeOllamaClient(content='{"k": "v"}', sleep_seconds=0.100)
-    client = OllamaLlmClient(client=fake, model="gemma3:4b", timeout_seconds=0.010)
+    client = OllamaLlmClient(client=fake, model="gemma4:e2b-it-q4_K_M", timeout_seconds=0.010)
 
     with pytest.raises(LlmError) as excinfo:
         await client.extract(prompt="x", schema={})
@@ -337,7 +337,7 @@ async def test_extract_raises_json_decode_error_on_invalid_json_response() -> No
     from tests.fakes.fake_ollama import FakeOllamaClient
 
     fake = FakeOllamaClient(content="not valid json {")
-    client = OllamaLlmClient(client=fake, model="gemma3:4b")
+    client = OllamaLlmClient(client=fake, model="gemma4:e2b-it-q4_K_M")
 
     with pytest.raises(json.JSONDecodeError):
         await client.extract(prompt="x", schema={})
