@@ -226,6 +226,13 @@ warn_required_dynamic_aliases = true
 init_typed = true
 
 [tool.pytest.ini_options]
+# Floor mirrors the dev-group `pytest>=9.0` constraint so pytest itself
+# enforces the version requirement at collection time. Defense-in-depth
+# against a fresh environment resolving an older pytest (e.g., a developer
+# running `pytest` from a system Python without `uv run`), since the
+# `--import-mode=importlib` addopts route below depends on pytest 9.0+
+# rejecting the legacy `importmode` ini key.
+minversion = "9.0"
 # Implicit-mode async tests: function bodies marked `async def` are
 # treated as coroutines without an `@pytest.mark.asyncio` decorator.
 # Forward-looking for Phase 2-4 async worker tests. Paired with the
