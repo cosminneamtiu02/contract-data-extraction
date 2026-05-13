@@ -89,13 +89,41 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     The IDs are ordinal indices (sample_#0, sample_#1, ...) rather than
     filenames — filenames may contain personal data that we do not want to
     leak into pytest output, CI logs, or test report XML.
+
+    INVARIANT: this hook reads ``$EXTRACTION_OCR_SAMPLES_DIR`` at COLLECTION
+    TIME (before any function-scoped fixture runs). Tests MUST NOT mutate
+    that env var via ``monkeypatch.setenv`` / ``monkeypatch.delenv`` — by
+    the time the mutation happens the parametrise decision is already
+    frozen, so the per-test env value would silently diverge from the
+    parametrise dimension. The top-level ``isolated_env`` fixture clears
+    every ``EXTRACTION_*`` var — do NOT compose it with a test that
+    requests ``ocr_sample_pdf``.
     """
     if "ocr_sample_pdf" not in metafunc.fixturenames:
         return
 
     resolved = _resolve_samples_dir()
     if resolved is None:
-        metafunc.parametrize("ocr_sample_pdf", [], ids=[])
+        # Emit a single named skip case rather than `parametrize([], ids=[])`,
+        # which pytest renders as the misleading sentinel ID `[NOTSET]` with
+        # the internal reason "got empty parameter set for (ocr_sample_pdf)".
+        # The named skip surfaces the actual reason (env var unset/invalid).
+        metafunc.parametrize(
+            "ocr_sample_pdf",
+            [
+                pytest.param(
+                    None,
+                    marks=pytest.mark.skip(
+                        reason=(
+                            f"${SAMPLES_DIR_ENV_VAR} unset or not pointing at "
+                            f"a directory; see docs/superpowers/specs/"
+                            f"2026-05-12-phase-2-ocr-spec-deviations.md §17.3"
+                        ),
+                    ),
+                ),
+            ],
+            ids=["env_unset"],
+        )
         return
 
     pdfs = _enumerate_pdfs(resolved)
