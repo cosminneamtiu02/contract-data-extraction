@@ -100,6 +100,16 @@ naming the env-var mechanism — the env var is documented in
 (pre-Phase-2). After §17.3, the term is misleading drift. Same "doc sync
 after divergence" criterion as the Phase 6 directory qualifiers above.
 
+**Caveat (added cycle 4 of pass3 panel loop, see `docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md §17.42`):** the
+proposed replacement text above still lists `pipeline` and `http` as
+test-subdirectory categories — those directories do NOT exist on disk
+today (`tests/pipeline/` is Phase 4 task 4.x; `tests/http/` is Phase 5
+task 5.x). Applying the proposed text verbatim swaps one drift (the
+"golden tests" label) for another (nonexistent subdir names). When the
+user lands this queue, prefer one of:
+- `tests/ — unit, ocr, and fakes tests (pipeline + http added in Phase 4/5)`, OR
+- `tests/ — unit and ocr tests` with a follow-up sentence noting Phase 4/5 layouts add `pipeline/` and `http/`.
+
 ---
 
 ### 2026-05-13 — Mention Ollama runtime prerequisite in Quick start
@@ -166,5 +176,36 @@ Alternative: an SPDX-style annotation in README's frontmatter:
 SPDX scanners, GitHub's own license-detection UI) read both `LICENSE` and the
 README. Surfacing the license string from README is a 2-line addition with
 zero downside.
+
+---
+
+### 2026-05-13 — Mention Gemma 4 E2B in the description lead-in
+
+**Source:** Panel single-cycle pass3 cycle 4 standalone review, Lens 17
+(Documentation completeness, Minor). Routed to this file per CLAUDE.md
+`feedback-readme-queue`.
+
+**Affected README section:** Description lead-in (currently the first ~3
+lines of `README.md`, where the service is described as "a local LLM via
+Ollama" without naming the model).
+
+**Issue:** Phase 3 spec deviation `docs/superpowers/specs/2026-05-13-phase-3-llm-spec-deviations.md §17.3` codifies `gemma4:e2b-it-q4_K_M` as the **sole sanctioned LLM variant** project-wide. The README's description abstracts the LLM as "a local LLM via Ollama" with NO Gemma reference in the lead-in — a contributor reading the README in isolation would not learn that the project is intentionally pinned to Gemma 4 E2B until they read CLAUDE.md or the Phase 3 spec. This is a Workflow-Gap-Rule-#3 (audit-comment factual-drift) pattern: the §17.3 audit claimed it scrubbed the four explicit Gemma references AND set the sole-sanctioned-variant rule — but did not add the description-level mention to the README (because README is user-restricted and queue-only). Queue entry 3 (Ollama prerequisite) addresses the Quick start section; this entry addresses the description-level lead-in separately.
+
+**Proposed change:** Rewrite the description lead-in to name Gemma 4 E2B
+explicitly, e.g.:
+
+```markdown
+> Local HTTP service for German legal contract extraction. Scanned PDFs →
+> Docling OCR → **Gemma 4 E2B (instruction-tuned, q4_K_M quant) via Ollama** →
+> structured JSON. Single-process, single-tenant; targets Mac Mini M4
+> (16 GB RAM). See `docs/plan.md` for architecture and per-phase task tables.
+```
+
+Adjust wording to match the existing README voice if different.
+
+**Rationale:** Closes a description-level Gemma-mention drift after §17.3.
+A reader landing on README cold should learn the model commitment in the
+first paragraph rather than after reading the plan + CLAUDE.md +
+Phase 3 spec.
 
 ---
