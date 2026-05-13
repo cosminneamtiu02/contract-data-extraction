@@ -13,7 +13,7 @@ dependencies = [
     # Floor tracks the locked minor (fastapi 0.x is pre-1.0 where each
     # minor routinely breaks router signatures, lifespan API, and
     # response-model behavior). Same tracks-the-locked-minor convention
-    # applied to most runtime deps in this section.
+    # applied to every runtime dep in this section.
     "fastapi>=0.136",
     # Floor tracks the locked minor (uvicorn 0.x is pre-1.0; an older floor
     # would permit a fresh resolve to a uvicorn that no longer ships the
@@ -69,10 +69,13 @@ dev = [
     # could silently lock 6.x otherwise. Matches the tracks-the-locked-major
     # convention applied to pytest (>=9.0) and pytest-asyncio (>=1.0).
     "pytest-cov>=7.0",
-    # Floor pinned at 6.115; 6.x has no cross-major break
-    # currently — the specific 6.115 floor pins a defensive lower bound below
-    # which property-based test behavior has not been verified against this
-    # codebase.
+    # Floor pinned at 6.115 as a defensive lower bound: this is the originally-
+    # verified-against version for property-based test stability against this
+    # codebase. Locked version (6.152.6) is well ahead; no minor in 6.116–6.152
+    # has added or removed an ini key the test suite depends on, so the 6.115
+    # floor stays as a stable baseline rather than tracking-the-locked-minor.
+    # Distinct from the tracks-the-locked-minor pattern used for the other dev
+    # deps (where lock-skew indicates an actual behavioral break vector).
     "hypothesis>=6.115",
     # Floor tracks the locked minor (2.1.x). Cross-major (1.x → 2.x) was a
     # deliberate bump for new strict-mode keys; mypy 2.0 introduced breaking
