@@ -144,9 +144,14 @@ class OllamaLlmClient:
             The full extraction prompt (built by task-3.2 ``prompt.py``).
             Passed as a user-role message — Gemma does not support ``system``.
         schema:
-            JSON Schema dict (produced by ``ContractRecord.model_json_schema()``
-            in task-3.3). Passed verbatim as ``format`` to Ollama so the model
-            enforces schema-shaped output before we receive it.
+            User-supplied JSON Schema dict describing the target structure —
+            loaded at startup by ``load_domain_model`` in
+            ``extraction_service.config.domain_model`` (Phase 1 task 1.8).
+            Passed verbatim as ``format`` to Ollama so the model enforces
+            schema-shaped output before we receive it. Task-3.3
+            (``validate_extracted_data``) re-validates the parsed dict via
+            ``jsonschema.validate`` downstream — the wrapper is intentionally
+            schema-agnostic.
 
         Returns
         -------
@@ -189,6 +194,9 @@ class OllamaLlmClient:
             raise LlmError(msg) from e
         except ResponseError as e:
             if e.status_code == _HTTP_BAD_REQUEST and _is_context_overflow_error(e.error):
+                # `e.error` is Ollama-server text (not caller-supplied input) —
+                # safe to embed verbatim in the domain-exception message for
+                # internal logging; not intended to surface to HTTP responses.
                 msg = f"Ollama context overflow: {e.error}"
                 raise ContextOverflowError(msg) from e
             raise
@@ -196,6 +204,14 @@ class OllamaLlmClient:
         content: str = response.message.content
         result: dict[str, Any] = json.loads(content)
         if self._mode == "development":
+            # PII WARNING: `prompt` carries the full rendered OCR text of a
+            # contract — likely contains party names, addresses, tax IDs,
+            # bank details. Callers MUST strip the `_debug` key before
+            # logging or HTTP-serializing the result (e.g.
+            # `data.pop("_debug", None)` in the Phase 4 worker). Phase 5
+            # HTTP response shaping owns the final-serialization defense;
+            # see docs/superpowers/specs/2026-05-13-phase-3-llm-spec-deviations.md
+            # §17.2 item 4 for the re-evaluation point.
             result["_debug"] = {
                 "request": {
                     "model": self._model,
