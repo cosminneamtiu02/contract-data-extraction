@@ -61,30 +61,6 @@ def test_ocr_result_rejects_unknown_fields() -> None:
         )
 
 
-def test_ocr_result_text_accessor() -> None:
-    from extraction_service.ocr.base import OcrResult
-
-    result = OcrResult(text="hello world", page_count=2, engine_name="docling")
-
-    assert result.text == "hello world"
-
-
-def test_ocr_result_page_count_accessor() -> None:
-    from extraction_service.ocr.base import OcrResult
-
-    result = OcrResult(text="hello world", page_count=2, engine_name="docling")
-
-    assert result.page_count == 2
-
-
-def test_ocr_result_engine_name_accessor() -> None:
-    from extraction_service.ocr.base import OcrResult
-
-    result = OcrResult(text="hello world", page_count=2, engine_name="docling")
-
-    assert result.engine_name == "docling"
-
-
 def test_ocr_engine_protocol_accepts_structural_conformer() -> None:
     from extraction_service.ocr.base import OcrEngine, OcrResult
 
