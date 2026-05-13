@@ -120,7 +120,7 @@ async def test_fake_ollama_client_last_call_updated_on_repeated_calls() -> None:
     Verified via ``messages`` payload variance because the project pins
     a single sanctioned model variant (``gemma4:e2b-it-q4_K_M``); a
     second-call *model* variance would require a non-E2B identifier,
-    which is forbidden post-§17.3.
+    which is forbidden post-§17.3 of the Phase 3 LLM spec deviations log.
     """
     from tests.fakes.fake_ollama import FakeOllamaClient
 
