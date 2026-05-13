@@ -37,7 +37,7 @@ Why the test fixtures lagged behind the production default: `OllamaLlmClient.ext
 | `"predecessor-large-literal"` | `"gemma4:e2b-it-q4_K_M"` | Same target. The `12b` size existed only to provide a *second distinct value* for one test (see §3.4); that test is restructured rather than smuggling a non-E2B Gemma tag. |
 | `(swappable to E4B)` parenthetical in `docs/plan.md:21` | (removed) | E4B is no longer a sanctioned fallback. |
 | `(or e4b)` parenthetical in `docs/plan.md:199` ASCII diagram | (removed) | Same reason. |
-| "Don't switch from Gemma 4 to another family until you have F1 numbers on Gemma E4B" rule (`docs/plan.md:931`) | Rewritten to escalate via E2B-quant comparisons (q4_K_M → q8_0) instead of E2B → E4B size upgrade. | The "prove the current variant insufficient before switching family" intent is preserved; the path goes through quantisation rather than parameter count. |
+| "Don't switch from Gemma 4 to another family until you have F1 numbers on Gemma E4B" rule (`docs/plan.md:931`) | Rewritten to require F1 numbers on Gemma 4 E2B (Q4_K_M) itself before switching family. | The "prove the current variant insufficient before switching family" intent is preserved; under the strict E2B + strict Q4_K_M rule the only Gemma 4 option *is* Gemma 4 E2B (Q4_K_M), so the rule simplifies to a direct F1-on-current-variant check. |
 | `"Throughput inadequate on E2B/E4B"` trigger in `docs/plan.md:949` | `"Throughput inadequate on E2B"` | Single-variant scope. |
 
 **Alternatives rejected:**
@@ -58,7 +58,7 @@ Atomic per-concern, all on `chore/docs-gemma-4-migration`. Verification gate run
 **Edits:**
 - Line 21: `Ollama with `gemma4:e2b-it-q4_K_M` (swappable to E4B), ...` → `Ollama with `gemma4:e2b-it-q4_K_M`, ...`
 - Line 199 (ASCII diagram): `Model: gemma4:e2b-it-q4_K_M (or e4b), pre-warmed at service startup` → `Model: gemma4:e2b-it-q4_K_M, pre-warmed at service startup` (preserving the right-border column alignment of the box-drawing diagram).
-- Line 931: rewrite the rule from "Don't switch from Gemma 4 to another family until you have F1 numbers on Gemma E4B and confirmed they're insufficient." to "Don't switch from Gemma 4 E2B to another family until you have F1 numbers on Gemma 4 E2B at both q4_K_M and q8_0 quantisations and confirmed both are insufficient." The intent ("burn through Gemma 4 options before family swap") is preserved; the escalation path is quant-up, not size-up.
+- Line 931: rewrite the rule from "Don't switch from Gemma 4 to another family until you have F1 numbers on Gemma E4B and confirmed they're insufficient." to "Don't switch from Gemma 4 E2B to another family until F1 numbers confirm Gemma 4 E2B (Q4_K_M) is insufficient." The intent ("burn through Gemma 4 options before family swap") is preserved; under the strict E2B + strict Q4_K_M rule the only Gemma 4 option *is* Gemma 4 E2B (Q4_K_M), so the rule simplifies to a direct F1-on-current-variant check.
 - Line 949 (Stretch Items table): `Throughput inadequate on E2B/E4B` → `Throughput inadequate on E2B`.
 
 **Out of scope for this commit:**
@@ -91,7 +91,7 @@ Atomic per-concern, all on `chore/docs-gemma-4-migration`. Verification gate run
 **Edits:**
 - 11× `"predecessor-small-literal"` → `"gemma4:e2b-it-q4_K_M"` (mechanical).
 - 2× `"predecessor-large-literal"` in `test_fake_ollama_client_records_last_call_model` (lines 59, 61) → `"gemma4:e2b-it-q4_K_M"`. This test merely asserts that whatever `model` is passed shows up in `last_call["model"]`; collapsing to the production default preserves the signal.
-- **Restructure** `test_fake_ollama_client_last_call_updated_on_repeated_calls` (lines 115–123). The original demonstrates "last_call reflects the MOST RECENT call, not the first" using two distinct model strings (`predecessor-small-literal` then `predecessor-large-literal`) and asserts on `last_call["model"]`. With the strict E2B-only constraint, the model must be identical between the two calls, so the new version varies the **`messages` payload** between calls and asserts on `last_call["messages"][0]["content"]`. Same test intent (last_call gets overwritten on every call), no two-distinct-model-strings requirement.
+- **Restructure** `test_fake_ollama_client_last_call_updated_on_repeated_calls` (lines 115–123). The original demonstrates "last_call reflects the MOST RECENT call, not the first" using two distinct model strings (`predecessor-small-literal` then `predecessor-large-literal`) and asserts on `last_call["model"]`. With the strict E2B-only constraint, the model must be identical between the two calls, so the new version varies the **`messages` payload** between calls and asserts on `last_call["messages"]` (the full list). Same test intent (last_call gets overwritten on every call), no two-distinct-model-strings requirement.
 
 **Why restructure rather than use a synthetic non-Gemma alt-string:** the restructure is a smaller diff than the alt-string approach, preserves the test's intent verbatim, and keeps the codebase entirely free of non-E2B model identifiers — exactly what the strict constraint demands.
 
@@ -105,7 +105,7 @@ Atomic per-concern, all on `chore/docs-gemma-4-migration`. Verification gate run
 
 ## 4. Verification gate
 
-Run once after all five commits' edits are staged, before any commit is finalised, per [CLAUDE.md § Verification gate](../../../CLAUDE.md):
+Run once after the five implementation commits' edits are staged (this planning artifact itself landed earlier as commit `5963b40` and does not require gating on its own), before any commit is finalised, per [CLAUDE.md § Verification gate](../../../CLAUDE.md):
 
 ```bash
 unset VIRTUAL_ENV
@@ -134,11 +134,11 @@ If any gate step fails, fix in-place before committing. Do NOT commit a partiall
 | Risk | Severity | Mitigation |
 |------|----------|------------|
 | Test logic regression from the `last_call_updated_on_repeated_calls` restructure | Low | The restructured test still verifies the documented behaviour (`last_call` updates on every call); it just verifies via `messages` instead of `model`. The companion test `test_fake_ollama_client_records_last_call_model` continues to pin the `model`-recording behaviour. |
-| `docs/plan.md` rewrite of rule #14 obscures the original "burn through Gemma options before family-swap" intent | Low | The rewrite explicitly states the escalation path is now q4_K_M → q8_0 at the E2B size, preserving the spirit of "exhaust Gemma 4 before considering Qwen/Llama". |
+| `docs/plan.md` rewrite of rule #14 obscures the original "burn through Gemma options before family-swap" intent | Low | The rewrite states the precondition for a family switch is F1 numbers proving Gemma 4 E2B (Q4_K_M) insufficient — preserving the spirit of "exhaust Gemma 4 before considering Qwen/Llama" under a strict single-variant rule. |
 | Future need to actually use E4B re-emerges | Low–Medium | The strict-E2B commitment is recorded in §17.3 with the rationale. Reversing the commitment is a one-line plan.md re-edit + a follow-up §17.4 note; nothing in code blocks an E4B tag because `settings.model` is a plain `str`. |
 | Test runtime regression | None | Restructured test still uses `FakeOllamaClient`; no real Ollama process is touched. |
 
-**Rollback:** `git revert` the five commits in reverse order. The migration is structurally trivial; reverting restores prior state byte-for-byte.
+**Rollback:** `git revert` the five implementation commits in reverse order (the planning-artifact commit `5963b40` can be reverted separately or left as a historical record). The migration is structurally trivial; reverting restores prior state byte-for-byte.
 
 ---
 
@@ -155,7 +155,7 @@ Per [CLAUDE.md § When NOT to use the Superpowers flow](../../../CLAUDE.md): "on
 
 ## 7. Handoff (post-implementation)
 
-After the gate passes and all five commits land:
+After the gate passes and all five implementation commits land (the planning artifact at `5963b40` having already landed):
 
 1. `git push -u origin chore/docs-gemma-4-migration`
 2. `gh pr create --title "fix: migrate to Gemma 4 E2B (q4_K_M) as sole sanctioned model variant" --body "<...>"` — body summarises §1–§3 and includes the verification-gate result.
