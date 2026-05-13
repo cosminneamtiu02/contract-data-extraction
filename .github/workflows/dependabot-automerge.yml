@@ -36,9 +36,19 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
-      # Job-level scopes minted only when the if: evaluates true. gh pr
-      # merge --auto calls the enablePullRequestAutoMerge GraphQL mutation
-      # which requires BOTH contents:write AND pull-requests:write.
+      # Job-level scopes minted only when the if: evaluates true. The
+      # scopes here serve TWO consumers in this job:
+      #   1. `dependabot/fetch-metadata` (step `meta` below) reads PR-level
+      #      metadata to populate `steps.meta.outputs.update-type`. This
+      #      only requires `pull-requests: read` per upstream docs.
+      #   2. `gh pr merge --auto` (step "Enable auto-merge") calls the
+      #      `enablePullRequestAutoMerge` GraphQL mutation which requires
+      #      BOTH `contents: write` AND `pull-requests: write`.
+      # The `pull-requests: write` scope is a superset of the read-only
+      # need of (1), so a future contributor MUST NOT narrow these scopes
+      # to "read" thinking only fetch-metadata uses them — that would
+      # break the gh-pr-merge mutation. The write scopes belong to
+      # consumer (2); fetch-metadata's read need is satisfied incidentally.
       contents: write
       pull-requests: write
     # Check the PR author from the event payload (stays dependabot[bot]
@@ -50,7 +60,27 @@ jobs:
       github.event.pull_request.draft == false &&
       vars.DEPENDABOT_AUTOMERGE_ENABLED == 'true'
     steps:
+      # dependabot.yml documents the policy: "Major bumps now arrive as a
+      # separate, ungrouped PR per package that requires explicit review."
+      # Without this step the job-level `if:` only checked the PR author,
+      # draft state, and feature-var — it never inspected the update-type.
+      # A Dependabot-opened major-version PR (arriving outside the
+      # [patch, minor] groups, exactly as dependabot.yml envisions) would
+      # therefore pass the bot-author check and be queued for auto-merge,
+      # silently merging a breaking bump once CI turned green. The
+      # `update-type` output below closes that gap so the documented policy
+      # is mechanically enforced rather than documentation-only.
+      - name: Fetch Dependabot metadata
+        id: meta
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98  # v3.1.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Enable auto-merge
+        # Skip major-version bumps — they require explicit human review per
+        # the policy documented in .github/dependabot.yml. Patch and minor
+        # updates continue to auto-merge once all required status checks pass.
+        if: steps.meta.outputs.update-type != 'version-update:semver-major'
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

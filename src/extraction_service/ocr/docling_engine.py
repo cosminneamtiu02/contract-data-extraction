@@ -72,21 +72,27 @@ def _build_default_converter(ocr_config: OcrConfig) -> DocumentConverter:
     Downloads (and caches) the RapidAI/RapidOCR ONNX models via modelscope on
     first call.  Subsequent calls reuse the local cache at ``~/.cache``.
 
-    Model selection (PP-OCRv5 family) — see spec §17.16 for the rename audit:
+    Model selection (PP-OCRv5 family) — see the Phase 2 OCR spec deviations
+    file (``docs/superpowers/specs/2026-05-12-phase-2-ocr-spec-deviations.md``)
+    §17.16 for the rename audit:
 
     - **det**: ``ch_PP-OCRv5_det_mobile.onnx`` — bbox detector, language-
       agnostic. Validation on 5 PDFs (90 KB to 21 MB, 3 to 8 pages) showed
       mobile is 23-63x faster than the server variant with no observed
       content loss on this corpus (char-count parity 28,324 vs 28,364 on
       the side-by-side). Server is the fallback if a future PDF shows
-      detection-recall failures. See spec §17.17 for the swap rationale.
+      detection-recall failures. See the same Phase 2 OCR spec deviations
+      file (``2026-05-12-phase-2-ocr-spec-deviations.md``) §17.17 for the
+      swap rationale.
     - **rec**: ``latin_PP-OCRv5_rec_mobile.onnx`` — Latin-script character
       recognition. The Chinese server rec model is multilingual but mangles
       German diacritics (ä/ö/ü/ß); PP-OCRv5 ships no server-class Latin rec.
     - **cls**: ``ch_ppocr_mobile_v2.0_cls_mobile.onnx`` (PP-OCRv4 family).
       The v5 PP-LCNet cls models hardcode an 80x160 input shape and require
-      rapidocr ≥1.5's cls preprocessor; we pin ``rapidocr-onnxruntime==1.4.4``
-      whose preprocessor produces 48x192. The v4 cls accepts dynamic spatial
+      rapidocr ≥1.5's cls preprocessor; the project floors at
+      ``rapidocr-onnxruntime>=1.4`` and ``uv.lock`` ratchets to 1.4.4,
+      whose preprocessor produces 48x192. Any future ``uv lock`` bump past
+      the 1.4.x range must revisit this choice. The v4 cls accepts dynamic spatial
       dims (``[N, 3, ?, ?]``) so it is rapidocr-version-agnostic. This is
       historically the same file the plan §2.5 named as
       ``ch_ppocr_mobile_v2.0_cls_infer.onnx`` — upstream renamed

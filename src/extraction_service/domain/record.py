@@ -14,7 +14,7 @@ HTTP intake handler.
 from datetime import UTC, datetime
 from typing import Literal, Self
 
-from pydantic import BaseModel, Field, computed_field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from extraction_service.domain.stage import StageRecord, StageState
 
@@ -30,6 +30,9 @@ _STAGE_FIELDS: tuple[StageName, ...] = ("intake", "ocr", "data_parsing")
 
 class ContractRecord(BaseModel):
     """Mutable container for the three per-stage StageRecords of one contract."""
+
+    # extra="forbid": typo-rejection on contract construction; project convention.
+    model_config = ConfigDict(extra="forbid")
 
     intake: StageRecord = Field(default_factory=StageRecord)
     ocr: StageRecord = Field(default_factory=StageRecord)

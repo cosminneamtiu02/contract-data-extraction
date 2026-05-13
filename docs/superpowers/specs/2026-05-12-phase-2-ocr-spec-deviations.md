@@ -1330,3 +1330,92 @@ the default with a known-good escape hatch.
 - This file (§17.17 entry).
 
 ---
+
+## §17.18 — `from None` reversal of §17.15 re-examined: post-merge re-add audit trail
+
+**Date:** 2026-05-13 (standalone pass3 single-cycle panel review, Lens 01
+Important).
+
+**Context — §17.15's original decision:**
+
+§17.15 records the cycle-4 terminal call on the
+`chore/phase-2-ocr-review-fixes-2026-05-13` review loop: the cycle-1
+addition of `from None` on the non-SUCCESS `OcrError` raise in
+`docling_engine.py` was reversed in commit `fe8a6d5` under the heading
+"drop misleading `from None` on non-SUCCESS conversion raise". The
+rationale was that TRY200 (ruff's "avoid raising vanilla Exception from
+except handler without chaining") only fires inside `except` handlers, so
+the `from None` was syntactically legal but semantically misleading — it
+implies a prior exception is being explicitly suppressed, which is not the
+case for the status-check path that raises unconditionally at the end of a
+try/except block.
+
+**Drift detected — what landed on `main` after that reversal:**
+
+Two commits on the post-merge standalone-review branch
+`chore/panel-review-fixes-2026-05-13` re-introduced `from None` on **both**
+the `OcrError` (status-based path) and `OcrEmptyOutputError` (empty-output
+path) raises in `src/extraction_service/ocr/docling_engine.py`:
+
+- Commit `116bfaa` — recorded in CI/CD spec
+  `2026-05-11-ci-cd-scaffolding-design.md` §17.37.
+- Commit `d1673de` — recorded in CI/CD spec
+  `2026-05-11-ci-cd-scaffolding-design.md` §17.38.
+
+Both commits were on `chore/panel-review-fixes-2026-05-13` and landed on
+`main` via PR #15 (`dfe66fd`). `origin/main` HEAD `6791448` therefore
+carries `from None` on both raises — the opposite of §17.15's "terminal"
+state.
+
+**Why the re-add was correct:**
+
+The CI/CD spec §17.37 + §17.38 entries (in
+`2026-05-11-ci-cd-scaffolding-design.md`) record the reasoning in full;
+the short form here:
+
+- The `OcrError` raise in the status-check path and the `OcrEmptyOutputError`
+  raise in the empty-output path both occur **inside a `try/except` block**
+  that caught a real exception. Without `from None`, Python's implicit
+  exception chaining (`__context__`) would attach that caught exception to
+  the newly raised error — exposing an irrelevant internal exception to
+  callers and in tracebacks. The `from None` suppression is therefore
+  semantically correct: these are **domain-layer errors with no meaningful
+  underlying Python exception to surface**, and `from None` is the standard
+  CPython idiom for explicit suppression.
+- The cycle-4 §17.15 framing ("outside an except block") was factually
+  incorrect for these two specific raise sites: both sit inside `except`
+  handlers. That error in the cycle-4 analysis is what the CI/CD spec
+  §17.37 + §17.38 panel cycles subsequently caught and corrected.
+
+**How to interpret §17.15 going forward:**
+
+§17.15's "reversal" entry (`fe8a6d5`) reflects the cycle-4 analysis at the
+time it was written and should be read as **superseded** by the re-add
+evidence in the CI/CD spec. A reader arriving at §17.15 cold and wondering
+why `from None` is back in the source code should:
+
+1. Follow the cross-pointer to
+   `docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md` §17.37
+   for the first `from None` re-add and its rationale.
+2. Then §17.38 of the same file for the second `from None` re-add
+   (OcrEmptyOutputError path) and final confirmation.
+3. Then this §17.18 for the audit-trail summary tying the two specs
+   together.
+
+**Cross-references (per CLAUDE.md "qualify cross-file references with the
+filename to disambiguate" rule):**
+
+- `docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md` §17.37 —
+  first `from None` re-add (OcrError status-based raise), commit `116bfaa`.
+- `docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md` §17.38 —
+  second `from None` re-add (OcrEmptyOutputError empty-output raise),
+  commit `d1673de`.
+- `docs/superpowers/specs/2026-05-12-phase-2-ocr-spec-deviations.md` §17.15
+  — the superseded "terminal reversal" entry this §17.18 corrects.
+
+**Files touched:**
+
+- This file (§17.18 entry, append-only — §17.15 not modified per
+  CLAUDE.md "do NOT retroactively rewrite earlier subsections" rule).
+
+---

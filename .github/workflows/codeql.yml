@@ -35,6 +35,12 @@ concurrency:
 
 jobs:
   analyze:
+    # WARNING: this `name:` materialises to status-check contexts
+    # `Analyze (python)` and `Analyze (actions)` via the matrix expansion.
+    # Both names are part of the branch-protection ruleset's required-status-
+    # check contract (see CLAUDE.md project-state-notes for the authoritative
+    # list). Do NOT rename without updating the ruleset in lock-step or
+    # `gh pr merge --auto` will hang on "Expected — waiting for status."
     name: Analyze (${{ matrix.language }})
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -57,6 +63,7 @@ jobs:
         uses: github/codeql-action/init@68bde559dea0fdcac2102bfdf6230c5f70eb485e  # v4.35.4
         with:
           languages: ${{ matrix.language }}
+          build-mode: none  # Explicit none for both python (default-aligned, default-shift-proofed) and actions (only legal value)
           # Default query suite ("security"). No paths-ignore on day one;
           # revisit if signal-to-noise becomes problematic.
 

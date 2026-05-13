@@ -25,7 +25,10 @@ class ContractJob(BaseModel):
     dict they passed in after construction.
     """
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(
+        frozen=True,
+        extra="forbid",  # extra="forbid": typo-rejection at Phase 4/5 intake boundary; mirrors the cycle-1 ContractRecord decision.
+    )
 
     contract_id: UUID
     pdf_bytes: bytes

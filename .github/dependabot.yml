@@ -6,11 +6,16 @@
 #     pattern but is a fastapi transitive — Dependabot won't open updates for it
 #     directly. `uvicorn[standard]` transitives (httptools, uvloop, watchfiles)
 #     are NOT declared deps either; they're pulled by the `standard` extra.
+#     Patterns retained as forward-compatibility scaffolding in case any of
+#     these are ever pinned as direct deps in `[project]` later.
 #   - pydantic:      pydantic + pydantic-settings (lockstep releases)
 #   - pytest:        pytest + plugins (aligned releases)
 #   - dev-tools:     ruff + mypy + pip-audit + detect-secrets + types-* + pre-commit
 #   - runtime-singletons: structlog + httpx + ollama + jsonschema + pyyaml
 #   - ml-stack:      docling + rapidocr-onnxruntime + modelscope (heavy transitive trees)
+#   - pip-catchall:  backstop for any future declared pip dep not matching a named
+#     group; retains the [patch, minor] update-types filter so untracked majors
+#     don't slip through auto-merge.
 #
 # `update-types: [patch, minor]` on every pip group: a green-CI MAJOR bump
 # would otherwise be eligible for the auto-merge workflow without human
@@ -61,10 +66,11 @@ updates:
           - "pip-audit"
           - "detect-secrets"
           - "types-*"
-          # pre-commit is a dev dep too; without listing it here a future
-          # Dependabot pre-commit pip bump would arrive UNGROUPED and bypass
-          # the `update-types: [patch, minor]` major-bump gate that the file
-          # header documents as the intended posture.
+          # pre-commit is a dev dep too; listed explicitly so a Dependabot
+          # pre-commit pip bump groups WITH its sibling dev tools
+          # (ruff/mypy/types-*) rather than landing in pip-catchall,
+          # preserving atomic-dev-update semantics. The major-bump gate is
+          # now redundantly provided by pip-catchall too.
           - "pre-commit"
       runtime-singletons:
         update-types: ["patch", "minor"]

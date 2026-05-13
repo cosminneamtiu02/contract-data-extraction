@@ -1,12 +1,12 @@
 """Tests for the Ollama LLM client wrapper (plan §6.5 tasks 3.1, 3.5, 3.6, 3.7).
 
 Behavioural coverage:
-- Client calls the configured model name (task 3.1).
-- Client passes the prompt as a user-role message (task 3.1).
-- Client passes the schema dict as the ``format`` argument (task 3.1).
-- Client includes ``temperature=0`` in ``options`` (task 3.1).
+- Full canonical Ollama chat-call payload shape (model, messages, format,
+  options) is emitted correctly (task 3.1).
 - Client parses the response's ``.message.content`` JSON and returns a dict
   (task 3.1).
+- ``SIDE_CHANNEL_KEYS`` public-API frozenset contains ``"_debug"``
+  (Phase 4 strip-set contract).
 - Client maps ollama context-overflow errors to ``ContextOverflowError``
   (task 3.5).
 - Client re-raises non-overflow ``ollama.ResponseError`` instances (task 3.5).
@@ -29,35 +29,15 @@ import pytest
 from ollama import ResponseError
 
 
-async def test_ollama_client_calls_correct_endpoint() -> None:
-    """Wrapper sends the chat request to the configured model name."""
-    from extraction_service.llm.client import OllamaLlmClient
-    from tests.fakes.fake_ollama import FakeOllamaClient
+async def test_ollama_client_emits_canonical_chat_call_shape() -> None:
+    """Pins the full canonical Ollama chat-call payload shape.
 
-    payload = {"party": "Acme GmbH"}
-    fake = FakeOllamaClient(content=json.dumps(payload))
-    client = OllamaLlmClient(client=fake, model="gemma4:e2b-it-q4_K_M")
-    await client.extract(prompt="extract", schema={"type": "object"})
-
-    assert fake.last_call["model"] == "gemma4:e2b-it-q4_K_M"
-
-
-async def test_ollama_client_passes_prompt_as_user_message() -> None:
-    """Wrapper passes the prompt text wrapped in a user-role message."""
-    from extraction_service.llm.client import OllamaLlmClient
-    from tests.fakes.fake_ollama import FakeOllamaClient
-
-    payload = {"clause": "§3"}
-    fake = FakeOllamaClient(content=json.dumps(payload))
-    client = OllamaLlmClient(client=fake, model="gemma4:e2b-it-q4_K_M")
-    await client.extract(prompt="analyse this contract", schema={})
-
-    messages = fake.last_call["messages"]
-    assert messages == [{"role": "user", "content": "analyse this contract"}]
-
-
-async def test_ollama_client_passes_schema_as_format() -> None:
-    """Wrapper passes the schema dict verbatim as the ``format`` argument."""
+    Replaces four sibling tautologies that re-described single fields of
+    this dict (calls_correct_endpoint, passes_prompt_as_user_message,
+    passes_schema_as_format, sets_temperature_zero); the structural-equality
+    form catches any silent reorder, rename, or addition that the four prior
+    tests would have missed.
+    """
     from extraction_service.llm.client import OllamaLlmClient
     from tests.fakes.fake_ollama import FakeOllamaClient
 
@@ -65,22 +45,14 @@ async def test_ollama_client_passes_schema_as_format() -> None:
     payload = {"name": "Test"}
     fake = FakeOllamaClient(content=json.dumps(payload))
     client = OllamaLlmClient(client=fake, model="gemma4:e2b-it-q4_K_M")
-    await client.extract(prompt="extract", schema=schema)
+    await client.extract(prompt="analyse this contract", schema=schema)
 
-    assert fake.last_call["format"] == schema
-
-
-async def test_ollama_client_sets_temperature_zero() -> None:
-    """Wrapper sets ``temperature=0`` in options for deterministic output."""
-    from extraction_service.llm.client import OllamaLlmClient
-    from tests.fakes.fake_ollama import FakeOllamaClient
-
-    payload = {"result": True}
-    fake = FakeOllamaClient(content=json.dumps(payload))
-    client = OllamaLlmClient(client=fake, model="gemma4:e2b-it-q4_K_M")
-    await client.extract(prompt="extract", schema={})
-
-    assert fake.last_call["options"] == {"temperature": 0}
+    assert fake.last_call == {
+        "model": "gemma4:e2b-it-q4_K_M",
+        "messages": [{"role": "user", "content": "analyse this contract"}],
+        "format": schema,
+        "options": {"temperature": 0},
+    }
 
 
 async def test_ollama_client_returns_parsed_json_dict() -> None:
@@ -161,6 +133,18 @@ async def test_http_400_without_overflow_keywords_re_raises_unchanged() -> None:
 
     with pytest.raises(ResponseError):
         await client.extract(prompt="x", schema={})
+
+
+async def test_side_channel_keys_pins_debug_membership() -> None:
+    """Pins the SIDE_CHANNEL_KEYS public-API frozenset's `_debug` membership.
+
+    Phase 4 strip-set callers depend on this; a rename of `_debug` in
+    client.py without a parallel update here would silently break the
+    strip loop.
+    """
+    from extraction_service.llm import SIDE_CHANNEL_KEYS
+
+    assert "_debug" in SIDE_CHANNEL_KEYS
 
 
 async def test_dev_mode_captures_raw_request_and_response() -> None:
@@ -323,21 +307,28 @@ async def test_llm_timeout_chains_from_timeout_error() -> None:
     assert isinstance(excinfo.value.__cause__, TimeoutError)
 
 
-async def test_extract_raises_json_decode_error_on_invalid_json_response() -> None:
-    """Wrapper propagates ``json.JSONDecodeError`` when content is not valid JSON.
+async def test_extract_raises_llm_error_wrapping_json_decode_error_on_invalid_json_response() -> (
+    None
+):
+    """Malformed JSON from Ollama is surfaced as ``LlmError`` (wraps ``JSONDecodeError``).
 
     Pins the documented raise contract on ``OllamaLlmClient.extract``: if
     Ollama returns content that fails ``json.loads`` (e.g. model truncation
-    mid-token despite ``format`` enforcement), the wrapper does NOT catch or
-    map this — ``json.JSONDecodeError`` propagates verbatim so upstream
-    callers can decide how to recover (retry, log, surface as schema-invalid).
-    Counterpart to the docstring at ``client.py``'s ``extract`` Raises block.
+    mid-token despite ``format=schema`` enforcement), the wrapper catches
+    ``json.JSONDecodeError`` and re-raises it as ``LlmError`` so Phase 4's
+    ``except ExtractionError`` catch-all covers it and ``retry_extraction``
+    (keyed on ``ExtractionError.code``) can retry the transient parse failure
+    as an ``llm_failed`` code. The original ``JSONDecodeError`` is chained via
+    ``raise … from e`` and accessible on ``excinfo.value.__cause__``.
     """
+    from extraction_service.domain.errors import LlmError
     from extraction_service.llm.client import OllamaLlmClient
     from tests.fakes.fake_ollama import FakeOllamaClient
 
     fake = FakeOllamaClient(content="not valid json {")
     client = OllamaLlmClient(client=fake, model="gemma4:e2b-it-q4_K_M")
 
-    with pytest.raises(json.JSONDecodeError):
+    with pytest.raises(LlmError) as excinfo:
         await client.extract(prompt="x", schema={})
+
+    assert isinstance(excinfo.value.__cause__, json.JSONDecodeError)
