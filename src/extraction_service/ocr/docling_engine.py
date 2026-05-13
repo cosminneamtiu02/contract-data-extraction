@@ -89,8 +89,10 @@ def _build_default_converter(ocr_config: OcrConfig) -> DocumentConverter:
       German diacritics (ä/ö/ü/ß); PP-OCRv5 ships no server-class Latin rec.
     - **cls**: ``ch_ppocr_mobile_v2.0_cls_mobile.onnx`` (PP-OCRv4 family).
       The v5 PP-LCNet cls models hardcode an 80x160 input shape and require
-      rapidocr ≥1.5's cls preprocessor; we pin ``rapidocr-onnxruntime==1.4.4``
-      whose preprocessor produces 48x192. The v4 cls accepts dynamic spatial
+      rapidocr ≥1.5's cls preprocessor; the project floors at
+      ``rapidocr-onnxruntime>=1.4`` and ``uv.lock`` ratchets to 1.4.4,
+      whose preprocessor produces 48x192. Any future ``uv lock`` bump past
+      the 1.4.x range must revisit this choice. The v4 cls accepts dynamic spatial
       dims (``[N, 3, ?, ?]``) so it is rapidocr-version-agnostic. This is
       historically the same file the plan §2.5 named as
       ``ch_ppocr_mobile_v2.0_cls_infer.onnx`` — upstream renamed
