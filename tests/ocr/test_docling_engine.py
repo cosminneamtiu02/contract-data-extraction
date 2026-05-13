@@ -33,7 +33,7 @@ from extraction_service.config.run_config import OcrConfig
 from extraction_service.domain.errors import OcrEmptyOutputError, OcrError
 from extraction_service.ocr.docling_engine import DoclingOcrEngine
 
-from .conftest import word_recall
+from ._metrics import word_recall
 
 if TYPE_CHECKING:
     from collections.abc import Callable

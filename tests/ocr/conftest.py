@@ -29,7 +29,6 @@ so signal-leakage in CI logs is avoided.
 from __future__ import annotations
 
 import os
-import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -176,27 +175,8 @@ def baseline_for() -> Callable[[Path], str | None]:
     return _load
 
 
-def word_recall(baseline: str, ocr_output: str, min_word_len: int = 4) -> float:
-    """Word-level recall: |baseline_words ∩ ocr_words| / |baseline_words|.
-
-    Computes case-insensitive set intersection over words at least
-    ``min_word_len`` characters long, which filters out conjunctions /
-    prepositions (in German: ``und``, ``der``, ``die``, ``das``) whose
-    presence/absence has no diagnostic value for OCR quality. Score in
-    [0, 1]; 1.0 means every long word in the baseline appears somewhere in
-    the OCR output.
-
-    Choice of metric (rather than full equality or Levenshtein on full text):
-    OCR routinely splits hyphenated words at line breaks, merges spaces, and
-    occasionally swaps similar glyphs (l/I, 0/O); a per-line or per-character
-    metric fails on cosmetic differences that aren't real OCR misses.
-    Word-set recall is robust to those and gives a single number that's
-    debuggable when it fails (the failure can name which baseline words are
-    missing from the OCR output).
-    """
-    pattern = rf"\w{{{min_word_len},}}"
-    baseline_words = set(re.findall(pattern, baseline.lower()))
-    ocr_words = set(re.findall(pattern, ocr_output.lower()))
-    if not baseline_words:
-        return 1.0  # nothing to recall against → trivially perfect
-    return len(baseline_words & ocr_words) / len(baseline_words)
+# word_recall now lives in tests/ocr/_metrics.py — it is a utility function,
+# not a pytest fixture or hook, and keeping it in conftest.py confused the
+# module's role. Callers import it explicitly from `._metrics`.
+# Moved per Lens 06 + Lens 14 (convergent) of cycle-1 review on
+# chore/phase-2-ocr-review-fixes-2026-05-13.

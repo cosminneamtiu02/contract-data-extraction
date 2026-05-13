@@ -12,7 +12,7 @@ passing to failing.
 
 from __future__ import annotations
 
-from .conftest import word_recall
+from ._metrics import word_recall
 
 
 def test_word_recall_returns_one_for_empty_baseline() -> None:
