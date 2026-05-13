@@ -313,7 +313,8 @@ exclude_lines = ["if TYPE_CHECKING:"]
 fail_under = 80
 # `show_missing = true` here only takes effect when `coverage report` is invoked
 # directly (e.g., post-test analysis); pytest-cov ignores this key and uses the
-# CLI `--cov-report=term-missing` flag in ci.yml:96 instead. Kept for forward
-# compatibility with direct coverage.py usage.
+# CLI `--cov-report=term-missing` flag in the Tests step's `run:` command in
+# .github/workflows/ci.yml instead. Kept for forward compatibility with direct
+# coverage.py usage.
 show_missing = true
 skip_empty = true
