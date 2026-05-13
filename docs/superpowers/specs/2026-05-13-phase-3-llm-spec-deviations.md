@@ -261,3 +261,66 @@ divergence between a migration plan's described commit text and what
 actually lands (because a user directive arrived mid-migration), update
 the migration plan to match the landed state — the plan is an as-built
 record, not an aspirational draft.
+
+---
+
+## §17.5 — PR #14 squash subject under-stated material constituents (cross-reference)
+
+**Date:** 2026-05-13 (standalone panel single-cycle pass3 review against `main`).
+
+**Source:** Lens 02 (Commit-message coverage) — Important finding.
+
+**What the squash subject claimed:**
+
+```
+feat(phase-3): LLM layer (Ollama client + prompt + schema + retry + timeout)
+```
+
+**What the 22-commit squash actually delivered beyond the subject:**
+
+1. **`SIDE_CHANNEL_KEYS: frozenset[str]` public export** in
+   `src/extraction_service/llm/__init__.py`. This is the Phase 4
+   strip-set helper that downstream workers use to pop side-channel
+   metadata keys (e.g. `_debug`) before passing the dict to the
+   validator. The subject parenthetical names five components but
+   omits this public symbol.
+
+2. **`ContextOverflowError` domain-error mapping** in
+   `src/extraction_service/domain/errors.py` and
+   `src/extraction_service/llm/client.py` — including the private
+   `_is_context_overflow_error` heuristic helper. `ContextOverflowError`
+   is a dedicated domain exception (distinct from the generic `LlmError`)
+   with its own observable public behaviour: callers can `except
+   ContextOverflowError` to discriminate prompt-too-large failures from
+   transient network errors.
+
+3. **Dev-mode `_debug` block and `ClientMode` literal alias** — a new
+   constructor parameter (`mode: ClientMode = "production"`) and a new
+   conditional top-level key in the `dict[str, Any]` returned by
+   `extract()`. Both constitute new public surface for dev/test callers.
+
+**Why this matters:**
+
+A Phase 4 implementer grepping squash subjects for `SIDE_CHANNEL_KEYS`,
+`_debug`, or `ContextOverflowError` via `git log --oneline --grep
+"SIDE_CHANNEL_KEYS"` would not find PR #14 without this cross-reference.
+All three items above are Phase 4 integration points — the strip-set
+helper and the error class appear explicitly in the Phase 4 plan task
+table. The spec index entry closes the grep gap.
+
+**Remediation status:**
+
+The commit message on `main` is immutable. Per CLAUDE.md ("historical
+immutable items on shared branches" → SKIP the commit-message fix), the
+correct remediation route is this `§17.N` cross-reference in the Phase 3
+spec so that future grep-by-spec-index finds the under-stated
+constituents. This entry IS the audit-trail remediation; no further
+action on the commit message itself is warranted.
+
+**Forward note:**
+
+Future phase squashes should enumerate all material new public surfaces
+(exported symbols, new domain exceptions, new constructor parameters) in
+the subject parenthetical. The existing PR-body "What's in this PR"
+section is the right draft source: if a bullet there names a symbol not
+visible in the subject, add it to the parenthetical before merging.
