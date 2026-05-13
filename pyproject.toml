@@ -69,13 +69,15 @@ dev = [
     # could silently lock 6.x otherwise. Matches the tracks-the-locked-major
     # convention applied to pytest (>=9.0) and pytest-asyncio (>=1.0).
     "pytest-cov>=7.0",
-    # Floor pinned at 6.115 as a defensive lower bound: this is the originally-
-    # verified-against version for property-based test stability against this
-    # codebase. Locked version (6.152.6) is well ahead; no minor in 6.116–6.152
-    # has added or removed an ini key the test suite depends on, so the 6.115
-    # floor stays as a stable baseline rather than tracking-the-locked-minor.
-    # Distinct from the tracks-the-locked-minor pattern used for the other dev
-    # deps (where lock-skew indicates an actual behavioral break vector).
+    # Floor pinned at 6.115 as a forward-looking enabler floor: hypothesis
+    # is declared in the dev set so that a future property-based test author
+    # can add `@given(...)` decorators without first adding the dep. There
+    # are NO `hypothesis` / `@given` usages in `src/` or `tests/` today
+    # (`grep -rln 'hypothesis\|@given' src tests` returns empty). The 6.115
+    # floor is a deliberate stable baseline (lock currently 6.152.6) rather
+    # than tracking-the-locked-minor — once a real consumer lands, revisit
+    # whether to bump the floor to whatever version that consumer actually
+    # needs vs. keep this baseline.
     "hypothesis>=6.115",
     # Floor tracks the locked minor (2.1.x). Cross-major (1.x → 2.x) was a
     # deliberate bump for new strict-mode keys; mypy 2.0 introduced breaking
@@ -83,10 +85,13 @@ dev = [
     # the pytest-asyncio floor fix.
     "mypy>=2.1",
     # Floor tracks the locked minor (0.15.x); ruff uses 0.x versioning where
-    # every minor is effectively a major bump. The >=0.9 floor permitted a
-    # fresh-machine resolve to 0.9.x, which predates the PL and ANN rule
-    # families added in cycle 2 — a 0.9.x resolve would silently drop those
-    # lint gates. Same tracks-the-locked-minor convention as mypy (>=2.1).
+    # every minor is effectively a major bump. The historical >=0.9 floor
+    # permitted a fresh-machine resolve to a ruff before the 0.13 release
+    # that renamed the `TCH` category prefix to `TC` (see this file's
+    # `[tool.ruff.lint]` select list and `docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md` §17.39) and before the per-file-ignore
+    # syntax the test suite now relies on. A 0.9.x resolve would silently
+    # warn-then-drop those lint gates. Same tracks-the-locked-minor
+    # convention as mypy (>=2.1).
     "ruff>=0.15",
     # Stub floors mirror the runtime floors in [project].dependencies so a
     # future lockfile regeneration on a fresh machine can't drift the stub
@@ -205,11 +210,13 @@ mypy_path = "src"
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-# rapidocr and modelscope are genuinely stub-less (no py.typed marker);
-# docling ships py.typed (verified at the locked version) so mypy resolves
-# it natively — not listed here. Avoid pinning a specific docling version
-# in this comment; the version moves with Dependabot bumps and the override
-# list itself is the authoritative source of what is/isn't stub-less.
+# rapidocr and modelscope are genuinely stub-less (no py.typed marker).
+# docling ships py.typed natively (verified against locked docling 2.93.0
+# on 2026-05-13 via `unzip -l $(uv pip show docling | grep Location | awk '{print $2}')/docling-2.93.0.dist-info/RECORD | grep py.typed`)
+# so mypy resolves it without a stub override. The override list itself
+# is the authoritative source of what is and isn't stub-less; if a future
+# Dependabot bump drops py.typed shipping in docling, mypy will fail
+# strict mode and a new entry will need to be added here.
 module = ["rapidocr.*", "modelscope.*"]
 ignore_missing_imports = true
 
