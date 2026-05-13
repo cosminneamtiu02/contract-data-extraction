@@ -46,7 +46,7 @@ if TYPE_CHECKING:
 WORD_RECALL_THRESHOLD = 0.85
 
 
-def test_docling_engine_construct() -> None:
+def test_docling_engine_stores_converter_after_construction() -> None:
     """DoclingOcrEngine stores a non-None DocumentConverter after construction.
 
     Uses the constructor-injectable ``_converter_factory`` kwarg (approach A

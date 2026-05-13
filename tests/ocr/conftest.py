@@ -158,12 +158,16 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
 
 @pytest.fixture
 def baseline_for() -> Callable[[Path], str | None]:
-    """Return a helper that loads the sibling .txt baseline for a given PDF.
+    """Return a helper callable that loads the sibling .txt baseline for a given PDF.
 
-    Yields None when the baseline file does not exist — the caller then
-    falls back to a weaker smoke assertion rather than failing the test.
+    The returned callable returns ``None`` when the baseline file does not
+    exist — the caller then falls back to a weaker smoke assertion rather
+    than failing the test. (The fixture itself returns the callable, not the
+    file content — it is not a generator fixture and does not yield.)
     Baselines are produced by Claude reading each PDF directly (plan
-    deviation §17.3); they are never committed to git.
+    deviation §17.3 in
+    ``docs/superpowers/specs/2026-05-12-phase-2-ocr-spec-deviations.md``);
+    they are never committed to git.
     """
 
     def _load(pdf_path: Path) -> str | None:
