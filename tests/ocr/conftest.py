@@ -37,7 +37,7 @@ import pytest
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-SAMPLES_DIR_ENV_VAR = "EXTRACTION_OCR_SAMPLES_DIR"
+_SAMPLES_DIR_ENV_VAR = "EXTRACTION_OCR_SAMPLES_DIR"
 
 
 def _resolve_samples_dir() -> Path | None:
@@ -47,7 +47,7 @@ def _resolve_samples_dir() -> Path | None:
     skip the test or proceed with a weaker assertion. Fixtures translate
     None into a pytest skip.
     """
-    raw = os.environ.get(SAMPLES_DIR_ENV_VAR)
+    raw = os.environ.get(_SAMPLES_DIR_ENV_VAR)
     if not raw:
         return None
     # `.resolve()` canonicalises symlinks AND relative-path components so a
@@ -114,7 +114,7 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
                     None,
                     marks=pytest.mark.skip(
                         reason=(
-                            f"${SAMPLES_DIR_ENV_VAR} unset or not pointing at "
+                            f"${_SAMPLES_DIR_ENV_VAR} unset or not pointing at "
                             f"a directory; see docs/superpowers/specs/"
                             f"2026-05-12-phase-2-ocr-spec-deviations.md §17.3"
                         ),
@@ -141,7 +141,7 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
                     None,
                     marks=pytest.mark.skip(
                         reason=(
-                            f"${SAMPLES_DIR_ENV_VAR} points at {resolved}, "
+                            f"${_SAMPLES_DIR_ENV_VAR} points at {resolved}, "
                             f"which exists but contains zero *.pdf files; see "
                             f"docs/superpowers/specs/"
                             f"2026-05-12-phase-2-ocr-spec-deviations.md §17.3"
