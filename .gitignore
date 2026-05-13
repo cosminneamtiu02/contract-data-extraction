@@ -79,6 +79,13 @@ Thumbs.db
 *.onnx
 models/
 data/
+# modelscope can deposit snapshot dirs inside the repo when MODELSCOPE_CACHE
+# (or repo-relative MODEL_PATH) is set during a test run. The default cache
+# lives at ~/.cache/modelscope and is safely outside the tree, but the override
+# env vars are commonly used during model-version experiments (Lens 19 of
+# cycle-1 on chore/phase-2-ocr-review-fixes flagged the gap). Defense in depth.
+.modelscope/
+modelscope_hub_snapshot/
 
 # Phase 2 OCR sample contracts — kept LOCAL ONLY (not committed to the public
 # repo because the source PDFs are real-or-anonymised German legal contracts
