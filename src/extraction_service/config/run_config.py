@@ -30,6 +30,12 @@ RetryOnCode = Literal[
     "llm_failed",
     "context_overflow",
     "schema_invalid",
+    # Pipeline-layer errors added in Phase 4 (task 4.1 ResultStore).
+    # These are deterministic store-state errors — they are never valid retry
+    # triggers — but the drift-guard test requires all ExtractionError subclass
+    # codes to appear here for type-completeness (mirrors the OCR-code pattern).
+    "contract_not_found",
+    "contract_already_exists",
 ]
 
 # OCR errors are deterministic on the input (plan §3.3) — retrying them is a
