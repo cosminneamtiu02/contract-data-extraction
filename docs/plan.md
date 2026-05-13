@@ -928,7 +928,7 @@ Each phase is **its own git worktree** so phases can be reviewed/merged independ
 11. Don't add OpenTelemetry until you've observed a problem logs don't surface.
 12. Don't add SQLite persistence until restart loss becomes a real operational issue.
 13. Don't add multi-model concurrent loading until you upgrade to ≥24 GB hardware.
-14. Don't switch from Gemma 4 E2B to another family until F1 numbers confirm Gemma 4 E2B (Q4_K_M) is insufficient.
+14. Don't switch from Gemma 4 E2B (q4_K_M) to ANY other model variant — different Gemma quant, different Gemma family (E4B etc.), or different model family entirely — without first proposing a written §17 deviation in `docs/superpowers/specs/2026-05-13-phase-3-llm-spec-deviations.md` that reverses §17.3. Per §17.3, Gemma 4 E2B (`gemma4:e2b-it-q4_K_M`) is the SOLE sanctioned variant; F1 numbers alone do not authorize a swap — a spec deviation does.
 15. Don't add HTTPS until the service moves off localhost.
 
 ---
@@ -944,9 +944,9 @@ Each phase is **its own git worktree** so phases can be reviewed/merged independ
 | OpenTelemetry tracing | Multiple components, distributed deploys | 2 days |
 | Prometheus `/metrics` endpoint | You want time-series dashboards | 1 day |
 | Container deployment (Dockerfile) | You stop running on the M4 Mini | 1 day |
-| Cross-family model swaps (Qwen, Llama) | Gemma 4 quality insufficient | 2–3 days (re-validation) |
+| Cross-family model swaps (Qwen, Llama, larger Gemma variants) | Gemma 4 E2B quality measurably insufficient AND a §17 deviation is filed in `docs/superpowers/specs/2026-05-13-phase-3-llm-spec-deviations.md` REVERSING §17.3 — see rule #14 above; §17.3 commits the project to Gemma 4 E2B (q4_K_M) as the SOLE sanctioned variant. | 2–3 days re-validation + the §17 deviation write-up |
 | Subprocess isolation for Docling | Docling memory spikes crash service | 1 day |
-| MTP speculative decoding | Throughput inadequate on E2B | 1 day exploration, may regress |
+| MTP speculative decoding (Gemma 4 E2B only — model swap is gated by rule #14 above) | Throughput on Gemma 4 E2B (q4_K_M) measurably inadequate after baseline optimization | 1 day exploration, may regress |
 | Fine-tuned PaddleOCR for German legal | Watermark/logo recall on real samples insufficient | 1–2 weeks; needs annotated data |
 | Multi-pass OCR (PP-OCRv5 + Tesseract `deu_frak`) | Fraktur regions consistently missed | 1 day |
 | Vision-direct OCR via Gemma 4 (no Docling) | Ollama #15626 fixed AND OCR-first proven inadequate | 2 days |
