@@ -309,6 +309,11 @@ async def test_docling_extract_failed_conversion_status_raises_ocr_error() -> No
         await engine.extract(b"any bytes")
 
     assert exc_info.value.code == "ocr_engine_failed"
+    # `from None` on the raise (docling_engine.py non-SUCCESS branch) suppresses
+    # any latent __context__; preventing a misleading traceback for operators
+    # diagnosing OCR failures. Drift-guard for the explicit `from None` form.
+    assert exc_info.value.__cause__ is None
+    assert exc_info.value.__suppress_context__ is True
 
 
 def _success_status() -> object:
