@@ -21,6 +21,7 @@ access — changed in ollama 0.4→0.5).
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from pydantic import BaseModel
@@ -62,7 +63,12 @@ class FakeOllamaClient:
     to exercise specific JSON parsing / schema validation paths.
     """
 
-    def __init__(self, content: str = "{}", raise_exc: Exception | None = None) -> None:
+    def __init__(
+        self,
+        content: str = "{}",
+        raise_exc: Exception | None = None,
+        sleep_seconds: float = 0.0,
+    ) -> None:
         """Configure what this fake returns (or raises) from ``.chat()``.
 
         Parameters
@@ -76,9 +82,15 @@ class FakeOllamaClient:
             raises this exception instead of returning a response. Lets tests
             drive error-path branches (e.g. ``ollama.ResponseError`` with
             ``status_code=400`` for task-3.5 context-overflow detection).
+        sleep_seconds:
+            If positive, ``.chat()`` does ``await asyncio.sleep(...)`` before
+            returning (or raising). Used by task-3.7 timeout tests to drive
+            the ``asyncio.wait_for`` path without sleeping for the real
+            production timeout.
         """
         self._content = content
         self._raise_exc = raise_exc
+        self._sleep_seconds = sleep_seconds
         self.last_call: dict[str, Any] = {}
 
     async def chat(
@@ -106,6 +118,8 @@ class FakeOllamaClient:
             "format": format if format is not None else {},
             "options": options if options is not None else {},
         }
+        if self._sleep_seconds > 0:
+            await asyncio.sleep(self._sleep_seconds)
         if self._raise_exc is not None:
             raise self._raise_exc
         return FakeChatResponse(message=FakeChatMessage(content=self._content))

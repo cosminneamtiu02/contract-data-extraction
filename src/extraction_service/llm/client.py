@@ -1,4 +1,4 @@
-"""Thin async wrapper around ``ollama.AsyncClient`` (plan §6.5 tasks 3.1, 3.5, 3.6).
+"""Thin async wrapper around ``ollama.AsyncClient`` (plan §6.5 tasks 3.1-3.7).
 
 ``OllamaLlmClient`` is the single entry point for LLM inference in this
 service. It exposes one method — ``extract`` — and is intentionally thin:
@@ -9,7 +9,7 @@ Constructor injection is the test seam (mirrors the OCR pattern):
   - Production code: ``OllamaLlmClient(client=ollama.AsyncClient(), model=...)``
   - Tests: ``OllamaLlmClient(client=FakeOllamaClient(...), model=...)``
 
-Design constraints preserved for later tasks:
+Design constraints:
   - ``model`` is a constructor argument so future context-overflow
     fallback paths can reconfigure without touching ``extract``.
   - ``extract`` returns ``dict[str, Any]`` — the IO-boundary type — so
@@ -18,24 +18,29 @@ Design constraints preserved for later tasks:
   - No ``system`` role message: Gemma does not support the system role;
     the prompt is passed as a single user-role message only.
 
-Task 3.5 adds context-overflow detection: HTTP 400 from Ollama whose error
-message indicates context-window exhaustion is mapped to the domain-layer
-``ContextOverflowError``. Task 3.6 adds dev-mode debug capture: when the
-wrapper is constructed with ``mode='development'``, a ``_debug`` top-level
-key with the raw request and response payloads is attached to the returned
-dict (the underscore prefix marks it as side-channel metadata so downstream
-schema validation can strip it before delegating to ``jsonschema``). Task
-3.7 (asyncio.wait_for timeout) extends this file in a later commit.
+Per-task additions in this module:
+  - 3.5: HTTP 400 from Ollama whose error message indicates context-window
+    exhaustion is mapped to the domain-layer ``ContextOverflowError``.
+  - 3.6: when constructed with ``mode='development'``, a ``_debug`` top-level
+    key with the raw request and response payloads is attached to the
+    returned dict (the underscore prefix marks it as side-channel metadata
+    so downstream schema validation can strip it before delegating to
+    ``jsonschema``).
+  - 3.7: when ``timeout_seconds`` is set, the chat call is wrapped in
+    ``asyncio.wait_for``; the resulting ``TimeoutError`` is mapped to the
+    domain-layer ``LlmError`` (whose ``.code`` is ``"llm_failed"``, which
+    is retry-eligible per the default ``RetryConfig``).
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any, Literal, Protocol, runtime_checkable
 
 from ollama import ResponseError
 
-from extraction_service.domain.errors import ContextOverflowError
+from extraction_service.domain.errors import ContextOverflowError, LlmError
 
 ClientMode = Literal["development", "production"]
 
@@ -105,6 +110,12 @@ class OllamaLlmClient:
         Mirrors the ``Settings.mode`` literal in
         ``extraction_service.settings`` so the Phase 4 pipeline can
         forward the process-level mode verbatim.
+    timeout_seconds:
+        If set, the chat call is wrapped in ``asyncio.wait_for`` and a
+        timeout raises ``LlmError``. ``None`` (default) means no wrapper —
+        the chat call runs unbounded. Phase 4 worker code passes the
+        ``LlmConfig.timeout_seconds`` value (default 60s) per
+        ``config/run_config.py``.
     """
 
     def __init__(
@@ -112,10 +123,12 @@ class OllamaLlmClient:
         client: _ChatClientProtocol,
         model: str,
         mode: ClientMode = "production",
+        timeout_seconds: float | None = None,
     ) -> None:
         self._client = client
         self._model = model
         self._mode = mode
+        self._timeout_seconds = timeout_seconds
 
     async def extract(
         self,
@@ -158,13 +171,20 @@ class OllamaLlmClient:
             If Ollama returns content that is not valid JSON despite
             ``format`` enforcement (e.g. model truncation mid-token).
         """
+        chat_coro = self._client.chat(
+            model=self._model,
+            messages=[{"role": "user", "content": prompt}],
+            format=schema,
+            options={"temperature": 0},
+        )
         try:
-            response = await self._client.chat(
-                model=self._model,
-                messages=[{"role": "user", "content": prompt}],
-                format=schema,
-                options={"temperature": 0},
-            )
+            if self._timeout_seconds is None:
+                response = await chat_coro
+            else:
+                response = await asyncio.wait_for(chat_coro, timeout=self._timeout_seconds)
+        except TimeoutError as e:
+            msg = f"Ollama call timed out after {self._timeout_seconds}s"
+            raise LlmError(msg) from e
         except ResponseError as e:
             if e.status_code == _HTTP_BAD_REQUEST and _is_context_overflow_error(e.error):
                 msg = f"Ollama context overflow: {e.error}"
