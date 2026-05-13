@@ -1824,3 +1824,88 @@ These three patterns are tactical refinements to add to CLAUDE.md `§Senior-dev 
 - Termination reason: **MAX-CAP-HIT** (cycle 5 produced 2 cosmetic Minor fixes, both substantive-cosmetic-doc-sync class)
 
 The user drives any next-step decision: (a) merge the PR as-is (the branch is in a clean, well-audited state with comprehensive trail); (b) request a restart loop (would likely produce 0-1 fixes given the trajectory and the 3 newly-identified hallucination patterns now filter-droppable); (c) merge after the user-decision items resolve (none in cycle 5 — auto-cycle mode self-decided).
+
+---
+
+### 17.29. Single-cycle standalone review on `chore/panel-review-fixes-2026-05-13` (fresh branch) — 9 applied fixes, no loop
+
+**Trigger:** user asked for a single-cycle 20-lens panel review against current `main` HEAD (`417d43d` — PR #10 Phase 2 OCR layer merge), explicitly opting OUT of cycle-loop mode ("do not go for the cycle where you run this 5 times. run it just once") and explicitly requesting `claude opus on max effort for each lane`. The branch `chore/panel-review-fixes-2026-05-13` was cut fresh from `origin/main` for this run; the same-named branch referenced in §17.24–§17.28 had been cleaned up after its loop merged.
+
+**HEAD at cycle start:** `417d43d` (origin/main).
+
+**Dispatch:** 20 lenses in a single assistant message, `subagent_type: general-purpose`, `model: opus`, `run_in_background: true`. Clean prompts (no carryover context — per cycle-independence rule). Per-lens out-of-scope guards intact.
+
+**Lens verdicts (pre-fix):** 14/20 Yes ship-ready (L01, L03, L04, L05, L06, L07, L09, L10, L11, L13, L14, L15, L16, L19); 6/20 With fixes (L02, L08, L12, L17, L18, L20). Lenses returning zero findings at any severity: 6 (L07, L09, L10, L11, L14, L16, L19).
+
+**Pre-filter findings:** 0 Critical, 5 Important (L02 × 2 historical-immutable, L17 × 2 CLAUDE.md phase-ledger, L18 × 1 CI-parity), ~42 Minor.
+
+**Senior-dev filter pass:** ~35 findings dropped — historical-immutable squash-message critiques on already-merged shared-branch commits, ceremonial preemptive ruff tightenings with no plausible-future-violation surface, intentional design choices documented in prior §17 entries (closed-Literal `case _:` ceremony, `_converter_factory` underscore on public test seam), accepted §17.2 / §17.9 / §17.11 deferrals (JUnit XML, version matrix, broader darwin scope), ceremonial SHA-pin/staging tightenings on pre-commit hooks.
+
+**Convergent findings promoted to load-bearing (≥2 lenses agreeing):**
+
+- **L17 + L01 on CLAUDE.md phase-ledger drift** — both lenses flagged "Phases 0, 0.5, 1 complete." (line 7), Superpowers-flow heading "(Phase 2+)" (line 9), skip-list "Phases 0/0.5/1 (already complete)" (line 52), and Phase 2 spec pointer "§17.15" (line 314). Convergence drove Layer A commit 1 (`c4b68e4`).
+- **L17 + L01 on docs/plan.md task-table drift** — both lenses flagged Task 0.2 GREEN cell `print("ok")` (would violate T20 wired by Task 0.3), Task 2.2 RED cell "(helper, no test)", §5 sample-PDF tree lacking §17.3 qualifier, `tests/golden/` placeholder. Convergence drove Layer A commit 2 (`bcf5251`).
+- **L20 self-convergence within `dependabot-automerge.yml`** — found ONE site of the "CodeQL /" prefix drift; while applying the fix the synthesizer caught a SECOND site of the same drift in `CLAUDE.md` "Project state notes" → "Branch protection live" line. Per workflow-gap rule #2 (CLAUDE.md terminology rename leaks), the synthesizer applied `grep -ni 'CodeQL / Analyze' .` to walk every hit before closing the fix. Both sites updated; CLAUDE.md update bundled into this §17.29 commit.
+
+**Applied fixes (Layer A, 8 commits, file-disjoint parallel dispatch via 6 subagents using `model: sonnet`):**
+
+1. `c4b68e4` — `docs(claude): sync phase ledger + spec pointers to current main state` — L17 + L01 convergent (load-bearing for Superpowers-flow trigger logic). CLAUDE.md line 7 (Phase 2 added to "complete" ledger), line 9 (Superpowers-flow heading: `Phase 2+` → `Phase 3+`), line 52 (skip-list update), line 314 (Phase 2 spec pointer §17.15 → §17.17).
+2. `bcf5251` — `docs(plan): sync §5 tree and §6.3/§6.4 task tables with current main state` — L01 + L17. Five drift items: Task 0.2 GREEN (`print("ok")` → `pass`), §5 sample-PDF tree (§17.3 qualifier added), §5 `tests/golden/` placeholder (dropped — superseded by §17.3), Task 2.2 RED (6 tests enumerated including `test_fake_ocr_engine_satisfies_ocr_engine_protocol`), Task 2.4 RED (`_metrics.word_recall` + `test_word_recall.py` anchored).
+3. `056dcdb` — `build(deps): tighten dep floors to locked-minor + close audit-comment drift` — L12. Six floors: `mypy>=2.0→2.1` (also closes audit-comment factual drift per §17.23 MAX-CAP workflow-gap rule #3 — old comment said "tested against locked 2.1.x" but floor permitted 2.0.x), `pre-commit>=4.0→4.6`, `pip-audit>=2.7→2.10`, `pydantic-settings>=2.6→2.14` (8 minor versions of slip closed), `jsonschema>=4.23→4.26`, `types-jsonschema>=4.23→4.26` (coupled per stubs-mirror-runtime convention). `uv.lock` unchanged.
+4. `e81a6b1` — `build(ruff): enable FBT + LOG rule families (defense-in-depth)` — L08. FBT (positional-boolean trap, plausible Phase 3–5 surface where worker retry flags + HTTP query params multiply), LOG (stdlib-logging bridge in `log_config.py` will see Phase 3+ traffic). Zero current violations under either. Filter dropped the other three L08 candidates (RSE, FLY, SLOT — no plausible-future-violation surface in scope; SLOT would also require non-zero-cost `__slots__ = ()` additions to the Exception hierarchy).
+5. `9423165` — `build(hatch): promote py.typed inclusion from default to explicit force-include` — L04. PEP 561 marker was shipped via hatchling's default package-data inclusion; promoted to explicit `force-include = { "src/extraction_service/py.typed" = "extraction_service/py.typed" }` so a future hatchling-plugin swap or contributor-added selective `include = [...]` block cannot silently drop it. Wheel-inspection step in the verification gate continues as belt-and-braces.
+6. `678fa93` — `build(pre-commit): add uv-lock-check hook for CI parity` — L18 (the only filter-surviving Important finding). CI runs `uv lock --check` (`ci.yml:57-58`); `.pre-commit-config.yaml` did not mirror. Load-bearing right now because this same PR bumps six dep floors — a developer running `pre-commit run --all-files` after editing `pyproject.toml` without re-running `uv lock` would pass local hooks while CI fails.
+7. `5f1cef8` — `docs(ci): drop "CodeQL /" prefix from required-check comment` — L20 (first site). GitHub's status-check API context for matrix jobs is the job name only; comment in `dependabot-automerge.yml` claimed required-check names as `CodeQL / Analyze (python)` / `CodeQL / Analyze (actions)` but the registered context strings are `Analyze (python)` / `Analyze (actions)`. Runtime auto-merge plumbing was already correct; this is doc-only.
+8. `e72d5c6` — `refactor(ocr): rename det/rec/cls locals to *_path in _build_default_converter` — L06. `cls` shadowed the classmethod-convention first-arg name; renamed in parallel with `det` / `rec` to preserve the RapidOCR kwargs-mirror symmetry (`det_model_path` / `rec_model_path` / `cls_model_path`). Internal to `_build_default_converter`; tests exercise via the `_converter_factory` injection seam, no test changes required.
+
+**Applied fix (Layer B, this commit) — 9th distinct fix:**
+
+9. **This §17.29 audit entry + CLAUDE.md pointer bump + CLAUDE.md "CodeQL /" prefix sweep** — bundles the audit log, the in-cycle CLAUDE.md `§17 latest` pointer bump (§17.28 → §17.29) per the established pattern, and the second site of the L20 finding caught by the workflow-gap-rule-#2 grep sweep ("Project state notes" → "Branch protection live" line still referenced `CodeQL / Analyze (python)`, `CodeQL / Analyze (actions)`; now corrected to `Analyze (python)`, `Analyze (actions)`).
+
+**Deferred — 4a (waiting on later phase):** L15 Minor × 4 — JUnit XML output (`--junitxml=…`), Python version matrix (3.13 only on both ubuntu and macOS), broader darwin scope (currently smoke-only), `Tests` step name cosmetic. All previously accepted as §17.2 / §17.9 / §17.11 deferrals per Phase 0.5 spec; no change in disposition.
+
+**Deferred — 4b (other reasons):**
+- L18 Minor: SHA-pinning for `Yelp/detect-secrets` and `pre-commit/pre-commit-hooks` `rev:` fields (doctrinal preference; tag-pinning is functional; Dependabot's pre-commit ecosystem handles both forms; signed-release-publisher trust gap is doctrinal, not operational).
+- L18 Minor: `stages: [pre-push]` selection for `mypy` and `pip-audit` hooks (DX tuning, not correctness; verification gate runs all stages explicitly via `pre-commit run --all-files`).
+- L18 Minor: `mixed-line-ending` hook (single-developer macOS project today; thin cost-benefit).
+- L13 Minor × 4: multi-assertion tests in `test_domain_record.py` round-trip and "fresh state" tests (lens's own assessment notes these "arguably represent single conceptual behaviors"; splitting would churn for no real defect).
+- L06 Minor: `_converter_factory` underscore on public test seam (documented current state; rename would touch test files and add no functional value).
+
+**Filter-dropped — historical-immutable (cannot rewrite merged shared-branch commit messages):**
+- L02 Important × 2 (`96ab536`, `f343855`): squash subjects used `chore:` where `feat:` / `fix:` constituents dominated per the documented squash-type rule. Process feedback only.
+- L02 Minor × 4: cycle-internal phrasing leaked into squash bodies, walls-of-text squash messages, ambiguous one-line subjects, scope-prefix-absent constituent messages.
+- L03 Minor × 4: scope-creep process-FYI items on historical merged PRs (cross-phase dep-floor sweep callouts, back-pointer subsections for deferral closures, neutral-scoping for post-merge panel-fix branches, originating-deferral references in PR titles).
+
+**Filter-dropped — ceremonial / intentional:**
+- L05 Minor × 2: closed-Literal `case _:` exhaustiveness commentary on `factory.py` and `log_config.py` — intentional per CI/CD spec §17.9 and Phase 2 spec §17.9; mypy's "Missing return statement" guard is load-bearing.
+- L08 Minor × 3: RSE (raise empty parens), FLY (.format → f-string), SLOT (`__slots__ = ()` on Exception subclasses) — preemptive add-suppression with no plausible-future-violation surface in scope; SLOT additionally fails the zero-cost-tightening rule.
+
+**Verification gate (post-Layer-A, all green):**
+- `uv lock --check`: Resolved 173 packages in 3ms ✓
+- `uv run ruff check src tests`: All checks passed (incl. new FBT + LOG families) ✓
+- `uv run ruff format --check src tests`: 38 files already formatted ✓
+- `uv run mypy src tests`: Success — no issues found in 38 source files ✓
+- `uv run pytest -q -m "not slow"`: 136 passed, 1 deselected in 2.14s ✓
+- `uv run pip-audit --skip-editable`: No known vulnerabilities found ✓
+- `uv run pre-commit run --all-files`: all 14 hooks green (including newly-added `uv-lock-check`) ✓
+- Wheel inspection (`uv build --wheel`): `extraction_service/py.typed` and `extraction_service-0.1.0.dist-info/licenses/LICENSE` both present in the built wheel ✓
+
+**Lens hallucinations / recurring drift patterns:** none surfaced this single-cycle run (the prior loop's §17.28 MAX-CAP diagnosis flagged three patterns — git-tracking-fabrication, action-version stale-training, gitignore-semantics-fabrication — none recurred under clean-prompts dispatch with stricter out-of-scope guards).
+
+**Single-cycle vs cycle-loop disposition:** user explicitly opted out of cycle-loop mode. Per CLAUDE.md, single-cycle mode preserves Section 5 (user-decision items) for explicit user input — but the synthesizer's filter found none rising to user-decision level (every finding routed deterministically to apply, filter-drop, or defer-with-rationale). The 9 applied fixes plus the 6 historical-immutable findings (2 Important + 4 Minor on already-merged commits) constitute the complete fix-set; nothing waits on user input.
+
+**Workflow-gap audit (per §17.23 MAX-CAP diagnosis):**
+1. **Test split + missed plan sync:** not applicable (no test splits this cycle); plan-sync was Layer-A item #2.
+2. **CLAUDE.md terminology / pointer leaks:** caught a partial-replacement-miss this cycle — L20's "CodeQL /" prefix fix on `dependabot-automerge.yml` was applied as Layer-A commit 7, but the SAME drift in CLAUDE.md "Project state notes" was caught by the workflow-gap-rule-#2 grep sweep at audit time and bundled into this §17.29 commit (Layer-B item 9). Rule #2 worked as designed.
+3. **Prior-cycle audit-comment factual drift:** mypy `>=2.0` floor with "tested against locked 2.1.x" comment was caught and fixed in Layer-A commit `056dcdb`; no other audit-comment drift surfaced.
+
+**Cycle terminal state:**
+- Cycle start HEAD: `417d43d` (`origin/main`)
+- Cycle end HEAD: this §17.29 audit commit (single-cycle terminal commit on `chore/panel-review-fixes-2026-05-13`)
+- Total cycles in this run: 1 (single-cycle by user instruction; no loop)
+- Commits in Layer A: 8 (six file-disjoint parallel fix commits, with the pyproject.toml agent producing 3 atomic commits internally)
+- Commits in Layer B: 1 (this audit entry + CLAUDE.md pointer bump + CLAUDE.md "CodeQL /" prefix sweep, single commit)
+- Total commits: 9
+- Fixes by severity: 0 Critical / 1 Important (L18 `uv-lock-check` hook) / ~17 individual edits across the 9 commits (clustered into 9 distinct fix-concerns)
+- Convergent findings detected and applied: 3 (L17+L01 on CLAUDE.md ledger, L17+L01 on plan.md drift, L20 self-convergence across two doc sites)
+- Termination reason: **single-cycle by user request** (not MAX-CAP, not zero-fix convergence)
