@@ -521,6 +521,7 @@ extraction-service/
 │   ├── fakes/
 │   │   ├── __init__.py
 │   │   ├── fake_ocr.py          # deterministic OcrEngine
+│   │   ├── test_fake_ocr.py
 │   │   └── fake_ollama.py       # canned LLM responses
 │   ├── unit/
 │   │   ├── test_domain_errors.py
@@ -531,12 +532,17 @@ extraction-service/
 │   │   ├── test_log_config.py
 │   │   ├── test_settings.py
 │   │   ├── test_run_config.py
+│   │   ├── test_ocr_base.py
 │   │   ├── test_prompt_render.py
 │   │   ├── test_schema_validation.py
 │   │   ├── test_retry_policy.py
 │   │   └── test_result_store.py
 │   ├── ocr/
+│   │   ├── _metrics.py
+│   │   ├── conftest.py
 │   │   ├── test_docling_engine.py
+│   │   ├── test_factory.py
+│   │   ├── test_word_recall.py
 │   │   └── data/    # PDFs gitignored per §17.3 in 2026-05-12-phase-2-ocr-spec-deviations.md; resolved via $EXTRACTION_OCR_SAMPLES_DIR at test collection time
 │   ├── pipeline/
 │   │   ├── test_ocr_worker.py
