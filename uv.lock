@@ -640,18 +640,18 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "docling", specifier = ">=2.20" },
-    { name = "fastapi", specifier = ">=0.115" },
-    { name = "httpx", specifier = ">=0.27" },
+    { name = "docling", specifier = ">=2.93" },
+    { name = "fastapi", specifier = ">=0.136" },
+    { name = "httpx", specifier = ">=0.28" },
     { name = "jsonschema", specifier = ">=4.23" },
-    { name = "modelscope", specifier = ">=1.20" },
+    { name = "modelscope", specifier = ">=1.36" },
     { name = "ollama", specifier = ">=0.6" },
     { name = "pydantic", specifier = ">=2.10" },
     { name = "pydantic-settings", specifier = ">=2.6" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "rapidocr-onnxruntime", specifier = ">=1.4" },
     { name = "structlog", specifier = ">=25.0" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.46" },
 ]
 
 [package.metadata.requires-dev]

@@ -15,8 +15,9 @@ concurrency:
   # stale older run. push:main runs are keyed by SHA so back-to-back
   # squash-merges don't cancel earlier post-merge canary runs — the
   # invariant "main is always known-green" requires every commit on main
-  # to keep its CI record.
-  # workflow_dispatch on a feature branch must NOT collide with that branch's PR run — keyed by SHA so each manual dispatch gets its own group.
+  # to keep its CI record. workflow_dispatch on a feature branch must NOT
+  # collide with that branch's PR run — keyed by SHA so each manual
+  # dispatch gets its own group.
   group: ci-${{ github.ref }}-${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.sha || 'pr' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
@@ -66,7 +67,32 @@ jobs:
         run: uv run mypy src tests
 
       - name: Tests
-        run: uv run pytest -q
+        # `-q` silences per-test progress but suppresses traceback context that
+        # `--tb=auto` would otherwise add on failure. `--tb=short` restores a
+        # single-line failure traceback per test — enough to triage from the CI
+        # log alone without rerunning locally.
+        #
+        # `-m "not slow"` is belt-and-braces alongside the env-var-driven
+        # auto-skip in tests/ocr/conftest.py: if EXTRACTION_OCR_SAMPLES_DIR
+        # were ever accidentally set at the repo/org level, the slow real-OCR
+        # tests would otherwise trigger modelscope.snapshot_download (~700 MB
+        # of PP-OCRv5 weights) on every CI run with no runner cache.
+        #
+        # `--cov` activates the coverage gate. Phase 0.5's spec §17.2
+        # deferred this to "when non-stub coverage exists" — Phase 2 ships
+        # non-stub production code (src/extraction_service/ocr/ tree) so the
+        # deferral condition is met. The fail_under threshold (currently 80)
+        # is the single source of truth in pyproject.toml's
+        # [tool.coverage.report] — do not pass --cov-fail-under here, or the
+        # CLI value silently overrides the config and the pyproject value
+        # becomes a lie next time someone bumps it there. `--cov-report=
+        # term-missing` is explicit because `show_missing = true` in
+        # [tool.coverage.report] only applies when coverage.py is invoked
+        # directly (`coverage report`), not when pytest-cov selects the
+        # report type; without the explicit flag the missing-line output
+        # is fragile across pytest-cov versions; the CLI flag is the
+        # supported route under pytest-cov.
+        run: uv run pytest -q --tb=short -m "not slow" --cov --cov-report=term-missing
 
       - name: Dependency CVE scan
         # Default pip-audit behavior fails CI on any CVE found in the
@@ -126,5 +152,5 @@ jobs:
       - name: Smoke tests (import + entrypoint)
         # Smoke-only — catches arm64 wheel resolution failures for docling,
         # rapidocr-onnxruntime, modelscope, and any future native-extension
-        # dep before it bites in production.
-        run: uv run pytest -q tests/test_smoke.py
+        # dep before it bites in production. `--tb=short` mirrors backend-checks.
+        run: uv run pytest -q --tb=short tests/test_smoke.py

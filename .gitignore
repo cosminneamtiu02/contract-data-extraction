@@ -31,10 +31,12 @@ dist/
 Thumbs.db
 .idea/
 .vscode/*
-# Carve-outs (not yet created — these will be committed once added): the team
-# will standardise on the same VS Code extension set and a workspace-pinned
-# Python interpreter (.venv/bin/python) so first-run dev matches CI. Until
-# then the !-rules are forward-looking stubs with no current file behind them.
+# Carve-outs for files that, once created and committed, must be tracked:
+# the team will standardise on the same VS Code extension set and a
+# workspace-pinned Python interpreter (.venv/bin/python) so first-run dev
+# matches CI. The !-rules are inert until the files exist; a contributor
+# who adds them must `git add` explicitly the first time (the negation
+# only un-ignores; it does not auto-track).
 !.vscode/extensions.json
 !.vscode/settings.json
 *.swp
@@ -53,6 +55,11 @@ Thumbs.db
 
 # Additional tooling caches (preempt phase 2+)
 .import_linter_cache/
+# Jupyter creates this in-tree on first notebook open. .gitattributes already
+# forward-declares *.ipynb LF-pinning for Phase 2+ OCR prototyping notebooks;
+# this ignore-rule prevents the auto-created checkpoint sidecar from showing
+# up in `git status` once a contributor first opens one.
+.ipynb_checkpoints/
 
 # Model / data artifacts (preempt phase 2+ — Ollama weights are under ~/.ollama
 # and outside the tree, but intermediate model files dropped into the working
@@ -61,14 +68,40 @@ Thumbs.db
 # text files under tests/fixtures/ are NOT ignored, but the model-weight
 # patterns below (*.bin, *.pt, *.pth, *.gguf, *.safetensors) DO match files
 # inside tests/fixtures/ too — model-weight fixtures cannot be tracked there.
-# Top-level data/ and models/ are also silently dropped.
+# Top-level data/ and models/ are also silently dropped. Exception: see the
+# `tests/ocr/data/` carve-out below — PDFs and .txt files there ARE ignored
+# (privacy-sensitive contract samples) even though they live under `tests/`.
 *.gguf
 *.safetensors
 *.pt
 *.pth
 *.bin
+*.onnx
 models/
 data/
+# modelscope can deposit snapshot dirs inside the repo when MODELSCOPE_CACHE
+# (or repo-relative MODEL_PATH) is set during a test run. The default cache
+# lives at ~/.cache/modelscope and is safely outside the tree, but the override
+# env vars are commonly used during model-version experiments. Defense in depth
+# alongside the *.onnx pattern above.
+.modelscope/
+modelscope_hub_snapshot/
+
+# Phase 2 OCR sample contracts — kept LOCAL ONLY (not committed to the public
+# repo because the source PDFs are real-or-anonymised German legal contracts
+# carrying privacy-sensitive content). The corresponding .txt ground-truth
+# transcriptions are also ignored because they contain the same text. Tests in
+# tests/ocr/test_docling_engine.py auto-skip when these files are not present,
+# so CI on a fresh clone stays green. The .gitkeep keeps the directory tracked.
+#
+# The carve-out `!tests/ocr/data/` is needed because the broader `data/` rule
+# above matches any directory named `data` at any depth. Order matters: the
+# negation must come after the broader rule and before the file-level
+# re-ignores below.
+!tests/ocr/data/
+tests/ocr/data/*.pdf
+tests/ocr/data/*.txt
+!tests/ocr/data/.gitkeep
 
 # Claude Code per-machine state (transcripts, worktrees, etc.)
 .claude/

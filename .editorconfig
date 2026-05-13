@@ -21,3 +21,10 @@ max_line_length = off
 # uniformly 4-space and we don't want a future [*] change to drift it.
 [*.toml]
 indent_size = 4
+
+# Jupyter notebooks are JSON-serialised; align with the [*.{yml,yaml,json}]
+# 2-space stanza above so a future notebook commit (e.g., a Phase 2 OCR
+# prototyping sketch — .gitattributes already forward-declares *.ipynb
+# LF-pinning for this scenario) doesn't drift to a 4-space JSON layout.
+[*.ipynb]
+indent_size = 2

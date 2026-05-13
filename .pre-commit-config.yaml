@@ -30,6 +30,10 @@ repos:
         name: pip-audit (CVE scan)
         entry: uv run pip-audit --skip-editable
         language: system
+        # pip-audit inspects the whole resolved environment, not staged
+        # filenames — pass_filenames disables the staged-file pipeline and
+        # always_run forces a run even when no Python files changed (a CVE
+        # advisory can land against a frozen lockfile).
         pass_filenames: false
         always_run: true
 
@@ -41,6 +45,13 @@ repos:
     hooks:
       - id: detect-secrets
         args: ['--baseline', '.secrets.baseline']
+        # Mirror the CI step (.github/workflows/ci.yml: secret scan) which
+        # excludes the baseline file before piping to detect-secrets-hook.
+        # The exclude is load-bearing, not redundant: the baseline file itself
+        # stores hashed-secret records, so re-scanning it as input would
+        # re-evaluate those stored hashes and produce noisy false positives or
+        # confuse the delta comparison. Keeps pre-commit and CI symmetric.
+        exclude: '^\.secrets\.baseline$'
 
   # rev: v6.0.0 — current stable; Dependabot pre-commit ecosystem
   # auto-updates patch/minor (major bumps gated per update-types filter).

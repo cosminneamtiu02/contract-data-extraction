@@ -60,7 +60,7 @@ class OcrConfig(BaseModel):
 
 
 class LlmConfig(BaseModel):
-    """LLM stage configuration: prompt template path and timeout (docs/plan.md §6.5)."""
+    """LLM stage configuration: prompt template path and timeout (docs/plan.md §4.14)."""
 
     model_config = ConfigDict(extra="forbid")
 
