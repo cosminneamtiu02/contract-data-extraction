@@ -1,4 +1,4 @@
-"""Unit tests for the word_recall metric function in tests/ocr/conftest.py.
+"""Unit tests for the word_recall metric function in tests/ocr/_metrics.py.
 
 These tests pin the contract of the word_recall metric that underpins every
 slow real-OCR baseline-comparison test in test_docling_engine.py.  Without
