@@ -494,9 +494,9 @@ extraction-service/
 │       │   ├── docling_engine.py # Docling + RapidOCR PP-OCRv5
 │       │   └── factory.py       # build_ocr_engine(run_config) -> OcrEngine
 │       │
-│       ├── llm/                     # (Phase 3 — not yet created)
+│       ├── llm/
 │       │   ├── __init__.py
-│       │   ├── client.py        # OllamaClient wrapper (singleton)
+│       │   ├── client.py        # OllamaLlmClient wrapper (singleton)
 │       │   ├── prompt.py        # prompt template rendering
 │       │   ├── schema.py        # JSON schema validation of LLM output
 │       │   └── retry.py         # retry policy
@@ -523,7 +523,8 @@ extraction-service/
 │   │   ├── __init__.py
 │   │   ├── fake_ocr.py          # deterministic OcrEngine
 │   │   ├── test_fake_ocr.py
-│   │   └── fake_ollama.py       # canned LLM responses           # (Phase 3 — not yet created)
+│   │   ├── fake_ollama.py       # canned LLM responses
+│   │   └── test_fake_ollama.py
 │   ├── unit/
 │   │   ├── test_domain_errors.py
 │   │   ├── test_domain_job.py
@@ -534,9 +535,10 @@ extraction-service/
 │   │   ├── test_settings.py
 │   │   ├── test_run_config.py
 │   │   ├── test_ocr_base.py
-│   │   ├── test_prompt_render.py                                  # (Phase 3 — not yet created)
-│   │   ├── test_schema_validation.py                              # (Phase 3 — not yet created)
-│   │   ├── test_retry_policy.py                                   # (Phase 3 — not yet created)
+│   │   ├── test_llm_client.py
+│   │   ├── test_llm_prompt.py
+│   │   ├── test_llm_schema.py
+│   │   ├── test_llm_retry.py
 │   │   └── test_result_store.py                                   # (Phase 4 — not yet created)
 │   ├── ocr/
 │   │   ├── _metrics.py
@@ -756,7 +758,7 @@ Each phase is **its own git worktree** so phases can be reviewed/merged independ
 | 3.6 | Per-attempt _debug capture (dev mode) | `src/extraction_service/llm/client.py` | `test_dev_mode_captures_raw_request_and_response` | accept `mode` param; when development, attach raw payloads to result | pytest |
 | 3.7 | LLM client timeout | `src/extraction_service/llm/client.py` | `test_llm_timeout_raises_llm_failed` | wrap call with `asyncio.wait_for`; map to `LlmError` | pytest |
 
-**Exit criteria:** all unit tests pass; `scripts/prewarm.py` script can hit a real Ollama instance and get a valid JSON response. Commit, merge.
+**Exit criteria:** all unit tests pass; `scripts/prewarm.py` script can hit a real Ollama instance and get a valid JSON response. Commit, merge. *(Deviation: the `scripts/prewarm.py` half of this criterion was deferred to Phase 6 task 6.1 per [`docs/superpowers/specs/2026-05-13-phase-3-llm-spec-deviations.md`](superpowers/specs/2026-05-13-phase-3-llm-spec-deviations.md) §17.1 — see that file for rationale.)*
 
 ### 6.6 Phase 4 — Pipeline
 
