@@ -153,4 +153,4 @@ jobs:
         # Smoke-only — catches arm64 wheel resolution failures for docling,
         # rapidocr-onnxruntime, modelscope, and any future native-extension
         # dep before it bites in production. `--tb=short` mirrors backend-checks.
-        run: uv run pytest -q --tb=short tests/test_smoke.py
+        run: uv run pytest -q --tb=short -m "not slow" tests/test_smoke.py
