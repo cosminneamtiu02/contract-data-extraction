@@ -82,8 +82,8 @@ data/
 # modelscope can deposit snapshot dirs inside the repo when MODELSCOPE_CACHE
 # (or repo-relative MODEL_PATH) is set during a test run. The default cache
 # lives at ~/.cache/modelscope and is safely outside the tree, but the override
-# env vars are commonly used during model-version experiments (Lens 19 of
-# cycle-1 on chore/phase-2-ocr-review-fixes flagged the gap). Defense in depth.
+# env vars are commonly used during model-version experiments. Defense in depth
+# alongside the *.onnx pattern above.
 .modelscope/
 modelscope_hub_snapshot/
 

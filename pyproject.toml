@@ -126,12 +126,12 @@ target-version = "py313"
 # `datetime.now(UTC)` correctly today. Phase 2-4 workers will add stage-timing
 # code that is exactly where DTZ violations would land silently. Zero current
 # violations — same proactive pattern as G/BLE/ANN/PL.
-# A added 2026-05-13 (Lens 08 of cycle-1 on chore/phase-2-ocr-review-fixes):
-# flake8-builtins catches names that shadow Python builtins (A001 variable, A002
-# argument, A003 attribute). Phase 2-4 worker code will introduce many new names
-# in async-pipeline contexts where shadowing `id`, `type`, `format`, `input` is
-# easy to slip past review. Zero current violations — same defense-in-depth
-# pattern as G/DTZ/BLE/ANN/PL (verified via `uv run ruff check --select A`).
+# A added 2026-05-13: flake8-builtins catches names that shadow Python builtins
+# (A001 variable, A002 argument, A003 attribute). Phase 2-4 worker code will
+# introduce many new names in async-pipeline contexts where shadowing `id`,
+# `type`, `format`, `input` is easy to slip past review. Zero current violations
+# — same defense-in-depth pattern as G/DTZ/BLE/ANN/PL (verified via
+# `uv run ruff check --select A`).
 select = ["E", "F", "I", "B", "UP", "ASYNC", "PIE", "SIM", "RET", "ARG", "PTH", "TID", "T20", "RUF", "C4", "FURB", "PT", "EM", "TRY", "TCH", "N", "S", "BLE", "PL", "ANN", "G", "DTZ", "A"]
 ignore = ["E501"]
 

@@ -382,10 +382,8 @@ async def test_docling_extract_against_sample(
     # Identify the failing sample by its parametrise ordinal id (sample_#N)
     # rather than any prefix of the filename. The conftest module docstring
     # explicitly promises "failures reference each sample by ordinal index"
-    # to avoid leaking personal data; an earlier `stem[:4]` prefix here drifted
-    # from that contract (Lens 16 of cycle-1 review on
-    # chore/phase-2-ocr-review-fixes-2026-05-13). request.node.callspec.id is
-    # the parametrise id pytest renders in -v output and JUnit XML.
+    # to avoid leaking personal data. request.node.callspec.id is the
+    # parametrise id pytest renders in -v output and JUnit XML.
     sample_id = request.node.callspec.id
     assert recall >= WORD_RECALL_THRESHOLD, (
         f"OCR word-recall {recall:.3f} below threshold "

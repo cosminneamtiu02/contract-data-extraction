@@ -90,8 +90,8 @@ jobs:
         # [tool.coverage.report] only applies when coverage.py is invoked
         # directly (`coverage report`), not when pytest-cov selects the
         # report type; without the explicit flag the missing-line output
-        # is fragile across pytest-cov versions (Lens 15 Minor of cycle-2
-        # review on chore/phase-2-ocr-review-fixes-2026-05-13).
+        # is fragile across pytest-cov versions; the CLI flag is the
+        # supported route under pytest-cov.
         run: uv run pytest -q --tb=short -m "not slow" --cov --cov-report=term-missing
 
       - name: Dependency CVE scan

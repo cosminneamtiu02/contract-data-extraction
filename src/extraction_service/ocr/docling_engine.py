@@ -88,9 +88,9 @@ def _build_default_converter(ocr_config: OcrConfig) -> DocumentConverter:
     # TODO(phase-6-hardening): pin `revision=<commit-sha>` once the Phase 6
     # validation gate (`scripts/validate_ocr.py`) selects a known-good model
     # snapshot. Default behavior fetches the floating `main` HEAD of the
-    # RapidAI/RapidOCR modelscope repo — a supply-chain trust gap flagged by
-    # Lens 10 of the 2026-05-13 review cycle on this branch. The downloaded
-    # ONNX files are loaded directly by the runtime with no checksum check.
+    # RapidAI/RapidOCR modelscope repo, and the downloaded ONNX files are
+    # loaded directly by the runtime with no checksum check — a supply-chain
+    # trust gap that Phase 6 will close.
     model_dir = Path(snapshot_download(repo_id="RapidAI/RapidOCR"))
     det = str(model_dir / "onnx" / "PP-OCRv5" / "det" / "ch_PP-OCRv5_server_det.onnx")
     rec = str(model_dir / "onnx" / "PP-OCRv5" / "rec" / "ch_PP-OCRv5_rec_server_infer.onnx")

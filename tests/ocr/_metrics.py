@@ -6,9 +6,6 @@ not pytest fixtures or hooks — they were previously defined inside
 ``tests/ocr/conftest.py`` but the convention conftest.py reserves is
 "fixtures + hooks", and a plain helper function in that file confuses the
 intent. Callers import explicitly from this module instead.
-
-Per Lens 06 + Lens 14 (convergent finding) of cycle-1 review on
-chore/phase-2-ocr-review-fixes-2026-05-13.
 """
 
 from __future__ import annotations
