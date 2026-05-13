@@ -352,7 +352,10 @@ cycle 3 of the auto-converge loop on `chore/panel-review-fixes-2026-05-13-pass3`
    table at `docs/plan.md §6.5` lists 1–2 RED tests per task as the
    green-on-RED gate. The actual `tests/unit/test_llm_*.py` suite contains
    ~40 unit tests across the four LLM modules (test_llm_client.py: 15,
-   test_llm_prompt.py: 7, test_llm_retry.py: 9, test_llm_schema.py: 9).
+   test_llm_prompt.py: 7, test_llm_retry.py: 10, test_llm_schema.py: 9).
+   Total ~41 unit tests across the four LLM modules. NOTE: a prior version
+   of this entry said `test_llm_retry.py: 9` / `~40 total` — corrected on
+   cycle 4 of the pass3 panel loop per `docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md` §17.42 (workflow-gap rule #3 — audit-comment factual drift caught in §17.6 itself).
    The expansion was deliberate: additional behavior-coverage tests landed
    during cycle-1/cycle-2/cycle-3 panel-review feedback. Unlike Phase 2
    (where every test-name drift is recorded inline in the plan task table
