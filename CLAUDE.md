@@ -45,7 +45,7 @@ After each layer, before the gate: if any agent reported a deviation affecting a
 ### Spec deviations
 
 - **Minor** (e.g., `StrEnum` over `(str, Enum)`): commit body + PR "Spec deviations" section.
-- **Material** (changing exit criteria, skipping a task, library swap): append a new `§17.N` subsection to `docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md`. Do NOT retroactively rewrite earlier subsections.
+- **Material** (changing exit criteria, skipping a task, library swap): append a new `§17.N` subsection to the per-phase spec file under `docs/superpowers/specs/` (see the "Where things live" section for the current file roster; create a new file when a phase makes its first material deviation). Do NOT retroactively rewrite earlier subsections.
 
 ### When NOT to use the Superpowers flow
 
