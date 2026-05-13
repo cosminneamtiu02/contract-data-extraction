@@ -307,7 +307,7 @@ Run `ruff check . --fix` and `ruff format .` in pre-commit. Drop black entirely.
 - `pytest` 8.x.
 - `pytest-asyncio` with `asyncio_mode = "auto"` so every `async def test_...` is automatically wrapped (no `@pytest.mark.asyncio` repetition).
 - `hypothesis` for property-based testing the JSON-schema-validation logic and the prompt rendering.
-- Coverage target: **80%** is the realistic floor. Don't chase 100% — the HTTP handler tests and golden-file OCR tests give you most of the leverage.
+- Coverage target: **80%** is the realistic floor. Don't chase 100% — the HTTP handler tests and golden-file OCR tests give you most of the leverage (deviation §17.3 in `2026-05-12-phase-2-ocr-spec-deviations.md`: real-OCR tests use env-var-resolved sample PDFs from `$EXTRACTION_OCR_SAMPLES_DIR` rather than golden files checked into the repo).
 
 ### 4.7 Configuration — **pydantic-settings**
 
@@ -438,14 +438,14 @@ Don't roll your own httpx client unless you need streaming and find the official
 | Test type | What it covers | How |
 |---|---|---|
 | **Unit** | Pydantic models, prompt rendering, retry logic, schema validation | Plain pytest, no I/O |
-| **Golden-file OCR** | OCR output stability on known PDFs | `tests/data/contracts/*.pdf` + `tests/data/expected/*.txt` |
+| **Golden-file OCR** | OCR output stability on known PDFs | `tests/data/contracts/*.pdf` + `tests/data/expected/*.txt` (deviation §17.3 in `2026-05-12-phase-2-ocr-spec-deviations.md`: samples are gitignored; resolved via `$EXTRACTION_OCR_SAMPLES_DIR`) |
 | **Pipeline integration** | Queue handoffs, state transitions, error propagation | In-memory pipeline + fake OCR engine + fake LLM client |
 | **Contract tests (HTTP API)** | Endpoint shapes, status codes, response schemas | `httpx.AsyncClient` against `app` instance, no real server |
 | **End-to-end** | Full path: PDF → OCR → LLM → JSON | Real Docling + real Ollama on dev box, NOT in CI |
 
 For Ollama: ship a `FakeOllamaClient` in `tests/fakes/` that returns canned responses. CI doesn't run Ollama.
 
-For Docling/OCR: ship a `FakeOcrEngine` that returns predetermined text. Golden-file tests use real Docling on 3–5 small sample PDFs you check into the repo. Slow, but they're integration tests.
+For Docling/OCR: ship a `FakeOcrEngine` that returns predetermined text. Golden-file tests use real Docling on 3–5 small sample PDFs you check into the repo. Slow, but they're integration tests. (deviation §17.3 in `2026-05-12-phase-2-ocr-spec-deviations.md`: sample PDFs are gitignored and resolved at runtime via `$EXTRACTION_OCR_SAMPLES_DIR` rather than checked into the repo.)
 
 ### 4.16 Observability
 
@@ -838,7 +838,7 @@ Each phase is **its own git worktree** so phases can be reviewed/merged independ
 
 **Async discipline**
 - All I/O is `async`. No `requests`, no blocking file reads inside handlers.
-- Synchronous library calls (Docling, jsonschema) run via `loop.run_in_executor`.
+- Synchronous library calls (Docling, jsonschema) run via `loop.run_in_executor` (deviation §17.9 in `2026-05-12-phase-2-ocr-spec-deviations.md`: `asyncio.to_thread` used instead — equivalent Python 3.9+ idiom).
 - Every external call has a timeout (`asyncio.wait_for`).
 - Use `asyncio.TaskGroup`, not `asyncio.gather`, for worker supervision.
 - Cancellation is respected. Workers check `asyncio.CancelledError` in loops.
@@ -869,7 +869,7 @@ Each phase is **its own git worktree** so phases can be reviewed/merged independ
 **Testing**
 - Unit tests are fast (<100ms each); pipeline tests use fakes; e2e tests are manual.
 - Every public function has at least one test.
-- Golden-file tests cover OCR stability.
+- Real-OCR tests parametrise over sample PDFs from `$EXTRACTION_OCR_SAMPLES_DIR` (gitignored; see deviation §17.3 in `2026-05-12-phase-2-ocr-spec-deviations.md`).
 - `--strict-markers` and `--strict-config` in pytest catch typos.
 - Coverage gate at 80%.
 
