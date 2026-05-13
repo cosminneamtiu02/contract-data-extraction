@@ -1909,3 +1909,53 @@ The user drives any next-step decision: (a) merge the PR as-is (the branch is in
 - Fixes by severity: 0 Critical / 1 Important (L18 `uv-lock-check` hook) / ~17 individual edits across the 9 commits (clustered into 9 distinct fix-concerns)
 - Convergent findings detected and applied: 3 (L17+L01 on CLAUDE.md ledger, L17+L01 on plan.md drift, L20 self-convergence across two doc sites)
 - Termination reason: **single-cycle by user request** (not MAX-CAP, not zero-fix convergence)
+
+---
+
+### 17.30. Cycle-1 of fresh 8-cycle loop on `chore/panel-review-fixes-2026-05-13` (sonnet) — 6 applied fixes
+
+**Trigger:** user asked to rerun the panel review as a cycle loop with `sonnet` on medium effort, max-cap raised from default 5 → 8 ("do the cycle until there are no more fixes or until the 8th cycle is done"). Branch carries forward from §17.29; loop builds on the prior single-cycle state.
+
+**HEAD at cycle start:** `aa2df6f` (terminal commit of §17.29).
+
+**Dispatch:** 20 lenses, `model: sonnet`, `run_in_background: true`, clean prompts (no §17 awareness, no carryover).
+
+**Lens verdicts (pre-fix):** 16/20 Yes ship-ready; 4/20 With fixes (L10, L13, L15, L17, L18). Lenses returning zero findings at any severity: 4 (L05 noted Minor that lens itself rated non-defect, L07, L08, L09, L20).
+
+**Pre-filter findings:** 0 Critical, 5 Important (L11×1 self-demoted to Minor, L13×1 one-assertion-target violation, L15×1 darwin-checks scope undocumented, L17×3 §5 tree drift, L18×1 false-positive `default_language_version`), ~30 Minor.
+
+**Senior-dev filter pass:** ~22 findings dropped. Notable rejections:
+- L18 Important `default_language_version` rejected as false-positive: hooks use `language: system + entry: uv run X`; uv resolves Python via `.python-version`, making `default_language_version` not load-bearing for this config style. Lens claim applies only to `language: python` hooks (none exist).
+- L10 `.secrets.baseline` `generated_at` timestamp staleness rejected as ceremonial re-versioning churn (results: {} unchanged; cost-benefit thin).
+- L11 self-demoted findings preserved as Minor.
+- L15 darwin-checks scope undocumented rejected as 4a deferral (lens self-acknowledged).
+- L13 round-trip multi-assertion preserved as single-property-cluster per documented practical interpretation.
+- L16 wall-clock-agnostic warning comment rejected as thin cost-benefit (constraint not actually hidden).
+- L02/L03 historical-immutable preserved as skip.
+- L08 `PERF`/`PYI`/`FA`/`RSE`/`SLOT`/`COM`/`Q` rejected as ceremonial preemption (lens itself confirmed all are correct choices to omit).
+
+**Applied fixes (Layer A + B, 6 commits):**
+
+1. `4ba6a38` — `docs(ci): correct lockfile-sync concurrency comment cancellation scope` — L11 substantive cosmetic. Comment said `synchronize`/`opened`/`reopened` segregated into independent groups without mentioning that within a single group `cancel-in-progress: true` supersedes same-action events. Rewrite clarifies both halves.
+2. `7a4e6e7` — `build(deps): add detect-secrets rationale + align pyyaml comment style` — L12 substantive cosmetic × 2. `detect-secrets>=1.5` now carries the locked-minor rationale comment; `pyyaml>=6.0` comment now includes the `(6.0.x)` parenthetical to match the convention applied to every other dep floor in the file.
+3. `569ed25` — `build(pytest): add xfail_strict to ini_options` — L14 defense-in-depth (1 line). Closes the silent-unexpected-pass footgun for Phase 3-6 test authors; zero current `@pytest.mark.xfail` uses.
+4. `a80266f` — `test(domain): split duration_ms-is-none test into per-state pair` — L13 Important (one-assertion-target rule violation). Replaced combined test with `test_stage_record_duration_ms_is_none_when_pending` + `test_stage_record_duration_ms_is_none_when_in_progress_before_complete`. Test count 31 → 32.
+5. `28e629b` — `docs(plan): sync §5 tree subtrees with live filesystem state` — L17 Important × 3. `tests/ocr/` added `_metrics.py`, `conftest.py`, `test_factory.py`, `test_word_recall.py`; `tests/unit/` added `test_ocr_base.py`; `tests/fakes/` added `test_fake_ocr.py`. Phase 3+ aspirational pre-declarations preserved.
+6. `8459fc1` — `docs(plan): sync Task 1.3 test list with cycle-1 test split` — workflow-gap rule #1 (test split + missed plan sync) caught at Layer B per the post-split grep sweep the rule prescribes; same root-cause pattern as §17.23 MAX-CAP rule #1. Updated §6.3 Task 1.3 RED cell to enumerate the two new test names.
+
+**This §17.30 audit entry (Layer C, this commit)** + CLAUDE.md `§17 latest` pointer bumped §17.29 → §17.30.
+
+**Workflow-gap audit (per §17.23 MAX-CAP diagnosis):**
+1. **Test split + missed plan sync** — rule fired correctly. Layer-A test-split agent stopped at the §6.3 Task 1.3 grep hit and Layer-B plan-sync agent (in main convo) replaced the combined name. Rule worked as designed.
+2. **CLAUDE.md terminology / pointer leaks** — none surfaced this cycle (the prior §17.29 CodeQL-prefix sweep cleared all known sites).
+3. **Prior-cycle audit-comment factual drift** — none surfaced this cycle.
+
+**Verification gate (post-applied, all green):**
+- `uv lock --check`: clean
+- `uv run ruff check src tests`: clean
+- `uv run ruff format --check src tests`: clean
+- `uv run mypy src tests`: clean
+- `uv run pytest -q -m "not slow"`: 137 passed (was 136 — +1 from the test split)
+- `uv run pre-commit run --all-files`: all 14 hooks green
+
+**Per-cycle status line (compact):** `Cycle 1 on chore/panel-review-fixes-2026-05-13: 7 commits applied (6 fixes + this §17.30 with embedded CLAUDE.md pointer bump); 4 findings (0 Critical / 4 Important / 2 Minor by severity after filter); 0 strong convergent findings; Ship-ready (pre-fix): 16/20 Yes, 4/20 With fixes; Clean lenses: 4/20 (L07, L08, L09, L20); ~22 findings filter-dropped (incl. 1 false-positive: L18 default_language_version on language: system hooks); 0 new deferrals; 0 prior-cycle deferrals reversed. New HEAD: this audit commit. Continuing → Cycle 2.`
