@@ -53,3 +53,15 @@ class SchemaInvalidError(LlmError):
     """LLM returned JSON that failed schema validation."""
 
     code: ClassVar[str] = "schema_invalid"
+
+
+class ContractNotFoundError(ExtractionError):
+    """Raised when ResultStore is asked about a contract_id it does not hold."""
+
+    code: ClassVar[str] = "contract_not_found"
+
+
+class ContractAlreadyExistsError(ExtractionError):
+    """Raised when ResultStore.create is called with an already-present contract_id."""
+
+    code: ClassVar[str] = "contract_already_exists"
