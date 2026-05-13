@@ -194,6 +194,13 @@ class OllamaLlmClient:
             "context" plus one of "length", "window", "exceed"). Mapping to
             the domain-layer exception lets upstream code distinguish
             overflow from generic LLM failure modes.
+        LlmError:
+            If Ollama returns content that is not valid JSON despite
+            ``format=schema`` enforcement (e.g. model truncation mid-token).
+            Wraps the underlying ``json.JSONDecodeError`` via ``raise … from e``
+            so callers in the ``ExtractionError`` taxonomy catch it and
+            ``retry_extraction`` (keyed on ``ExtractionError.code``) can
+            retry the transient parse failure as an ``llm_failed`` code.
         ollama.ResponseError:
             Any other Ollama-side error (e.g. malformed request, server
             error) re-raised unchanged. Tasks 3.6 (dev-mode debug capture)
@@ -201,9 +208,6 @@ class OllamaLlmClient:
             non-overflow ``ResponseError`` — it stays intentionally
             transparent so callers can distinguish overflow / timeout /
             other failure modes by exception class.
-        json.JSONDecodeError:
-            If Ollama returns content that is not valid JSON despite
-            ``format`` enforcement (e.g. model truncation mid-token).
         """
         chat_coro = self._client.chat(
             model=self._model,
@@ -232,7 +236,14 @@ class OllamaLlmClient:
             raise
         # Access via attribute, NOT dict key — this changed in ollama 0.4→0.5.
         content: str = response.message.content
-        result: dict[str, Any] = json.loads(content)
+        try:
+            result: dict[str, Any] = json.loads(content)
+        except json.JSONDecodeError as e:
+            msg = (
+                "Ollama returned non-JSON content despite format=schema enforcement: "
+                f"{e.msg} (at line {e.lineno} col {e.colno})"
+            )
+            raise LlmError(msg) from e
         if self._mode == "development":
             # PII WARNING: `prompt` carries the full rendered OCR text of a
             # contract — likely contains party names, addresses, tax IDs,
