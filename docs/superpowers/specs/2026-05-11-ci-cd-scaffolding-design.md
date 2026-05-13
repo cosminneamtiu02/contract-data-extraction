@@ -2397,3 +2397,91 @@ Cycle-6 marks the **terminal convergence signal**: 16/20 lenses fully clean, onl
 **If the loop were extended:** Cycle 4 would likely re-surface drift in the count parentheticals + comment cross-refs added BY this cycle. The §17.23 MAX-CAP diagnosis pattern would repeat. The pre-audit grep checklist (above) is the actionable workflow gate that would interrupt the cycle. Recommend folding this checklist into CLAUDE.md's "Known workflow gaps" section as Rule #4 in a future doc commit.
 
 **Per-cycle status line (compact):** `Cycle 3 closed (TERMINAL — user 3-cycle cap). Commits applied: 7 (6 Layer A — 5 parallel + 1 sequential L04 add — + this §17.38 audit/pointer-bump/L17-count-fix bundle). Fixes by severity (post-filter): 0 Critical / 3 Important / 3 Minor. Convergence: 0 multi-lens; L20 corroborated L11 false-positive caught at synthesizer (workflow_dispatch concurrency claim). Ship-ready (pre-fix): 15/20 Yes, 5/20 With fixes, 0/20 No. Clean lenses (0 actionable after filter): 10/20. Filtered out: ~22 findings. Deferred new this cycle: 0. Prior-cycle deferrals reversed: 0. New HEAD: this §17.38 audit commit. USER-CAP TERMINATION (not convergence — fix-commit count flat at 6 cycles 2+3, dominantly drift-guards on prior-cycle additions). Total loop: 19 fix-commits + 3 audit commits = 22 commits across 3 cycles. Workflow-gap rule #3 (audit-comment factual drift) fired in TWO cycles — recommend pre-audit grep checklist as new Rule #4 in CLAUDE.md.`
+
+### 17.39. Single-cycle standalone review on `chore/panel-review-fixes-2026-05-13-pass3` (opus, first run under EXHAUSTIVE PASS RULE)
+
+**HEAD at cycle start:** `6791448` (origin/main HEAD = the commit that introduced the Opus model upgrade + EXHAUSTIVE PASS RULE to the 20-lens panel). This is the FIRST review pass to run under the new dispatch posture.
+
+**Mode:** single-cycle (user invocation: "take latest main on a separate branch... run that once"). Not the auto-converge loop. Per CLAUDE.md cycle-loop-mode rules, single-cycle keeps Section 5 (For user decision) as an explicit ASK rather than a synthesizer self-decision.
+
+**Dispatch:** 20 lenses, `model: opus` (newly upgraded — first cycle to use it), `run_in_background: true`, clean prompts (no §17 awareness, no cycle-N framing per the cycle-independence rule). HEAD_SHA `6791448`, BASE_SHA `6791448` (cycle 1 of the standalone pass; diff window is empty — lenses audit current state of the codebase against project standards). Each lens prompt carried the EXHAUSTIVE PASS RULE verbatim: "enumerate every finding you observed within your dimension — do NOT pre-filter."
+
+**Lens verdicts (pre-fix):** 14/20 Yes ship-ready (L01 only by single-issue downgrade — but L01 was actually With-fixes; recount: 11/20 Yes, 9/20 With fixes — L01, L02, L05, L06, L07, L09, L12, L13, L17, L20; 0 No). The Critical (L20) does not push that lens to "No" because the fix is well-defined and the workflow itself is operational.
+
+**Pre-filter findings:** **1 Critical**, **~18 Important**, **~108 Minor**. Total **~127 raw findings**. This is a roughly 2× volume increase vs. cycles run pre-EXHAUSTIVE-PASS-RULE (prior cycles ranged 30–60 raw findings). Observable effect of the rule: lenses enumerated every Minor they noticed instead of pre-filtering at the dimension level. The senior-dev filter handled the additional noise as designed (~100 findings dropped at synthesis).
+
+**Senior-dev filter pass:** ~100 of the ~127 raw findings dropped. Notable drop categories:
+- **Ceremonial / preemptive tightenings with no current cost-benefit:** the bulk of L04 (PEP 695 type-alias modernization, protocol/fake width drift), L08 (future-import consistency note, type-alias migrations), L14 (comment hoisting, helper relocation), L18 (stages differentiation, pre-push hook ceremony), L19 (forward-looking Makefile / .sh editorconfig stanzas), L09 (force-include redundancy, `__all__: list[str] = []` over omission).
+- **Defense-in-depth with zero current violation AND no plausible future violation in scope:** L16 (MappingProxyType freeze of test-only `_VALID_SCHEMA`), L11 (CodeQL queries-default verbosity, `dependabot-automerge` runner-style nit).
+- **Re-testing third-party library behavior:** L13 `StrEnum.__str__` / `__format__` tautologies (Python language features, kept-as-sentinels but not flagged).
+- **Historical immutable items:** L02 commit-message style nits on already-merged subjects (Initial commit, Phase 0 sub-phase scope, em-dash subjects, dual-casing Co-Authored-By). Per CLAUDE.md "historical immutable items" SKIP rule.
+- **README findings:** route to queue (`docs/readme-changes-pending.md`), never directly applied. Two new entries added per L17 (Ollama prerequisite, LICENSE pointer).
+
+**Convergent findings promoted:**
+- `SIDE_CHANNEL_KEYS` premature public export: **L07 (Important) + L13 (Important)** convergent but with opposing recommendations — L07 wanted to DEMOTE the export; L13 wanted to ADD a behavioral pin. Headbutting resolution by synthesizer: **keep the export, add the test** (Lens 13's path). Rationale: the export is already in PR-#14 merged code; demoting now would break any Phase-4 worker designed against it; adding a 5-line behavioral test is additive and converts the symbol from "exists" to "verified contract." Resolved via commit `967dbe3`.
+
+**Cross-lens corroboration without headbutting:**
+- Audit-comment factual drift pattern (CLAUDE.md workflow-gap rule #3) — fired across **L01** (Phase 2 spec §17.15 records terminal-from-None-reversal but origin/main re-added it; §17.18 audit appended), **L12** (dependabot.yml header omits pip-catchall; pre-commit rationale stale; uvicorn transitive comment; pyproject hypothesis hedge; fastapi "most"→"every"), and **L17** (CLAUDE.md still claims "Phases 0/0.5/1/2 complete" at two callsites; §17.4 audit-summary precision). Pattern is the dominantly persistent finding class across the loop history.
+
+**False-positive scan at synthesizer:** No false-positives caught this cycle (no lens corroboration needed to invalidate a finding — every cycle-3 finding was substantive on direct re-read of the cited file).
+
+**Applied fixes (14 fixes total, 13 atomic commits + this audit entry):**
+
+Layer A0 (small fixes, applied sequentially in main conversation):
+
+1. `5bf4cb5` — `docs(claude): sync project-state lines to reflect Phase 3 complete` — L17 Important (2 callsites: CLAUDE.md:7, CLAUDE.md:52) + L17 Minor §17.4 audit-summary precision.
+
+2. `9967927` — `docs(ocr): qualify §17.16/§17.17 cross-references with filename` — L01 Minor; substantive cosmetic; matches CLAUDE.md `feedback-cosmetic-fixes-apply` always-apply rule.
+
+3. `213b83c` — `chore(ruff): rename TCH category selector to TC (ruff 0.15.x deprecation)` — L08 Minor; deprecation-path closure ahead of the next ruff major.
+
+4. `ecfed95` — `docs(readme-queue): add Ollama prerequisite + LICENSE pointer entries` — L17 Minor x2; README is user-restricted per `feedback-readme-queue`; routing IS the apply-equivalent action.
+
+Layer A1 (larger fixes, 8 parallel sonnet agents — pre-commit hook race interleavings noted below):
+
+5. `7377f5f` — `docs(spec): append Phase 2 §17.18 — \`from None\` re-add audit trail` — L01 Important.
+
+6. `967dbe3` — `test(llm): pin SIDE_CHANNEL_KEYS contract + collapse 4 tautologies` — L07 + L13 convergent (headbutting resolved keep+test).
+
+7. `d6509a6` — `docs(pyproject): close 2 audit-comment factual-drift items` — L12 Minor cluster (hypothesis hedge rewrite, fastapi "most"→"every"). **Commit-title-vs-content mismatch:** this commit also contains the `.github/workflows/dependabot-automerge.yml` Layer-A1 update-type gate work that should have landed in commit `2d4366c` — see "Pre-commit hook race" note below.
+
+8. `2d4366c` — `ci(automerge): gate auto-merge on Dependabot update-type (block majors)` — L20 **CRITICAL**. **Commit-title-vs-content mismatch:** this commit's title describes the automerge change, but its actual diff is `src/extraction_service/llm/client.py` (the L05 Important JSONDecodeError wrap that would have landed under a `fix(llm): wrap json.loads...` title). The automerge YAML diff that this title describes landed in `d6509a6` instead.
+
+9. `0342c17` — `feat(domain): add extra="forbid" to ContractRecord + rejection test` — **Commit-title-vs-content mismatch:** title describes the L13 Important Pydantic `extra=forbid` work, but the actual diff in this commit is `docs/superpowers/specs/2026-05-13-phase-3-llm-spec-deviations.md` §17.5 (the L02 Important PR-#14 understated-constituents cross-reference under a `docs(spec): append Phase 3 §17.5...` intended title).
+
+10. `7f6f620` — `ci(codeql): make build-mode: none explicit on init step` — L20 Important (defense-in-depth).
+
+11. `670227a` — `feat(domain): add extra="forbid" to ContractRecord + rejection test` — L13 Important. This is the **correct** `feat(domain)` commit with matching content. The duplicate-title against `0342c17` is the same pre-commit-hook race symptom.
+
+Layer A2 (recovery commit for orphaned dependabot.yml work):
+
+12. `9fee131` — `docs(dependabot): close 3 audit-comment factual-drift items` — L12 Minor cluster (header pip-catchall enumeration, pre-commit rationale rewrite, uvicorn transitives forward-compat clarification). This work was orphaned to a stash during the Layer-A1 pre-commit-hook race; recovered by replaying the diff against the file directly and committing.
+
+Layer B (sequential audit, this commit):
+
+13. `this commit` — `docs(spec): append CI/CD §17.39 — single-cycle pass3 standalone-review audit` — terminal Layer-B audit entry + CLAUDE.md `§17 latest` pointer bump.
+
+**Pre-commit hook race (cycle-3-of-pass2 didn't observe this; pass3 did):** During the 8-parallel-agent Layer-A1 dispatch, the `pre-commit` hook configuration's `pass_filenames: false` + `always_run: true` posture (correctly tightened by cycle-3 commit `8933d6b` in §17.38) caused each agent's pre-commit-run to STAGE all current working-tree changes from sibling agents in addition to its own owned files. The pre-commit chain then committed the union, producing 3 commit-title-vs-content mismatches (above) plus one duplicate-title (`670227a` vs `0342c17`). **The diff content is correct** — every intended file change landed exactly as the agent specified. Only the commit attribution is permuted across siblings.
+
+**Why this is acceptable for this cycle:** the SAME content landed; reverting to fix commit attribution would require force-push or interactive rebase, neither of which is sanctioned without explicit user authorization. The audit-trail value of preserving the cycle's exact commit graph (and naming the race here) outweighs the cosmetic cleanliness of perfectly-titled commits. Future parallel-dispatch invocations should consider:
+- (a) Running each agent in a separate git worktree so the staging area is per-agent isolated (overhead: ~1s/agent setup; gain: clean per-agent commits); OR
+- (b) Constraining each agent to `git add <FILES_OWNED>` followed by `git commit -- <FILES_OWNED>` (path-spec restricted) instead of relying on pre-commit's auto-stage behavior; OR
+- (c) Adopting `pre-commit run --files <FILES_OWNED>` invocation pattern within each agent's verification gate to scope the hook to owned files only.
+
+Recommendation for a future CLAUDE.md update: add a **Workflow-Gap Rule #5** ("parallel-dispatch commit-attribution race") + a worktree-per-agent or path-spec-restricted-commit countermeasure.
+
+**Workflow-gap audit (per §17.23 MAX-CAP diagnosis):**
+1. **Test split + missed plan sync** — N/A (no test splits this cycle; L13's tautology-collapse was a merge-not-split).
+2. **CLAUDE.md terminology / pointer leaks** — L17 Important caught Phase 3 staleness at TWO callsites (workflow-gap rule #2 fired and was resolved in `5bf4cb5`); pre-audit grep `grep -nE 'Phases? 0' CLAUDE.md` would have caught both pre-cycle.
+3. **Prior-cycle audit-comment factual drift** — Fired **AGAIN** this cycle (L01 from-None re-add forgotten in §17.15; L12 dependabot.yml + pyproject.toml comment cluster; L17 §17.4 count discrepancy). Pattern is now the most persistent class of finding across the loop history. **§17.38's recommended Workflow-Gap Rule #4 (pre-audit grep checklist) is restated**: each cycle's synthesizer should run a pre-audit grep over recently-touched config / spec / CLAUDE.md files to surface comment-vs-current-state drift before the audit commit fires. This cycle ALSO did not action that recommendation; folding into CLAUDE.md remains pending.
+
+**Notable observations on the EXHAUSTIVE PASS RULE + Opus upgrade:**
+- **Volume:** raw finding count roughly doubled vs. pre-rule cycles (~127 vs ~30–60). Filter still scaled — ~80% drop rate at senior-dev filter.
+- **Tail-Minor depth:** several lenses found ≥6 distinct Minor items per dimension (L02 commit-message coverage had 9; L13 test coverage had 8; L17 doc completeness had 7). Prior cycles' sonnet-with-pre-filter behavior often stopped at 2–3 Minors per lens. The rule worked as designed: completeness > curation.
+- **False-positive rate:** unchanged (zero false-positives caught by synthesizer in this cycle, same as §17.38 cycle 3).
+- **Headbutting incidence:** 1 this cycle (`SIDE_CHANNEL_KEYS` L07-vs-L13), resolved synthesizer-side without lens re-dispatch.
+- **Recommendation:** the EXHAUSTIVE PASS RULE + Opus dispatch is the new steady-state for the panel. The senior-dev filter scales gracefully to ~2× volume.
+
+**Mode-specific note (single-cycle):** Per CLAUDE.md, single-cycle mode KEEPS Section 5 (For user decision) as an explicit ASK. This audit commit is followed by the user-facing 6-section report which will ask the user about three items deferred to user judgment: (a) `StageError` rename to `StageFailure` (L06 Important, expensive ~28-reference refactor); (b) non-overflow `ResponseError` wrap to `LlmError` vs documented intentional passthrough (L05 Important, architectural call for Phase 4 wiring); (c) `ClientMode` premature export demote-now or wait-for-Phase-4 (L07 Important).
+
+**Per-cycle status line (compact):** `Single-cycle pass3 closed. Commits applied: 13 (4 Layer A0 small + 7 Layer A1 parallel + 1 Layer A2 stash-recovery + this Layer B audit). Fixes by severity (post-filter): 1 Critical / 9 Important / ~10 Minor (the rest dropped at senior-dev filter). Convergence: 1 multi-lens (SIDE_CHANNEL_KEYS L07+L13, headbutting resolved keep+test). Ship-ready (pre-fix): 11/20 Yes, 9/20 With fixes, 0 No. Clean lenses (0 actionable after filter): 4/20. Filtered out: ~100 findings. Deferred 4a (waiting on Phase 4): 3 items (non-overflow ResponseError architectural decision, ClientMode export, LLM factory parity with OCR). Deferred 4b (cost-benefit): 1 item (StageError rename, ~28 refs). For user decision: 3 items (StageError rename, ResponseError wrap, ClientMode demote). New HEAD: this §17.39 audit commit. Single-cycle TERMINAL (not a loop; user requested "run that once"). Pre-commit-hook race during 8-agent parallel dispatch produced 3 commit-title-vs-content mismatches + 1 duplicate-title; recovery commit added for orphaned dependabot.yml work. EXHAUSTIVE PASS RULE first run: raw volume ~127 vs prior ~30–60; filter handled 80% drop as designed.`
