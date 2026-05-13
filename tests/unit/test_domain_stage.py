@@ -185,11 +185,15 @@ def test_stage_record_fail_derives_duration_ms() -> None:
     assert failed.duration_ms == 120
 
 
-def test_stage_record_duration_ms_is_none_until_both_timestamps_set() -> None:
+def test_stage_record_duration_ms_is_none_when_pending() -> None:
     pending = StageRecord()
-    in_progress = pending.start(now=T0)
 
     assert pending.duration_ms is None
+
+
+def test_stage_record_duration_ms_is_none_when_in_progress_before_complete() -> None:
+    in_progress = StageRecord().start(now=T0)
+
     assert in_progress.duration_ms is None
 
 
