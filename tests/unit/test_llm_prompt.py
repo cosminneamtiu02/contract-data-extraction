@@ -15,6 +15,8 @@ escape literal curly braces (e.g., JSON example blocks) as ``{{`` and ``}}``
 import json
 from pathlib import Path
 
+import pytest
+
 
 def test_prompt_renders_with_ocr_text_and_schema(tmp_path: Path) -> None:
     from extraction_service.llm.prompt import PromptTemplate
@@ -83,8 +85,6 @@ def test_prompt_template_loaded_once_not_on_every_render(tmp_path: Path) -> None
 
 
 def test_missing_template_file_raises_file_not_found_error(tmp_path: Path) -> None:
-    import pytest
-
     from extraction_service.llm.prompt import PromptTemplate
 
     with pytest.raises(FileNotFoundError):

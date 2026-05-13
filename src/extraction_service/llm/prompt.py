@@ -8,16 +8,26 @@ construction time and caches the raw template string. Subsequent calls to
 - ``{schema_json}`` — the domain schema serialised via ``json.dumps(...,
   indent=2)`` so the LLM receives readable JSON.
 
-**Important:** Python's ``str.format`` interprets every ``{...}`` sequence as
-a placeholder. Template files that include literal curly braces (for example,
-JSON examples in few-shot sections) MUST escape them as ``{{`` and ``}}``.
-For instance::
+**Important:** Python's ``str.format`` interprets every ``{...}`` sequence in
+the TEMPLATE as a placeholder. Template files that include literal curly
+braces (for example, JSON examples in few-shot sections) MUST escape them
+as ``{{`` and ``}}`` — one pair per literal brace. For instance::
 
-    Respond in JSON like this: {{{{\"field\": \"value\"}}}}
+    Respond in JSON like this: {{"field": "value"}}
 
 renders to::
 
-    Respond in JSON like this: {{"field": "value"}}
+    Respond in JSON like this: {"field": "value"}
+
+The four-brace ``{{{{ }}}}`` form (used in the
+``test_prompt_handles_escaped_braces_in_template`` test) demonstrates the
+NESTED escape case: one escape level is consumed per ``str.format`` pass,
+so four braces render to two and two render to one. Most prompt authors
+will only need the common two-brace form.
+
+Substituted VALUES are not re-interpreted — passing ``ocr_text="see
+{Vertragsnummer}/2026"`` leaves the inner braces literal in the output;
+no `KeyError` results from braces inside caller-supplied data.
 
 **Error handling:** ``FileNotFoundError`` and ``OSError`` from
 ``Path.read_text`` are intentionally propagated to the caller — consistent
