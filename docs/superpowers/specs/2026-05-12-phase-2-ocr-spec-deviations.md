@@ -695,3 +695,137 @@ framing was injected.
 **Loop status:** cycle 1 applied 11 commits (plus this §17.12 audit
 entry). NOT converged — cycle 2 will fire fresh against the new branch
 HEAD per the cycle-independence rule.
+
+## §17.13 — Cycle-2 of fresh review loop on `chore/phase-2-ocr-review-fixes-2026-05-13`
+
+**Branch:** `chore/phase-2-ocr-review-fixes-2026-05-13`. Cycle-2 HEAD
+at dispatch = `f9eead6` (terminal commit of cycle 1 / §17.12).
+
+**Cycle-2 findings tally (pre-filter):**
+
+- 20/20 lens reports returned.
+- Verdicts: 14 lenses **Yes** (02, 03, 04, 05, 07, 08, 09, 11, 12,
+  16, 17, 18, 19, 20), 6 lenses **With fixes** (01, 06, 10, 13, 14,
+  15).
+- Strictly-clean (zero issues): Lens 04, 07, 09, 18, 19, 20. **6/20**
+  — up from 2/20 in cycle 1.
+- Raw severity: 0 Critical / 7 Important / 15 Minor.
+
+**Convergent findings (auto-applied):**
+
+- **Lens 06 Minor + Lens 13 Minor + Lens 14 Minor** on
+  `tests/ocr/test_word_recall.py:1` module docstring still claiming
+  `word_recall` lives in `tests/ocr/conftest.py` after cycle-1's
+  move to `tests/ocr/_metrics.py`. Three-lens convergence — promoted
+  to load-bearing fix. Classic "rename leak" per CLAUDE.md Known
+  Workflow Gap #2 — the import in this same file was updated in
+  cycle-1 commit `d1c931d`; the docstring reference was missed.
+  Fixed in commit `95e5e3b`.
+
+**Cycle-1 fallout caught by cycle-2 (the loop justified itself):**
+
+Three findings this cycle traced directly back to incomplete fixes
+in cycle 1's commits. Each is documented as a partial-sync workflow
+gap below for the cycle-3 prompt context:
+
+1. **Lens 01 Important:** `docs/plan.md §6.4` Tasks 2.8 and 2.9
+   RED-test columns still named planned test identifiers that don't
+   exist in code (`test_docling_extract_timeout`,
+   `test_docling_extract_empty_output_raises_ocr_empty_output`,
+   `test_docling_internal_exception_wraps_as_ocr_engine_failed`).
+   Cycle-1 commit `8e78044` synced Task 2.1's RED-test name but did
+   NOT audit Tasks 2.4/2.5/2.6/2.8/2.9 for the same drift. Fixed in
+   commit `ff5c092`. Pattern: "partial sync after partial-scope
+   fix" — Known Workflow Gap #1.
+2. **Lens 01 Minor:** §17.12 (added in cycle-1 commit `f9eead6`)
+   used `### 17.12` heading while every preceding §17.N entry uses
+   `## §17.N` (level-2 + § sigil). The mis-heading also caused
+   Lens 17's cycle-2 self-report to claim "latest is §17.11" (its
+   text search for "§17." missed the new entry). Fixed in commit
+   `ff5c092` (same commit; both are spec-format consistency).
+3. **Lens 01 Minor:** `CLAUDE.md "Where things live"` Phase 2 spec
+   pointer still claimed `latest: §17.11`. Cycle-1 added §17.12 but
+   did not update the index pointer in the same flight. Fixed in
+   commit `61a7d67`. Pattern: "index drift after appending a new
+   entry."
+4. **Lens 12 Minor:** `pyproject.toml`'s floor-tracks-locked-minor
+   umbrella comment listed peers as "ollama / ruff / docling /
+   uvicorn / modelscope / httpx" but omitted `rapidocr-onnxruntime`,
+   which participates in the same convention. Cycle-1 commit
+   `e4ed74c` added `httpx` to the umbrella but missed
+   `rapidocr-onnxruntime`. Fixed in commit `52f066c`. Same partial-
+   sync pattern as findings #1–3.
+
+**Fixes applied this cycle (5 atomic per-concern commits):**
+
+| Commit | Subject | Lens(es) | Severity |
+|---|---|---|---|
+| `ff5c092` | docs(plan): sync §6.4 Task 2.8/2.9 RED-test names + correct §17.12 heading | 01 | Important×2 + Minor |
+| `61a7d67` | docs(claude): bump Phase 2 spec latest pointer §17.11 → §17.12 | 01 | Minor |
+| `96075c9` | test(ocr): drop tautological get_type_hints check on OcrEngine.extract | 13 | Important |
+| `95e5e3b` | test(ocr): fix stale conftest.py docstring path in test_word_recall.py | 06+13+14 (3-lens convergent) | Minor (promoted) |
+| `52f066c` | docs+ci(phase-2): FakeOcrEngine __init__ docstring + rapidocr umbrella + explicit --cov-report | 17, 12, 15 | Minor×3 |
+
+**Headbutting decision (synthesizer-resolved):**
+
+- **Lens 13 borderline Important on the 3 required-field + 1
+  extra-forbid OcrResult tests in `tests/unit/test_ocr_base.py`.**
+  Lens 13 itself acknowledged the borderline status and explicitly
+  DEFENDED the structurally identical `test_ocr_result_is_frozen`
+  test as a genuine project-rule check. Synthesizer call: required-
+  field tests and extra="forbid" tests verify the value-object's
+  design contract (project convention for value objects = frozen +
+  required + extra-forbid), not merely that Pydantic's machinery
+  works. Same defense as `test_ocr_result_is_frozen`. **KEEP.**
+  No commit.
+
+**Deferred — waiting on later phase (4a; re-flagged from cycle 1, NO
+new evidence):**
+
+- Lens 10 Important: `modelscope.snapshot_download(repo_id=
+  "RapidAI/RapidOCR")` still has no `revision=` pin. The in-code
+  TODO added by cycle-1 commit `e56ea5f` is intact and accurate.
+  Lens 10 acknowledged the TODO. Phase 6 hardening unblocks this.
+- Lens 15 Important×2: no `--cov-report=xml` and no `--junitxml`
+  uploads. Re-flagged by cycle-2 Lens 15 with the same framing.
+  Phase 6 hardening unblocks alongside `scripts/validate_ocr.py`.
+
+**Deferred — other reasons (4b):**
+
+- Lens 02 Minor (`7e860eb` commit missing scope: `docs:` not
+  `docs(scope):`): historical-immutable on a shared branch per the
+  "prefer new commits over amend" rule.
+- Lens 03 Minor (`domain/__init__.py` docstring mentions Phase 5):
+  lens itself rated as "accurate forward-declaration, not warranting
+  a split."
+- Lens 12 Minor #2 (pre-existing floor drift on `hypothesis` and
+  `pydantic-settings`): not introduced by this diff. Out of cycle-2
+  scope.
+- Lens 16 Minor (pre-existing `/tmp` literals in `test_run_config.
+  py`): not in cycle-2 diff. Out of scope.
+
+**Filter-dropped (ceremonial):**
+
+- Lens 05 Minor (comment scope on `except Exception` broadening to
+  enumerate BaseException semantics): comment inflation on already-
+  correct code.
+- Lens 08 Minor (`from __future__ import annotations` consistency
+  across modules where it's not functionally needed): ruff itself
+  does not flag the inconsistency; senior-dev would push back on a
+  pure-style pass adding noise.
+- Lens 11 Minor (`--cov=src/extraction_service` explicit when
+  `[tool.coverage.run].source` already sets it): comment inflation
+  on unambiguous config — pytest-cov correctly reads pyproject's
+  source when `--cov` is bare.
+
+**Convergence between cycles:** None of cycle-2's fix-able findings
+were also present in cycle-1's deferred lists — all five fix
+commits address newly-surfaced items (or items where new evidence
+mid-cycle promoted them to load-bearing). The 4a deferrals from
+cycle 1 (Lens 10, Lens 15×2) re-surfaced in cycle 2 with no new
+evidence; cycle-2 synthesizer kept them in 4a per the
+cycle-independence rule.
+
+**Loop status:** cycle 2 applied 5 commits (plus this §17.13 audit
+entry). NOT converged — cycle 3 will fire fresh against the new
+branch HEAD per the cycle-independence rule.
