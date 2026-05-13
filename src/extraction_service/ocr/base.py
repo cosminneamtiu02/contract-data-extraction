@@ -37,9 +37,11 @@ class OcrEngine(Protocol):
     (``docling_engine`` for production, ``tests/fakes/fake_ocr`` for tests).
 
     ``extract`` is async because production engines wrap synchronous OCR work
-    in ``asyncio.to_thread`` (see Phase 2 task 2.8 + spec deviation §17.9 for
-    the Docling implementation). Returning ``OcrResult`` keeps the protocol
-    typed end to end — Phase 4's worker code can rely on ``.text`` /
+    in ``asyncio.to_thread`` (see Phase 2 task 2.8 + deviation §17.9 in
+    ``docs/superpowers/specs/2026-05-12-phase-2-ocr-spec-deviations.md`` for
+    the Docling implementation; not to be confused with the CI/CD spec's own
+    §17.9 on closed-Literal exhaustiveness). Returning ``OcrResult`` keeps the
+    protocol typed end to end — Phase 4's worker code can rely on ``.text`` /
     ``.page_count`` / ``.engine_name`` being present on every implementation.
     """
 
