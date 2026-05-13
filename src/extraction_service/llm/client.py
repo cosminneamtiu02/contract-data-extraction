@@ -44,6 +44,20 @@ from extraction_service.domain.errors import ContextOverflowError, LlmError
 
 ClientMode = Literal["development", "production"]
 
+# Public set of top-level keys ``OllamaLlmClient.extract`` may inject as
+# side-channel metadata when ``mode == "development"``. Callers (Phase 4
+# worker code, Phase 5 HTTP response shaping) MUST pop these keys from
+# the result dict before validating with ``validate_extracted_data`` or
+# serializing to a JSON response. Phase 4 wiring will look like:
+#
+#     for key in SIDE_CHANNEL_KEYS:
+#         result.pop(key, None)
+#
+# Using a named constant rather than a hardcoded ``"_debug"`` literal in
+# every consumer prevents future side-channel additions (e.g. ``_timing``)
+# from silently leaking PII when a caller forgets to update its strip set.
+SIDE_CHANNEL_KEYS: frozenset[str] = frozenset({"_debug"})
+
 
 class _ChatResponse(Protocol):
     """Minimal structural protocol for the ChatResponse-like return value.
@@ -51,6 +65,15 @@ class _ChatResponse(Protocol):
     Only the ``message.content`` attribute path is modelled — that is the
     sole field ``OllamaLlmClient.extract`` reads. Using a Protocol here
     avoids importing ``ollama.types`` at module load time.
+
+    Type-only: this Protocol is NOT ``@runtime_checkable`` and has no
+    ``isinstance`` consumer. It exists solely to give mypy structural
+    knowledge of the ``response.message.content`` attribute path on the
+    return value of ``_ChatClientProtocol.chat``. Signature drift in a
+    fake's response object will be caught by mypy when the fake is wired
+    into a test that reads ``response.message.content`` — there is no
+    runtime guard at this nested level (the outer ``_ChatClientProtocol``
+    is the only ``@runtime_checkable`` boundary).
     """
 
     @property
@@ -58,7 +81,11 @@ class _ChatResponse(Protocol):
 
 
 class _ChatMessage(Protocol):
-    """Protocol for the nested message object in a ChatResponse."""
+    """Protocol for the nested message object in a ChatResponse.
+
+    Type-only (see ``_ChatResponse`` docstring for the no-runtime-guard
+    rationale).
+    """
 
     @property
     def content(self) -> str: ...
@@ -194,9 +221,12 @@ class OllamaLlmClient:
             raise LlmError(msg) from e
         except ResponseError as e:
             if e.status_code == _HTTP_BAD_REQUEST and _is_context_overflow_error(e.error):
-                # `e.error` is Ollama-server text (not caller-supplied input) —
-                # safe to embed verbatim in the domain-exception message for
-                # internal logging; not intended to surface to HTTP responses.
+                # `e.error` is Ollama-server text — safe to embed verbatim in
+                # the domain-exception message for internal logging UNDER THE
+                # LOCAL-OLLAMA ASSUMPTION (the only deployment topology this
+                # service supports today). Revisit if a remote/proxied Ollama
+                # endpoint is ever introduced; the message must not surface
+                # to HTTP responses regardless of topology.
                 msg = f"Ollama context overflow: {e.error}"
                 raise ContextOverflowError(msg) from e
             raise
