@@ -569,7 +569,7 @@ origin/main discipline blocked the same pattern from recurring.
 NOT converged — cycle 3 will fire fresh against the new branch HEAD per
 the cycle-independence rule.
 
-### 17.12 — cycle-1 of fresh review loop on `chore/phase-2-ocr-review-fixes-2026-05-13`
+## §17.12 — Cycle-1 of fresh review loop on `chore/phase-2-ocr-review-fixes-2026-05-13`
 
 **Branch:** `chore/phase-2-ocr-review-fixes-2026-05-13` (derived from
 `phase-2-ocr` HEAD `7677c04`, which was the post-merge state after the
