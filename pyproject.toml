@@ -224,6 +224,13 @@ ignore_missing_imports = true
 init_forbid_extra = true
 warn_required_dynamic_aliases = true
 init_typed = true
+# `warn_untyped_fields` errors when a Pydantic model field omits a type
+# annotation (e.g., `class Foo(BaseModel): value = "default"`). Without it
+# the untyped field is silently treated as `Any`, propagating Any into typed
+# pipeline code downstream. Zero current violations (all Phase-1 model
+# fields are annotated); defense-in-depth before Phase 3-5 lands new
+# Pydantic models for HTTP request/response and LLM config sub-models.
+warn_untyped_fields = true
 
 [tool.pytest.ini_options]
 # Floor mirrors the dev-group `pytest>=9.0` constraint so pytest itself
