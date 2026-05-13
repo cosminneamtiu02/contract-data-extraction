@@ -141,7 +141,15 @@ target-version = "py313"
 # `type`, `format`, `input` is easy to slip past review. Zero current violations
 # — same defense-in-depth pattern as G/DTZ/BLE/ANN/PL (verified via
 # `uv run ruff check --select A`).
-select = ["E", "F", "I", "B", "UP", "ASYNC", "PIE", "SIM", "RET", "ARG", "PTH", "TID", "T20", "RUF", "C4", "FURB", "PT", "EM", "TRY", "TCH", "N", "S", "BLE", "PL", "ANN", "G", "DTZ", "A"]
+# FBT added 2026-05-13 (Lens 08): flake8-boolean-trap catches positional-boolean
+# call sites (`do_thing(True)`) and boolean-trap definitions. Phase 3-5 worker
+# retry flags, HTTP query params, and lifecycle booleans will multiply; FBT
+# prevents the silent positional-call defect class. Zero current violations.
+# LOG added 2026-05-13 (Lens 08): flake8-logging catches logging.warn (removed
+# in 3.13), logging.WARN constant, and `extra=` kwargs that conflict with
+# reserved LogRecord attrs. log_config.py wires stdlib logging into structlog's
+# bridge; Phase 3+ workers emit through that bridge. Zero current violations.
+select = ["E", "F", "I", "B", "UP", "ASYNC", "PIE", "SIM", "RET", "ARG", "PTH", "TID", "T20", "RUF", "C4", "FURB", "PT", "EM", "TRY", "TCH", "N", "S", "BLE", "PL", "ANN", "G", "DTZ", "A", "FBT", "LOG"]
 ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
