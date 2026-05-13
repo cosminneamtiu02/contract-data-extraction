@@ -287,3 +287,23 @@ async def test_llm_timeout_chains_from_timeout_error() -> None:
         await client.extract(prompt="x", schema={})
 
     assert isinstance(excinfo.value.__cause__, TimeoutError)
+
+
+async def test_extract_raises_json_decode_error_on_invalid_json_response() -> None:
+    """Wrapper propagates ``json.JSONDecodeError`` when content is not valid JSON.
+
+    Pins the documented raise contract on ``OllamaLlmClient.extract``: if
+    Ollama returns content that fails ``json.loads`` (e.g. model truncation
+    mid-token despite ``format`` enforcement), the wrapper does NOT catch or
+    map this — ``json.JSONDecodeError`` propagates verbatim so upstream
+    callers can decide how to recover (retry, log, surface as schema-invalid).
+    Counterpart to the docstring at ``client.py``'s ``extract`` Raises block.
+    """
+    from extraction_service.llm.client import OllamaLlmClient
+    from tests.fakes.fake_ollama import FakeOllamaClient
+
+    fake = FakeOllamaClient(content="not valid json {")
+    client = OllamaLlmClient(client=fake, model="gemma3:4b")
+
+    with pytest.raises(json.JSONDecodeError):
+        await client.extract(prompt="x", schema={})
