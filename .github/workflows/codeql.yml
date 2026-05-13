@@ -28,7 +28,7 @@ concurrency:
   # `(push && sha) || (schedule && 'scheduled') || 'pr'` evaluates as:
   #   push      → sha                (non-empty, truthy)
   #   schedule  → 'scheduled'
-  #   pr / else → 'pr'
+  #   pr / workflow_dispatch / else → 'pr'
   # Do not refactor without preserving this semantics.
   group: codeql-${{ github.ref }}-${{ github.event_name == 'push' && github.sha || github.event_name == 'schedule' && 'scheduled' || 'pr' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
