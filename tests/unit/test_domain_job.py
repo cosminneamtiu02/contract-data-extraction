@@ -62,3 +62,9 @@ def test_contract_job_raises_when_pdf_bytes_missing() -> None:
 def test_contract_job_raises_when_contract_id_missing() -> None:
     with pytest.raises(ValidationError):
         ContractJob(pdf_bytes=b"%PDF-1.4")  # type: ignore[call-arg]  # intentionally missing contract_id to verify required-field rejection.
+
+
+def test_contract_job_rejects_unknown_field() -> None:
+    """Pins ContractJob's `extra='forbid'` model_config — typo'd field names at Phase 4/5 intake are rejected at instantiation rather than silently accepted. Mirrors the cycle-1 ContractRecord rejection test."""
+    with pytest.raises(ValidationError):
+        ContractJob(contract_id=uuid4(), pdf_bytes=b"%PDF-1.4", bogus_field="x")  # type: ignore[call-arg]  # intentionally passes bogus_field to verify extra="forbid" rejection.
