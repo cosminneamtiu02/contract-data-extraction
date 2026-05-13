@@ -324,3 +324,76 @@ Future phase squashes should enumerate all material new public surfaces
 the subject parenthetical. The existing PR-body "What's in this PR"
 section is the right draft source: if a bullet there names a symbol not
 visible in the subject, add it to the parenthetical before merging.
+
+---
+
+## §17.6 — Plan §6.5 task RED-test column expansion + test-name rename audit
+
+**Date:** 2026-05-13 (panel-review pass3 cycle 3 standalone audit).
+
+**Source:** Lens 01 (Phase plan adherence) Important + Minor findings on
+cycle 3 of the auto-converge loop on `chore/panel-review-fixes-2026-05-13-pass3`.
+
+**Two-part scope:**
+
+1. **Task 3.1 RED-test rename.** Plan §6.5 task 3.1 originally listed
+   `test_ollama_client_calls_correct_endpoint` as the seed RED test. That
+   name no longer exists in `tests/unit/test_llm_client.py` — it was
+   consolidated during cycle 1 of the pass3 panel review into a single
+   structural test `test_ollama_client_emits_canonical_chat_call_shape`
+   (commit `967dbe3`, recorded in
+   `docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md §17.39`
+   under the Lens 13 tautology-collapse work). The plan column was not
+   updated at the time. This §17.6 entry records the rename retroactively
+   (per the append-only convention) and the plan column is bumped in this
+   commit to the new name with a cross-reference back here.
+
+2. **Phase 3 task RED-test count expansion meta-note.** The Phase 3 task
+   table at `docs/plan.md §6.5` lists 1–2 RED tests per task as the
+   green-on-RED gate. The actual `tests/unit/test_llm_*.py` suite contains
+   ~40 unit tests across the four LLM modules (test_llm_client.py: 15,
+   test_llm_prompt.py: 7, test_llm_retry.py: 9, test_llm_schema.py: 9).
+   The expansion was deliberate: additional behavior-coverage tests landed
+   during cycle-1/cycle-2/cycle-3 panel-review feedback. Unlike Phase 2
+   (where every test-name drift is recorded inline in the plan task table
+   via an inline §17.N deviation reference), Phase 3 task expansions have
+   not been tracked at the task-table level so far. The decision recorded
+   here is to follow the Phase 2 §17.15 precedent: keep the plan column
+   listing only the seed RED test per task AND maintain this §17.6 entry
+   as the authoritative source-of-truth for the expanded test set. The
+   plan §6.5 task 3.1 row carries a parenthetical cross-reference to this
+   entry; future task-row expansions can add similar cross-references
+   without re-rewriting the plan.
+
+**Why this matters:** Without the cross-reference, a future Phase-4
+contributor grepping `docs/plan.md` for "Ollama client test" would find
+the stale `test_ollama_client_calls_correct_endpoint` name and either
+think the test was deleted or try to recreate it. Both are wrong: the
+test was renamed-and-collapsed intentionally, with documented synthesizer
+rationale.
+
+**How to apply going forward:** When a future test-name change or
+consolidation lands on the LLM-layer test files, append a brief
+"task §N test-name change: X → Y (reason / cross-ref commit)" line to
+this §17.6 entry rather than rewriting the plan column. The plan column's
+single seed RED test stays as the green-on-RED gate; the consolidation
+log lives here.
+
+**Test-name change log (initial entries):**
+
+- Task 3.1: `test_ollama_client_calls_correct_endpoint` →
+  `test_ollama_client_emits_canonical_chat_call_shape` (commit `967dbe3`,
+  pass3 cycle 1, Lens 13 tautology-collapse work). Three sibling tests
+  also collapsed into the structural form: `test_ollama_client_passes_prompt_as_user_message`,
+  `test_ollama_client_passes_schema_as_format`,
+  `test_ollama_client_sets_temperature_zero`. All four were asserting
+  isolated fields of the same chat-call payload; the consolidated form
+  asserts the full structural shape in one structural-equality
+  assertion.
+
+**Cross-references:**
+- `docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md §17.39`
+  records the cycle-1 commit `967dbe3` containing the test consolidation.
+- `docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md §17.40`
+  records the cycle-2 audit; this §17.6 surfaces the consequent plan-sync
+  gap that cycle-3 closed.
