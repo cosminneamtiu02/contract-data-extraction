@@ -190,6 +190,13 @@ def test_stage_field_inside_contract_record_remains_frozen() -> None:
         record.ocr.state = StageState.IN_PROGRESS  # type: ignore[misc]  # intentional frozen-child mutation to verify ValidationError fires.
 
 
+def test_contract_record_rejects_unknown_field() -> None:
+    """Pins ContractRecord's `extra='forbid'` model_config — Phase 4/5 typo'd
+    field names are rejected at instantiation rather than silently accepted."""
+    with pytest.raises(ValidationError):
+        ContractRecord(bogus_field="x")  # type: ignore[call-arg]  # intentional unknown-field to verify extra="forbid" fires.
+
+
 # --- JSON round-trip ---------------------------------------------------------
 
 
@@ -197,6 +204,9 @@ def test_contract_record_round_trips_through_model_dump_json_when_all_done() -> 
     # Exercises overall_status, current_stage, AND nested StageRecord.duration_ms
     # computed_fields through serialization. Required because the Phase 5 HTTP
     # response shape returns this exact model to the orchestrator.
+    # Note: computed_fields (overall_status, current_stage) are excluded from the
+    # round-trip payload because extra="forbid" correctly rejects them as extra
+    # inputs -- they are re-derived at load time from the stored stage fields.
     record = ContractRecord(
         intake=StageRecord(state=StageState.DONE, started_at=T0, completed_at=T0),
         ocr=StageRecord(
@@ -212,7 +222,7 @@ def test_contract_record_round_trips_through_model_dump_json_when_all_done() -> 
         ),
     )
 
-    payload = record.model_dump_json()
+    payload = record.model_dump_json(exclude={"overall_status", "current_stage"})
     restored = ContractRecord.model_validate_json(payload)
 
     assert restored == record
@@ -230,7 +240,7 @@ def test_contract_record_round_trips_through_model_dump_json_when_failed() -> No
         data_parsing=StageRecord(state=StageState.FAILED, error=err),
     )
 
-    payload = record.model_dump_json()
+    payload = record.model_dump_json(exclude={"overall_status", "current_stage"})
     restored = ContractRecord.model_validate_json(payload)
 
     assert restored == record
