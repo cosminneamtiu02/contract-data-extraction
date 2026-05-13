@@ -163,3 +163,101 @@ subsection (NOT to retroactively rewrite §17.3).
 
 **Planning artifact:** Full migration scope captured in
 [docs/superpowers/plans/2026-05-13-gemma-4-e2b-only-migration.md](../plans/2026-05-13-gemma-4-e2b-only-migration.md).
+
+---
+
+## §17.4 — Panel review cycle 1 close (2026-05-13) on `chore/docs-gemma-4-migration`
+
+**Trigger:** User-requested 20-lens panel against `chore/docs-gemma-4-migration`
+(PR #16) after the panel was initially "permanently skipped" per the
+PR-self-review exemption in §6 of the migration plan.
+
+**Diff range reviewed:** `origin/main..HEAD` = `dfe66fdb..597de8ee`. All 20
+lenses ran in parallel (`subagent_type=general-purpose`, `model=sonnet`)
+with cycle-independent clean prompts.
+
+**Per-lens verdict:** 14 Yes (ship-ready within lens) / 5 With fixes / 0 No.
+The "With fixes" set concentrated on documentation accuracy; the
+code-correctness lenses (typing, error handling, security, package layout,
+pytest infrastructure, CI test execution, test isolation, dependency
+management, pre-commit, CI workflow, scope creep, naming) all returned
+clean.
+
+**Convergent finding (load-bearing — ≥2 lenses):** Lenses 01 (phase plan
+adherence) and 17 (documentation completeness) both flagged that the
+migration plan's §3.1 described a rule-#14 rewrite landing as "F1 numbers
+on Gemma 4 E2B at both q4_K_M and q8_0 quantisations," but the
+actually-landed text at `docs/plan.md:931` reads "until F1 numbers
+confirm Gemma 4 E2B (Q4_K_M) is insufficient." The q8_0 quant escalation
+was dropped mid-migration in response to a user directive that Q4_K_M is
+the only sanctioned quant, but the migration plan still described the
+older intent. Fixed by aligning the migration plan §3.1 and §6 risk row
+to the actually-landed text.
+
+**Single-lens applied findings:**
+
+1. Migration plan §4 / §5 / §7 said "five commits" but the branch carries
+   six (planning artifact + five implementation commits). Lens 01 Minor.
+   Clarified by qualifying the count as "five implementation commits" and
+   naming the planning artifact commit (`5963b40`) separately.
+2. Migration plan §3.4 said the restructured test asserts on
+   `last_call["messages"][0]["content"]`, but actual code asserts on
+   `last_call["messages"]` (the full list). Lens 07 Minor. Fixed by
+   updating the §3.4 description.
+3. Test docstring at `tests/fakes/test_fake_ollama.py:123` referenced
+   `§17.3` without filename qualification, ambiguous given the Phase 2
+   spec also has a §17.3 in a different file. Lens 13 Minor. Fixed per
+   CLAUDE.md cross-file-reference convention to "§17.3 of the Phase 3
+   LLM spec deviations log."
+4. `CLAUDE.md § Where things live` roster omitted the Phase 3 LLM spec
+   deviation log, making §17.3 invisible to the canonical maintainer
+   index. Lens 17 Important. Fixed by adding the Phase 3 entry.
+5. PR title used `fix:` prefix but the constituent commits are docs +
+   test renames with no production bug fix. Lens 20 Minor. Updated to
+   `chore(docs):` to match the branch prefix and the actual change kind.
+
+**Findings dropped per senior-dev filter:**
+
+- Lens 02 Minor: `fix(llm)` → `docs(llm)` type-prefix on commit
+  `8704eec`. Force-pushing to mutate a published commit for a cosmetic
+  type-prefix is upside-down cost/benefit per CLAUDE.md commit-history
+  conventions. The commit body explicitly states "Behavioural impact:
+  zero — docstring is documentation only," which mitigates the wording
+  mismatch.
+- Lens 06 Minor: Suggested adding "(i.e. `gemma3:4b`)" parentheticals
+  next to the `predecessor-small-literal` / `predecessor-large-literal`
+  placeholders in the migration plan. Dropped — reintroducing `gemma3`
+  strings violates the strict-no-gemma3 rule from §17.3.
+- Lens 08 Minor: Suggested removing the `§17.3` cross-reference from the
+  test docstring (claiming it's spec-deviation justification belonging
+  elsewhere). Dropped — the cross-reference is informative
+  WHY-documentation for an otherwise non-obvious test restructure;
+  reader-utility outweighs the style preference for terse test
+  docstrings.
+- Lens 12 Minor: Suggested adding `(ollama>=0.6)` version annotation to
+  `docs/plan.md:21`. Dropped — adding a new doc convention not present
+  in the original spec is scope creep beyond the migration; the
+  lockfile pins `ollama==0.6.2` authoritatively.
+
+**Finding deferred (one):**
+
+- Lens 16 Minor: `tests/fakes/fake_ollama.py:115-119` stores caller's
+  `messages` list by reference (not snapshot) in `last_call`.
+  Pre-existing fragility, not introduced by this diff; no current test
+  mutates the list post-call. Deferred to a future cleanup pass when a
+  real test mutation pattern requires the snapshot semantics. No
+  re-trigger is required because the audit trail here IS the record.
+
+**Outcome:** Cycle 1 closes with 5 applied fixes across 4 atomic commits
+(plan doc, test docstring, CLAUDE.md, this §17.4 audit) plus 1 PR-title
+update via `gh pr edit` (non-commit). Re-run of the verification gate is
+green: `ruff check`, `ruff format --check`, `mypy src tests`,
+`pytest -q` (192 passed / 1 unrelated skip), `pip-audit --skip-editable`,
+`pre-commit run --all-files` (14 hooks). No further panel cycle will be
+dispatched without explicit user instruction.
+
+**How to apply (going forward):** When a panel review identifies a
+divergence between a migration plan's described commit text and what
+actually lands (because a user directive arrived mid-migration), update
+the migration plan to match the landed state — the plan is an as-built
+record, not an aspirational draft.
