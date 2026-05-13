@@ -86,9 +86,9 @@ Always dispatch all 20. Each is scoped to one dimension with "out of scope" guar
 
 ### Dispatch mechanics
 
-- All 20 in a **single assistant message**. `subagent_type: general-purpose`, `model: sonnet`, `run_in_background: true`.
+- All 20 in a **single assistant message**. `subagent_type: general-purpose`, `model: opus`, `run_in_background: true`. (Opus, not sonnet — see [[feedback-panel-cycle-opus-enumeration]]. The detection lenses benefit from the larger headroom; fix-dispatch and phase-subagents stay on sonnet because their work is mechanical.)
 - **Lens prompts carry NO carryover context** (cycle-independence rule — see [[feedback-cycle-independence]]). No "this is cycle N", no §17 awareness in prompts, no "delta from cycle N-1". Each cycle is stateless; the synthesizer's filter + §17-awareness do dedup between cycles.
-- Each prompt contains: `{LENS_NAME}` + `{FOCUS}`, `{FILES_HINT}`, `{OUT_OF_SCOPE}`, git range (`{BASE_SHA}..{HEAD_SHA}`), strict output format, 3-tier severity (Critical = broken/security/data-loss; Important = architecture/missing/test gaps; Minor = style/polish), rule "don't pad / don't manufacture Critical."
+- Each prompt contains: `{LENS_NAME}` + `{FOCUS}`, `{FILES_HINT}`, `{OUT_OF_SCOPE}`, git range (`{BASE_SHA}..{HEAD_SHA}`), strict output format, 3-tier severity (Critical = broken/security/data-loss; Important = architecture/missing/test gaps; Minor = style/polish), and the **EXHAUSTIVE PASS RULE: enumerate every finding you observed within your dimension — do NOT pre-filter by "this minor doesn't matter." The synthesizer's senior-dev filter handles noise; the lens's job is completeness, not curation. Do not manufacture Critical to look thorough.** See [[feedback-panel-cycle-opus-enumeration]] for the rationale (cycle-over-cycle drift mitigation).
 
 ### Lens output format (strict)
 
