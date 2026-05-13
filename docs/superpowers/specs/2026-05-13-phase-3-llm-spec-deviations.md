@@ -17,7 +17,7 @@ deviation across files, always qualify with the filename (e.g. "phase-3 spec
 
 ## §17.1 — `scripts/prewarm.py` exit-criterion DEFERRED to Phase 6
 
-**Plan text:** Phase 3 exit criteria ([docs/plan.md §6.5 line 756](../../plan.md)):
+**Plan text:** Phase 3 exit criteria ([docs/plan.md §6.5 line 761](../../plan.md)):
 "all unit tests pass; `scripts/prewarm.py` script can hit a real Ollama
 instance and get a valid JSON response. Commit, merge."
 
@@ -26,7 +26,7 @@ NOT include `scripts/prewarm.py`. The unit-test gate alone is treated as
 the sufficient exit signal for Phase 3.
 
 **Why:** `scripts/prewarm.py` is later re-assigned to Phase 6
-([docs/plan.md §6.8 line 805](../../plan.md), task 6.1: "Real Ollama smoke
+([docs/plan.md §6.8 line 810](../../plan.md), task 6.1: "Real Ollama smoke
 test script — hits Ollama with a 1-token request to load the model").
 The plan has two references to the same artifact — Phase 3 exit criteria
 and Phase 6 task 6.1 — that disagree about ownership. Phase 6 is the
