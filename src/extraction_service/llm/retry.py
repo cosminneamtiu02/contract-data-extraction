@@ -62,16 +62,21 @@ async def retry_extraction[T](
         msg = f"max_retries must be >= 0, got {max_retries}"
         raise ValueError(msg)
 
-    exc_bucket: list[ExtractionError] = []
-
-    for _ in range(max_retries + 1):
+    for attempt in range(max_retries + 1):
         try:
             return await extract_fn()
         except ExtractionError as exc:
-            if exc.code not in retry_on:
+            # Re-raise immediately if the code is non-retriable OR this is
+            # the final attempt. The bare `raise` preserves the active
+            # exception's chain in full (no need for `from`), which is
+            # cleaner than storing-and-re-raising outside the except block.
+            if exc.code not in retry_on or attempt == max_retries:
                 raise
-            exc_bucket.append(exc)
 
-    # exc_bucket is non-empty: the loop ran at least once and only reaches
-    # here after catching a retriable error on every attempt.
-    raise exc_bucket[-1]
+    # Unreachable: max_retries >= 0 means the loop runs ≥ 1 iteration, and
+    # every iteration either returns (success) or raises (non-retriable
+    # code, or retriable code on the final attempt). Present only to
+    # satisfy mypy's "missing return" check without an `assert` that would
+    # trip ruff S101 in production code.
+    msg = "unreachable: retry_extraction loop exited without returning or raising"  # pragma: no cover
+    raise RuntimeError(msg)  # pragma: no cover
