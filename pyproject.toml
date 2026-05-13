@@ -21,7 +21,9 @@ dependencies = [
     # ASGI lifespan shape FastAPI 0.136 expects).
     "uvicorn[standard]>=0.46",
     "pydantic>=2.10",
-    "pydantic-settings>=2.6",
+    # Floor tracks the locked minor (2.14.x). Same locked-minor convention as
+    # pydantic above and the other ecosystem libs in this block.
+    "pydantic-settings>=2.14",
     "structlog>=25.0",
     # Floor tracks the locked minor (0.6.2); ollama is pre-1.0 where every
     # minor is breaking (0.4→0.5: async streaming overhaul; 0.5→0.6: response
@@ -38,7 +40,8 @@ dependencies = [
     # Floor tracks the locked minor (1.36.x); modelscope 1.x follows
     # pre-1.0-style minor-breaking cadence.
     "modelscope>=1.36",
-    "jsonschema>=4.23",
+    # Floor tracks the locked minor (4.26.x).
+    "jsonschema>=4.26",
     "pyyaml>=6.0",
     # Floor tracks the locked minor (0.28.x); httpx is pre-1.0 and the
     # 0.27→0.28 boundary changed the default transport behavior.
@@ -68,10 +71,11 @@ dev = [
     # which property-based test behavior has not been verified against this
     # codebase.
     "hypothesis>=6.115",
-    # Floor tracks the API surface the codebase was tested against (locked at
-    # 2.1.x); mypy 2.0 introduced breaking strict-mode flag semantics — same
-    # cross-major-correctness pattern as the pytest-asyncio floor fix.
-    "mypy>=2.0",
+    # Floor tracks the locked minor (2.1.x). Cross-major (1.x → 2.x) was a
+    # deliberate bump for new strict-mode keys; mypy 2.0 introduced breaking
+    # strict-mode flag semantics — same cross-major-correctness pattern as
+    # the pytest-asyncio floor fix.
+    "mypy>=2.1",
     # Floor tracks the locked minor (0.15.12); ruff uses 0.x versioning where
     # every minor is effectively a major bump. The >=0.9 floor permitted a
     # fresh-machine resolve to 0.9.x, which predates the PL and ANN rule
@@ -82,9 +86,14 @@ dev = [
     # future lockfile regeneration on a fresh machine can't drift the stub
     # major version away from the runtime package the stubs cover.
     "types-pyyaml>=6.0",
-    "types-jsonschema>=4.23",
-    "pre-commit>=4.0",
-    "pip-audit>=2.7",
+    # Floor mirrors jsonschema runtime floor (4.26.x) — stubs-mirror-runtime
+    # convention so a fresh-machine resolve can't drift the stub major version
+    # away from the runtime package the stubs cover.
+    "types-jsonschema>=4.26",
+    # Floor tracks the locked minor (4.6.x).
+    "pre-commit>=4.6",
+    # Floor tracks the locked minor (2.10.x).
+    "pip-audit>=2.10",
     "detect-secrets>=1.5",
 ]
 
