@@ -19,6 +19,11 @@ dmypy.json
 .coverage
 htmlcov/
 coverage.xml
+# CI-generated test reports (JUnit XML + coverage XML from `pytest --cov-report=xml:reports/... --junitxml=reports/...`).
+# Created locally when a developer mirrors the CI invocation; never intended to land in the repo.
+# Belt-and-braces over the bare `coverage.xml` entry above which only catches the coverage XML by accident
+# of git's bare-name match-at-any-depth behavior.
+reports/
 .hypothesis/
 
 # Build artifacts
