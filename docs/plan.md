@@ -93,16 +93,17 @@ import os
 # One-time download (cached). Models live in ~/.cache.
 # Filenames updated 2026-05-13 to match the current modelscope layout
 # and switch the rec model to Latin script for German contracts —
-# see docs/superpowers/specs/2026-05-12-phase-2-ocr-spec-deviations.md §17.16.
+# see docs/superpowers/specs/2026-05-12-phase-2-ocr-spec-deviations.md §17.16;
+# det model swapped server → mobile per §17.17 in the same file (23-63× speedup, char parity).
 model_dir = snapshot_download(repo_id="RapidAI/RapidOCR")
-det = os.path.join(model_dir, "onnx", "PP-OCRv5", "det", "ch_PP-OCRv5_det_mobile.onnx")
-rec = os.path.join(model_dir, "onnx", "PP-OCRv5", "rec", "latin_PP-OCRv5_rec_mobile.onnx")
-cls = os.path.join(model_dir, "onnx", "PP-OCRv4", "cls", "ch_ppocr_mobile_v2.0_cls_mobile.onnx")
+det_path = os.path.join(model_dir, "onnx", "PP-OCRv5", "det", "ch_PP-OCRv5_det_mobile.onnx")
+rec_path = os.path.join(model_dir, "onnx", "PP-OCRv5", "rec", "latin_PP-OCRv5_rec_mobile.onnx")
+cls_path = os.path.join(model_dir, "onnx", "PP-OCRv4", "cls", "ch_ppocr_mobile_v2.0_cls_mobile.onnx")
 
 ocr_options = RapidOcrOptions(
-    det_model_path=det,
-    rec_model_path=rec,
-    cls_model_path=cls,
+    det_model_path=det_path,
+    rec_model_path=rec_path,
+    cls_model_path=cls_path,
     lang=["latin"],  # align tokeniser with rec_model_path; default is ["chinese"]
     force_full_page_ocr=True,  # critical: don't skip regions
 )
@@ -307,7 +308,7 @@ Run `ruff check . --fix` and `ruff format .` in pre-commit. Drop black entirely.
 - `pytest` 8.x.
 - `pytest-asyncio` with `asyncio_mode = "auto"` so every `async def test_...` is automatically wrapped (no `@pytest.mark.asyncio` repetition).
 - `hypothesis` for property-based testing the JSON-schema-validation logic and the prompt rendering.
-- Coverage target: **80%** is the realistic floor. Don't chase 100% — the HTTP handler tests and golden-file OCR tests give you most of the leverage.
+- Coverage target: **80%** is the realistic floor. Don't chase 100% — the HTTP handler tests and golden-file OCR tests give you most of the leverage (deviation §17.3 in `2026-05-12-phase-2-ocr-spec-deviations.md`: real-OCR tests use env-var-resolved sample PDFs from `$EXTRACTION_OCR_SAMPLES_DIR` rather than golden files checked into the repo).
 
 ### 4.7 Configuration — **pydantic-settings**
 
@@ -438,14 +439,14 @@ Don't roll your own httpx client unless you need streaming and find the official
 | Test type | What it covers | How |
 |---|---|---|
 | **Unit** | Pydantic models, prompt rendering, retry logic, schema validation | Plain pytest, no I/O |
-| **Golden-file OCR** | OCR output stability on known PDFs | `tests/data/contracts/*.pdf` + `tests/data/expected/*.txt` |
+| **Golden-file OCR** | OCR output stability on known PDFs | `tests/data/contracts/*.pdf` + `tests/data/expected/*.txt` (deviation §17.3 in `2026-05-12-phase-2-ocr-spec-deviations.md`: samples are gitignored; resolved via `$EXTRACTION_OCR_SAMPLES_DIR`) |
 | **Pipeline integration** | Queue handoffs, state transitions, error propagation | In-memory pipeline + fake OCR engine + fake LLM client |
 | **Contract tests (HTTP API)** | Endpoint shapes, status codes, response schemas | `httpx.AsyncClient` against `app` instance, no real server |
 | **End-to-end** | Full path: PDF → OCR → LLM → JSON | Real Docling + real Ollama on dev box, NOT in CI |
 
 For Ollama: ship a `FakeOllamaClient` in `tests/fakes/` that returns canned responses. CI doesn't run Ollama.
 
-For Docling/OCR: ship a `FakeOcrEngine` that returns predetermined text. Golden-file tests use real Docling on 3–5 small sample PDFs you check into the repo. Slow, but they're integration tests.
+For Docling/OCR: ship a `FakeOcrEngine` that returns predetermined text. Golden-file tests use real Docling on 3–5 small sample PDFs you check into the repo. Slow, but they're integration tests. (deviation §17.3 in `2026-05-12-phase-2-ocr-spec-deviations.md`: sample PDFs are gitignored and resolved at runtime via `$EXTRACTION_OCR_SAMPLES_DIR` rather than checked into the repo.)
 
 ### 4.16 Observability
 
@@ -493,14 +494,14 @@ extraction-service/
 │       │   ├── docling_engine.py # Docling + RapidOCR PP-OCRv5
 │       │   └── factory.py       # build_ocr_engine(run_config) -> OcrEngine
 │       │
-│       ├── llm/
+│       ├── llm/                     # (Phase 3 — not yet created)
 │       │   ├── __init__.py
 │       │   ├── client.py        # OllamaClient wrapper (singleton)
 │       │   ├── prompt.py        # prompt template rendering
 │       │   ├── schema.py        # JSON schema validation of LLM output
 │       │   └── retry.py         # retry policy
 │       │
-│       ├── pipeline/
+│       ├── pipeline/            # (Phase 4 — not yet created)
 │       │   ├── __init__.py
 │       │   ├── state.py         # PipelineState (queues + result store)
 │       │   ├── result_store.py  # asyncio-safe in-memory dict
@@ -508,7 +509,7 @@ extraction-service/
 │       │   ├── llm_worker.py
 │       │   └── watchdog.py      # idle shutdown
 │       │
-│       └── http/
+│       └── http/                # (Phase 5 — not yet created)
 │           ├── __init__.py
 │           ├── app.py           # FastAPI app + lifespan
 │           ├── deps.py          # Depends() functions
@@ -521,7 +522,8 @@ extraction-service/
 │   ├── fakes/
 │   │   ├── __init__.py
 │   │   ├── fake_ocr.py          # deterministic OcrEngine
-│   │   └── fake_ollama.py       # canned LLM responses
+│   │   ├── test_fake_ocr.py
+│   │   └── fake_ollama.py       # canned LLM responses           # (Phase 3 — not yet created)
 │   ├── unit/
 │   │   ├── test_domain_errors.py
 │   │   ├── test_domain_job.py
@@ -531,29 +533,30 @@ extraction-service/
 │   │   ├── test_log_config.py
 │   │   ├── test_settings.py
 │   │   ├── test_run_config.py
-│   │   ├── test_prompt_render.py
-│   │   ├── test_schema_validation.py
-│   │   ├── test_retry_policy.py
-│   │   └── test_result_store.py
+│   │   ├── test_ocr_base.py
+│   │   ├── test_prompt_render.py                                  # (Phase 3 — not yet created)
+│   │   ├── test_schema_validation.py                              # (Phase 3 — not yet created)
+│   │   ├── test_retry_policy.py                                   # (Phase 3 — not yet created)
+│   │   └── test_result_store.py                                   # (Phase 4 — not yet created)
 │   ├── ocr/
+│   │   ├── _metrics.py
+│   │   ├── conftest.py
 │   │   ├── test_docling_engine.py
-│   │   └── data/
-│   │       ├── sample_clean.pdf
-│   │       ├── sample_with_watermark.pdf
-│   │       └── sample_with_logo.pdf
-│   ├── pipeline/
+│   │   ├── test_factory.py
+│   │   ├── test_word_recall.py
+│   │   └── data/    # PDFs gitignored per §17.3 in 2026-05-12-phase-2-ocr-spec-deviations.md; resolved via $EXTRACTION_OCR_SAMPLES_DIR at test collection time
+│   ├── pipeline/            # (Phase 4 — not yet created)
 │   │   ├── test_ocr_worker.py
 │   │   ├── test_llm_worker.py
 │   │   ├── test_watchdog.py
 │   │   └── test_pipeline_e2e.py
-│   ├── http/
+│   ├── http/                # (Phase 5 — not yet created)
 │   │   ├── test_health.py
 │   │   ├── test_post_contracts.py
 │   │   ├── test_get_contracts.py
 │   │   └── test_idle_shutdown.py
-│   └── golden/
-│       └── (placeholder for OCR golden outputs, gitignored if too large)
 │
+│   └── e2e/                 # (Phase 6 — not yet created)
 ├── config/                          # (Phase 6 — not yet created)
 │   ├── run_config.example.yaml
 │   ├── domain_model.example.json    # JSON Schema sample for a loan contract
@@ -686,7 +689,7 @@ Each phase is **its own git worktree** so phases can be reviewed/merged independ
 | # | Task | File(s) | RED test | GREEN impl | Verify |
 |---|---|---|---|---|---|
 | 0.1 | Initialize uv project | `pyproject.toml`, `.python-version`, `uv.lock` | — (one-off bootstrap) | `uv init --package extraction-service`, edit pyproject.toml from Section 5.1 above, `uv sync` | `uv run python -c "import extraction_service"` |
-| 0.2 | Create src/ layout | `src/extraction_service/__init__.py`, `src/extraction_service/__main__.py` | `tests/test_smoke.py` asserts `import extraction_service` works | empty `__init__.py`; `__main__.py` with `def main() -> None: print("ok")` | `uv run pytest tests/test_smoke.py` |
+| 0.2 | Create src/ layout | `src/extraction_service/__init__.py`, `src/extraction_service/__main__.py` | `tests/test_smoke.py` asserts `import extraction_service` works | empty `__init__.py`; `__main__.py` with `def main() -> None: pass` (no-op stub; `print` would violate the T20 rule wired in Task 0.3) | `uv run pytest tests/test_smoke.py` |
 | 0.3 | Add ruff config | (already in pyproject.toml) | none | apply [tool.ruff.lint] block from Section 5.1 | `uv run ruff check src tests` clean |
 | 0.4 | Add mypy strict config | (already in pyproject.toml) | none | apply [tool.mypy] block | `uv run mypy src tests` clean |
 | 0.5 | Add pytest config | (already in pyproject.toml) | none | apply [tool.pytest.ini_options] | `uv run pytest` shows 2 passing tests (smoke — import + entrypoint sentinels) |
@@ -705,7 +708,7 @@ Each phase is **its own git worktree** so phases can be reviewed/merged independ
 |---|---|---|---|---|---|
 | 1.1 | `ContractJob` frozen Pydantic model | `src/extraction_service/domain/job.py` | `test_contract_job_metadata_defaults_to_empty_dict`; `test_contract_job_is_frozen`; `test_contract_job_round_trips_through_model_dump_json`; `test_contract_job_raises_when_both_required_fields_missing`; `test_contract_job_raises_when_pdf_bytes_missing`; `test_contract_job_raises_when_contract_id_missing` (in `tests/unit/test_domain_job.py`) | Pydantic v2 model with `model_config = ConfigDict(frozen=True)`, fields: `contract_id: UUID`, `pdf_bytes: bytes`, `metadata: dict[str, Any]` | `uv run pytest tests/unit/test_domain_job.py` |
 | 1.2 | `StageState` enum | `src/extraction_service/domain/stage.py` | `test_stage_state_has_expected_member_values`; `test_stage_state_str_produces_value`; `test_stage_state_fstring_interpolation_produces_value` (in `tests/unit/test_domain_stage.py`) | `class StageState(StrEnum)` with those four values (Python 3.11+ `StrEnum` over the older `(str, Enum)` form — cleaner `str()` / f-string output for structlog) | pytest |
-| 1.3 | `StageRecord` Pydantic model | `src/extraction_service/domain/stage.py` | `test_stage_error_is_frozen`; `test_stage_record_defaults_state_to_pending`; `test_stage_record_defaults_started_at_to_none`; `test_stage_record_defaults_completed_at_to_none`; `test_stage_record_defaults_error_to_none`; `test_stage_record_defaults_duration_ms_to_none`; `test_stage_record_start_returns_new_record_in_progress`; `test_stage_record_start_sets_started_at_on_new_record`; `test_stage_record_start_leaves_completed_at_none_on_new_record`; `test_stage_record_start_leaves_original_record_unchanged`; `test_stage_record_complete_transitions_state_to_done`; `test_stage_record_complete_sets_completed_at_to_now`; `test_stage_record_complete_carries_started_at_forward`; `test_stage_record_complete_derives_duration_ms`; `test_stage_record_fail_transitions_state_to_failed`; `test_stage_record_fail_sets_completed_at_to_now`; `test_stage_record_fail_records_error`; `test_stage_record_fail_carries_started_at_forward`; `test_stage_record_fail_derives_duration_ms`; `test_stage_record_duration_ms_is_none_until_both_timestamps_set`; `test_stage_record_is_frozen`; `test_stage_record_complete_accepts_extracted_payload`; `test_stage_record_complete_defaults_extracted_to_none`; `test_stage_record_round_trips_through_model_dump_json_when_done`; `test_stage_record_round_trips_through_model_dump_json_when_pending`; `test_stage_record_start_with_default_now_uses_current_time`; `test_stage_record_complete_with_default_now_uses_current_time`; `test_stage_record_fail_with_default_now_uses_current_time` (in `tests/unit/test_domain_stage.py`) | model with state, started_at, completed_at, duration_ms (computed), error (Optional), extracted (Optional Phase-4 LLM payload slot — see §17.24 in `docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md`) | pytest |
+| 1.3 | `StageRecord` Pydantic model | `src/extraction_service/domain/stage.py` | `test_stage_error_is_frozen`; `test_stage_record_defaults_state_to_pending`; `test_stage_record_defaults_started_at_to_none`; `test_stage_record_defaults_completed_at_to_none`; `test_stage_record_defaults_error_to_none`; `test_stage_record_defaults_duration_ms_to_none`; `test_stage_record_start_returns_new_record_in_progress`; `test_stage_record_start_sets_started_at_on_new_record`; `test_stage_record_start_leaves_completed_at_none_on_new_record`; `test_stage_record_start_leaves_original_record_unchanged`; `test_stage_record_complete_transitions_state_to_done`; `test_stage_record_complete_sets_completed_at_to_now`; `test_stage_record_complete_carries_started_at_forward`; `test_stage_record_complete_derives_duration_ms`; `test_stage_record_fail_transitions_state_to_failed`; `test_stage_record_fail_sets_completed_at_to_now`; `test_stage_record_fail_records_error`; `test_stage_record_fail_carries_started_at_forward`; `test_stage_record_fail_derives_duration_ms`; `test_stage_record_duration_ms_is_none_when_pending`; `test_stage_record_duration_ms_is_none_when_in_progress_before_complete`; `test_stage_record_is_frozen`; `test_stage_record_complete_accepts_extracted_payload`; `test_stage_record_complete_defaults_extracted_to_none`; `test_stage_record_round_trips_through_model_dump_json_when_done`; `test_stage_record_round_trips_through_model_dump_json_when_pending`; `test_stage_record_start_with_default_now_uses_current_time`; `test_stage_record_complete_with_default_now_uses_current_time`; `test_stage_record_fail_with_default_now_uses_current_time` (in `tests/unit/test_domain_stage.py`) | model with state, started_at, completed_at, duration_ms (computed), error (Optional), extracted (Optional Phase-4 LLM payload slot — see §17.24 in `docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md`) | pytest |
 | 1.4 | `ContractRecord` | `src/extraction_service/domain/record.py` | `test_fresh_contract_record_marks_intake_done_with_timestamps`; `test_fresh_contract_record_leaves_ocr_and_parsing_pending`; `test_fresh_contract_record_overall_status_is_in_progress`; `test_fresh_contract_record_with_default_now_uses_current_time`; `test_overall_status_is_done_only_when_all_three_stages_done`; `test_overall_status_is_failed_when_ocr_failed`; `test_overall_status_is_failed_when_intake_failed`; `test_overall_status_is_failed_when_parsing_failed_even_after_ocr_done`; `test_current_stage_is_ocr_when_intake_done_and_ocr_pending`; `test_current_stage_is_ocr_when_ocr_in_progress`; `test_current_stage_is_data_parsing_when_ocr_done`; `test_current_stage_points_to_failure_point_when_a_stage_failed`; `test_current_stage_points_to_data_parsing_when_data_parsing_failed`; `test_current_stage_is_none_when_all_stages_done`; `test_contract_record_allows_stage_reassignment`; `test_stage_field_inside_contract_record_remains_frozen`; `test_contract_record_round_trips_through_model_dump_json_when_all_done`; `test_contract_record_round_trips_through_model_dump_json_when_failed`; `test_default_contract_record_all_pending_has_intake_as_current_stage` (in `tests/unit/test_domain_record.py`) | model with intake, ocr, data_parsing StageRecords plus a derived `overall_status` and `current_stage` property | pytest |
 | 1.5 | Error hierarchy | `src/extraction_service/domain/errors.py` | `test_base_extraction_error_inherits_from_exception`; `test_base_extraction_error_has_sentinel_code`; `test_concrete_errors_have_expected_code`; `test_concrete_error_classes_inherit_from_correct_parents`; `test_raised_error_preserves_code_and_message` (in `tests/unit/test_domain_errors.py`) | exception classes from Section 4.13 | pytest |
 | 1.6 | `Settings` (pydantic-settings) | `src/extraction_service/settings.py` | `test_settings_raises_when_run_config_env_var_missing`; `test_settings_loads_documented_defaults_when_only_run_config_set`; `test_settings_overrides_via_extraction_prefixed_env_vars`; `test_settings_rejects_invalid_mode`; `test_settings_rejects_max_retries_above_five`; `test_settings_rejects_negative_max_retries`; `test_settings_rejects_non_positive_port`; `test_settings_accepts_max_retries_at_inclusive_bounds` (in `tests/unit/test_settings.py`) | Section 4.7 settings class | pytest |
@@ -724,9 +727,9 @@ Each phase is **its own git worktree** so phases can be reviewed/merged independ
 | # | Task | File | RED test | GREEN impl | Verify |
 |---|---|---|---|---|---|
 | 2.1 | `OcrResult` + `OcrEngine` Protocol | `src/extraction_service/ocr/base.py` | `test_ocr_engine_protocol_accepts_structural_conformer` + `test_ocr_engine_protocol_rejects_non_conformer` (the original `test_ocr_engine_protocol_compliance` was split into accepts/rejects pair during implementation) | `OcrResult` Pydantic model (text, page_count, engine_name); `OcrEngine` `Protocol` with async `extract(pdf_bytes: bytes) -> OcrResult` | mypy + pytest |
-| 2.2 | `FakeOcrEngine` for tests | `tests/fakes/fake_ocr.py` | (helper, no test) | implements OcrEngine, returns configurable text | imports in subsequent tests |
+| 2.2 | `FakeOcrEngine` for tests | `tests/fakes/fake_ocr.py` | `tests/fakes/test_fake_ocr.py` — 6 tests including `test_fake_ocr_engine_satisfies_ocr_engine_protocol` (Protocol-conformance signature-drift guard) | implements OcrEngine, returns configurable text | imports in subsequent tests |
 | 2.3 | `DoclingOcrEngine` skeleton | `src/extraction_service/ocr/docling_engine.py` | (no dedicated construction-only test — constructor coverage is transitive through every extract test which injects a stub via `_converter_factory` and would fail with AttributeError if `_converter` were left unset; **deviation §17.15:** the planned `test_docling_engine_construct` was removed because asserting on a private attribute breached the project's underscore-prefix convention) | wrap Section 2.5 setup; constructor builds DocumentConverter | pytest |
-| 2.4 | DoclingOcrEngine.extract returns text | `src/extraction_service/ocr/docling_engine.py` | `test_docling_extract_clean_pdf` — pass a tiny PDF (committed to `tests/ocr/data/sample_clean.pdf`), assert returned text contains expected snippet (**deviation §17.3:** replaced by parametrised `test_docling_extract_against_sample` over `$EXTRACTION_OCR_SAMPLES_DIR`; no PDFs committed) | implement `extract`: call `converter.convert(BytesIO(pdf_bytes))`, return markdown | pytest (slow) |
+| 2.4 | DoclingOcrEngine.extract returns text | `src/extraction_service/ocr/docling_engine.py` | `test_docling_extract_clean_pdf` — pass a tiny PDF (committed to `tests/ocr/data/sample_clean.pdf`), assert returned text contains expected snippet (**deviation §17.3:** replaced by parametrised `test_docling_extract_against_sample` over `$EXTRACTION_OCR_SAMPLES_DIR`; no PDFs committed plus `tests/ocr/_metrics.word_recall` + `tests/ocr/test_word_recall.py` (7 tests pin the baseline-overlap metric used by the parametrised real-OCR test)) | implement `extract`: call `converter.convert(BytesIO(pdf_bytes))`, return markdown | pytest (slow) |
 | 2.5 | DoclingOcrEngine handles watermark sample | `tests/ocr/test_docling_engine.py::test_watermark_text_captured` | add `sample_with_watermark.pdf` (you provide one or render one synthetically); assert OCR result contains watermark word (**deviation §17.1:** task DROPPED — watermarks are not a relevant signal on the real contract corpus) | (no impl change if 2.4 works; this is a verification test) | pytest |
 | 2.6 | DoclingOcrEngine handles logo text sample | `tests/ocr/test_docling_engine.py::test_logo_text_captured` | similar with `sample_with_logo.pdf` (**deviation §17.2:** REFOCUSED — logo-text extraction folded into the §17.3 parametrised real-OCR test; semantic logo identification deferred) | (verification only) | pytest |
 | 2.7 | `OcrEngineFactory` | `src/extraction_service/ocr/factory.py` | `test_factory_returns_docling_for_docling_config` | switch on `run_config.ocr.engine` string; raise on unknown (**deviation §17.4:** "raise on unknown" omitted — closed `Literal["docling"]` makes mypy the exhaustiveness guard, no runtime `case _:` needed) | pytest |
@@ -735,7 +738,7 @@ Each phase is **its own git worktree** so phases can be reviewed/merged independ
 
 **Validation gate:** Before declaring Phase 2 done, run `scripts/validate_ocr.py` on a real folder of 5–10 of your actual contracts. Manually inspect the OCR output. If watermark/logo text is missed, do not proceed — iterate on engine config (try `PP-OCRv5_server_det` vs `PP-OCRv5_mobile_det`, try Tesseract `deu_frak` as fallback). (**deviation §17.8 in `2026-05-12-phase-2-ocr-spec-deviations.md`:** the `scripts/validate_ocr.py` script itself is deferred to Phase 6 task 6.2 — Phase 2 ships the parametrised slow real-OCR test in `tests/ocr/test_docling_engine.py` as the interim signal, gated on `$EXTRACTION_OCR_SAMPLES_DIR`.)
 
-**Exit criteria:** all OCR tests pass; manual validation on real samples confirms watermarks/logos captured. Commit, merge.
+**Exit criteria:** all OCR tests pass; manual validation on real samples confirms watermarks/logos captured. Commit, merge. (**deviation §17.1/§17.2 in 2026-05-12-phase-2-ocr-spec-deviations.md:** watermark test dropped; logo-text verification folded into §17.3 parametrised real-OCR test; manual validation confirmed per §17.17)
 
 ### 6.5 Phase 3 — LLM layer
 
@@ -836,7 +839,7 @@ Each phase is **its own git worktree** so phases can be reviewed/merged independ
 
 **Async discipline**
 - All I/O is `async`. No `requests`, no blocking file reads inside handlers.
-- Synchronous library calls (Docling, jsonschema) run via `loop.run_in_executor`.
+- Synchronous library calls (Docling, jsonschema) run via `loop.run_in_executor` (deviation §17.9 in `2026-05-12-phase-2-ocr-spec-deviations.md`: `asyncio.to_thread` used instead — equivalent Python 3.9+ idiom).
 - Every external call has a timeout (`asyncio.wait_for`).
 - Use `asyncio.TaskGroup`, not `asyncio.gather`, for worker supervision.
 - Cancellation is respected. Workers check `asyncio.CancelledError` in loops.
@@ -867,7 +870,7 @@ Each phase is **its own git worktree** so phases can be reviewed/merged independ
 **Testing**
 - Unit tests are fast (<100ms each); pipeline tests use fakes; e2e tests are manual.
 - Every public function has at least one test.
-- Golden-file tests cover OCR stability.
+- Real-OCR tests parametrise over sample PDFs from `$EXTRACTION_OCR_SAMPLES_DIR` (gitignored; see deviation §17.3 in `2026-05-12-phase-2-ocr-spec-deviations.md`).
 - `--strict-markers` and `--strict-config` in pytest catch typos.
 - Coverage gate at 80%.
 

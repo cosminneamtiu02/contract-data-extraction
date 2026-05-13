@@ -643,14 +643,14 @@ requires-dist = [
     { name = "docling", specifier = ">=2.93" },
     { name = "fastapi", specifier = ">=0.136" },
     { name = "httpx", specifier = ">=0.28" },
-    { name = "jsonschema", specifier = ">=4.23" },
+    { name = "jsonschema", specifier = ">=4.26" },
     { name = "modelscope", specifier = ">=1.36" },
     { name = "ollama", specifier = ">=0.6" },
-    { name = "pydantic", specifier = ">=2.10" },
-    { name = "pydantic-settings", specifier = ">=2.6" },
+    { name = "pydantic", specifier = ">=2.13" },
+    { name = "pydantic-settings", specifier = ">=2.14" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "rapidocr-onnxruntime", specifier = ">=1.4" },
-    { name = "structlog", specifier = ">=25.0" },
+    { name = "structlog", specifier = ">=25.5" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.46" },
 ]
 
@@ -658,14 +658,14 @@ requires-dist = [
 dev = [
     { name = "detect-secrets", specifier = ">=1.5" },
     { name = "hypothesis", specifier = ">=6.115" },
-    { name = "mypy", specifier = ">=2.0" },
-    { name = "pip-audit", specifier = ">=2.7" },
-    { name = "pre-commit", specifier = ">=4.0" },
+    { name = "mypy", specifier = ">=2.1" },
+    { name = "pip-audit", specifier = ">=2.10" },
+    { name = "pre-commit", specifier = ">=4.6" },
     { name = "pytest", specifier = ">=9.0" },
     { name = "pytest-asyncio", specifier = ">=1.0" },
     { name = "pytest-cov", specifier = ">=7.0" },
     { name = "ruff", specifier = ">=0.15" },
-    { name = "types-jsonschema", specifier = ">=4.23" },
+    { name = "types-jsonschema", specifier = ">=4.26" },
     { name = "types-pyyaml", specifier = ">=6.0" },
 ]
 

@@ -50,10 +50,10 @@ permissions:
   contents: read
 
 concurrency:
-  # The `action` suffix segregates `opened` / `synchronize` / `reopened`
-  # events into independent groups so a `synchronize` (unrelated sync)
-  # doesn't cancel the regenerator that fired on `opened`, and a
-  # `reopened` doesn't share a group with either.
+  # The `action` suffix gives each event type its own group: a `synchronize`
+  # never cancels a run triggered by `opened` or `reopened`. Within a single
+  # action-type group for a given PR, cancel-in-progress: true causes a later
+  # same-action event (e.g. a second push) to supersede the in-flight run.
   group: dependabot-lockfile-sync-${{ github.event.pull_request.number }}-${{ github.event.action }}
   cancel-in-progress: true
 
