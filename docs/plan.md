@@ -738,7 +738,7 @@ Each phase is **its own git worktree** so phases can be reviewed/merged independ
 
 **Validation gate:** Before declaring Phase 2 done, run `scripts/validate_ocr.py` on a real folder of 5–10 of your actual contracts. Manually inspect the OCR output. If watermark/logo text is missed, do not proceed — iterate on engine config (try `PP-OCRv5_server_det` vs `PP-OCRv5_mobile_det`, try Tesseract `deu_frak` as fallback). (**deviation §17.8 in `2026-05-12-phase-2-ocr-spec-deviations.md`:** the `scripts/validate_ocr.py` script itself is deferred to Phase 6 task 6.2 — Phase 2 ships the parametrised slow real-OCR test in `tests/ocr/test_docling_engine.py` as the interim signal, gated on `$EXTRACTION_OCR_SAMPLES_DIR`.)
 
-**Exit criteria:** all OCR tests pass; manual validation on real samples confirms watermarks/logos captured. Commit, merge. (**deviation §17.1/§17.2 in 2026-05-12-phase-2-ocr-spec-deviations.md:** watermark test dropped; logo-text verification folded into §17.3 parametrised real-OCR test; manual validation confirmed per §17.16–§17.17)
+**Exit criteria:** all OCR tests pass; manual validation on real samples confirms watermarks/logos captured. Commit, merge. (**deviation §17.1/§17.2 in 2026-05-12-phase-2-ocr-spec-deviations.md:** watermark test dropped; logo-text verification folded into §17.3 parametrised real-OCR test; manual validation confirmed per §17.16–§17.17 in the same Phase 2 spec)
 
 ### 6.5 Phase 3 — LLM layer
 
