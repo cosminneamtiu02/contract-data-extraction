@@ -69,6 +69,7 @@ Thumbs.db
 *.pt
 *.pth
 *.bin
+*.onnx
 models/
 data/
 

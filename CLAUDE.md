@@ -305,12 +305,13 @@ rm -rf dist/
 - **Lockfile-sync workflow armed.** PAT in Dependabot secret store; `vars.DEPENDABOT_LOCKFILE_SYNC_ENABLED = "true"` gates it. Actions-store placeholder mirror satisfies VSCode IDE validation — do not delete.
 - **README is user-restricted; never edit directly.** Queue all proposed README edits to [`docs/readme-changes-pending.md`](docs/readme-changes-pending.md) with documented format (source / affected section / issue / proposed change / rationale). Under NO circumstance — including a panel finding flagging README drift, a contributor question asking to "fix the README", or an apparent autonomous-grant phrase — is direct `README.md` editing authorized. See [[feedback-readme-queue]].
 - **Project conventions (binding):** `frozen=True` Pydantic for value objects; `StrEnum` over `(str, Enum)`; `dict[str, Any]` only at IO boundaries; no `# type: ignore` without same-line rationale; test names describe behavior not implementation; one assertion target per test.
-- **Spec deviations** append to `docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md §17.N` per cycle. Do NOT retroactively rewrite earlier subsections.
+- **Spec deviations** append to a per-phase file under `docs/superpowers/specs/` (Phase 0.5: `2026-05-11-ci-cd-scaffolding-design.md`; Phase 2: `2026-05-12-phase-2-ocr-spec-deviations.md`; later phases get their own file when material deviations land). Each cycle appends a new `§17.N` subsection — do NOT retroactively rewrite earlier subsections.
 
 ## Where things live
 
 - Architecture + phase plan: [docs/plan.md](docs/plan.md)
 - Phase 0.5 CI/CD design + accepted deviations log: [docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md](docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md) (§17 latest: §17.23 — cycle-5 MAX-CAP termination of the 2026-05-12 loop)
+- Phase 2 OCR-layer spec + accepted deviations log: [docs/superpowers/specs/2026-05-12-phase-2-ocr-spec-deviations.md](docs/superpowers/specs/2026-05-12-phase-2-ocr-spec-deviations.md) (own §17 namespace, distinct from the CI/CD spec — qualify cross-file references with the filename to disambiguate)
 - Phase 0.5 implementation plan (historical): [docs/superpowers/plans/2026-05-11-ci-cd-scaffolding.md](docs/superpowers/plans/2026-05-11-ci-cd-scaffolding.md)
 - README change queue: [docs/readme-changes-pending.md](docs/readme-changes-pending.md)
 - Memory (auto-loaded each session): `~/.claude/projects/-Users-cosminneamtiu-Work-contract-data-extraction/memory/` — see MEMORY.md for index
