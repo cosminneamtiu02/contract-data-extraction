@@ -33,7 +33,7 @@ from __future__ import annotations
 import asyncio
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Final, cast
 
 from extraction_service.domain.errors import OcrEmptyOutputError, OcrError
 from extraction_service.ocr.base import OcrResult
@@ -277,7 +277,10 @@ class DoclingOcrEngine:
             elif not raw_errors:
                 errors_detail = "<docling reported empty errors list>"
             else:
-                errors_detail = repr(raw_errors)
+                errors_detail = "; ".join(
+                    getattr(e, "error_message", repr(e))
+                    for e in cast("list[object]", raw_errors)  # getattr returns object; runtime is a list
+                )
             msg = f"docling reported conversion status {result.status!r}: {errors_detail}"
             raise OcrError(msg)
 
