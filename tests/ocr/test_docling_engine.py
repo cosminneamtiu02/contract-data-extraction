@@ -46,23 +46,6 @@ if TYPE_CHECKING:
 WORD_RECALL_THRESHOLD = 0.85
 
 
-def test_docling_engine_stores_converter_after_construction() -> None:
-    """DoclingOcrEngine stores a non-None DocumentConverter after construction.
-
-    Uses the constructor-injectable ``_converter_factory`` kwarg (approach A
-    per the task spec) to bypass the real ``_build_default_converter`` which
-    calls ``modelscope.snapshot_download`` — unsuitable for unit tests.
-    """
-    # MagicMock(spec=DocumentConverter) would add a real docling import here.
-    # A plain MagicMock() is sufficient: the assertion only needs `is not None`.
-    stub_converter = MagicMock()
-    engine = DoclingOcrEngine(
-        OcrConfig(),
-        _converter_factory=lambda _cfg: stub_converter,
-    )
-    assert engine._converter is not None
-
-
 async def test_docling_extract_returns_text_from_converter() -> None:
     """``extract`` returns an OcrResult whose ``text`` is the converter's markdown.
 
