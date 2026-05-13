@@ -96,14 +96,14 @@ import os
 # see docs/superpowers/specs/2026-05-12-phase-2-ocr-spec-deviations.md §17.16;
 # det model swapped server → mobile per §17.17 in the same file (23-63× speedup, char parity).
 model_dir = snapshot_download(repo_id="RapidAI/RapidOCR")
-det = os.path.join(model_dir, "onnx", "PP-OCRv5", "det", "ch_PP-OCRv5_det_mobile.onnx")
-rec = os.path.join(model_dir, "onnx", "PP-OCRv5", "rec", "latin_PP-OCRv5_rec_mobile.onnx")
-cls = os.path.join(model_dir, "onnx", "PP-OCRv4", "cls", "ch_ppocr_mobile_v2.0_cls_mobile.onnx")
+det_path = os.path.join(model_dir, "onnx", "PP-OCRv5", "det", "ch_PP-OCRv5_det_mobile.onnx")
+rec_path = os.path.join(model_dir, "onnx", "PP-OCRv5", "rec", "latin_PP-OCRv5_rec_mobile.onnx")
+cls_path = os.path.join(model_dir, "onnx", "PP-OCRv4", "cls", "ch_ppocr_mobile_v2.0_cls_mobile.onnx")
 
 ocr_options = RapidOcrOptions(
-    det_model_path=det,
-    rec_model_path=rec,
-    cls_model_path=cls,
+    det_model_path=det_path,
+    rec_model_path=rec_path,
+    cls_model_path=cls_path,
     lang=["latin"],  # align tokeniser with rec_model_path; default is ["chinese"]
     force_full_page_ocr=True,  # critical: don't skip regions
 )

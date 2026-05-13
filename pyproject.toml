@@ -58,7 +58,8 @@ dev = [
     # Floor mirrors locked major (pytest 9.0.3); 9.0 changed ini-key handling
     # for `importmode` (see addopts comment at the bottom of this file), so 8.x
     # cannot interpret the project's test config correctly.  Convergent with
-    # mypy>=2.1 (§17.14, pass 8) and pytest-asyncio>=1.0 (§17.11, pass 5).
+    # mypy>=2.1 (§17.13, pass 7; tightened in this branch via commit 056dcdb)
+    # and pytest-asyncio>=1.0 (§17.11, pass 5).
     "pytest>=9.0",
     # Floor mirrors the locked major (1.3.0); 0.x → 1.x changed the default
     # asyncio mode and added new ini keys — >=0.24 was stale.
