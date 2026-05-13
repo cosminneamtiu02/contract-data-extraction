@@ -829,3 +829,145 @@ cycle-independence rule.
 **Loop status:** cycle 2 applied 5 commits (plus this §17.13 audit
 entry). NOT converged — cycle 3 will fire fresh against the new
 branch HEAD per the cycle-independence rule.
+
+## §17.14 — Cycle-3 of fresh review loop on `chore/phase-2-ocr-review-fixes-2026-05-13`
+
+**Branch:** `chore/phase-2-ocr-review-fixes-2026-05-13`. Cycle-3 HEAD
+at dispatch = `f45603b` (terminal commit of cycle 2 / §17.13 +
+cycle-tail pointer bump).
+
+**Cycle-3 findings tally (pre-filter):**
+
+- 19/20 lens reports returned cleanly; **Lens 12 stalled at synthesis**
+  but its partial output showed no new findings beyond cycle-2's
+  already-deferred pre-existing floor drift on hypothesis +
+  pydantic-settings. Treated as effectively complete.
+- Verdicts: 16 lenses **Yes**, 4 lenses **With fixes** (10, 13, 15, 17).
+- Strictly-clean (zero issues): **7/20** — Lens 03, 04, 09, 11, 12,
+  16, 20 — up from 6/20 in cycle 2 and 2/20 in cycle 1. The trajectory
+  is clear: domain after domain settles as cycle-N fixes converge in
+  their scope.
+- Raw severity: 0 Critical / 4 Important / 16 Minor.
+
+**Convergent findings:** **None this cycle.** Each finding came from
+a single lens. The cycle-1 + cycle-2 three-lens convergence on the
+word_recall docstring drift did not re-fire — the cycle-2 fix landed
+cleanly.
+
+**Cycle-1/2 fallout caught by cycle-3:**
+
+1. **Lens 01 Minor:** `tests/ocr/__init__.py:5-7` carried unqualified
+   `§17.3` / `§17.1` / `§17.2` references — same class of finding as
+   cycle-2's `base.py:40` and `plan.md` Tasks 2.8/2.9. Each prior
+   cycle qualified the sites it found; this test-package docstring
+   was missed in both passes. Fixed in commit `a5a86de`.
+2. **Lens 17 Minor:** `docs/plan.md:704` Task 1.3 GREEN column
+   referenced `§17.24` (the CI/CD spec) without filename qualifier.
+   Fixed in same commit (`a5a86de`).
+3. **Lens 17 Minor:** `CLAUDE.md` line 48 `### Spec deviations` block
+   in the Superpowers flow STILL named the single CI/CD spec file —
+   contradicting the per-phase convention enshrined in
+   `Project state notes` (line 308) and `Where things live` (line
+   314+). A reader following the Superpowers flow top-down would
+   route a Phase 3+ deviation to the wrong file. Fixed in commit
+   `d6cd258`.
+4. **Lens 19 Minor (and class):** `.gitignore` line 85 (and seven
+   other sites) carried "(Lens N of cycle-M on
+   chore/phase-2-ocr-review-fixes ...)" parentheticals — a
+   self-referential review-artifact pattern that CLAUDE.md's
+   "Tone and style" section explicitly forbids ("Don't reference the
+   current task, fix, or callers"). Lens 19 flagged the .gitignore
+   site by name; the synthesizer extended the fix to the class —
+   pyproject.toml, tests/ocr/_metrics.py, tests/ocr/conftest.py
+   (3 sites), tests/ocr/test_docling_engine.py,
+   src/extraction_service/ocr/docling_engine.py, and
+   .github/workflows/ci.yml all had the same pattern. Fixed in
+   commit `7e252eb`. Pre-existing comments from earlier branches
+   ("Phase 1 panel review" lineage in pyproject.toml's older rule
+   families) are left alone — those are already-merged historical
+   context, not new attributions introduced on this branch.
+
+**New-this-cycle findings:**
+
+- **Lens 06 Minor:** `test_docling_engine_construct` was the only test
+  in `tests/ocr/test_docling_engine.py` not named in the "describes
+  observable behavior" style (the project convention). Renamed to
+  `test_docling_engine_stores_converter_after_construction` matching
+  the test's own docstring. Fixed in commit `8e0cb40`.
+- **Lens 14 Minor:** `baseline_for` fixture docstring used "Yields"
+  but the fixture `return`s a callable (not a generator). Reworded
+  to make the return-callable vs callable-returns-None semantics
+  explicit. Fixed in same commit (`8e0cb40`).
+
+**Fixes applied this cycle (5 atomic per-concern commits):**
+
+| Commit | Subject | Lens(es) | Severity |
+|---|---|---|---|
+| `a5a86de` | docs(plan+tests): qualify residual unqualified §17 cross-references | 01, 17 | Minor×2 |
+| `d6cd258` | docs(claude): align Spec deviations flow paragraph with per-phase convention | 17 | Minor |
+| `8e0cb40` | test(ocr): rename test_docling_engine_construct + fix baseline_for docstring | 06, 14 | Minor×2 |
+| `7e252eb` | chore(comments): scrub branch-specific lens/cycle attributions from code | 19 + class | Minor (promoted, 8 sites) |
+
+**Headbutting decisions (synthesizer-resolved):**
+
+- **Lens 05 Minor (cycle-3 vs cycle-1 reversal candidate):** Lens 05
+  flagged `raise OcrError(msg) from None` at the non-SUCCESS path as
+  a no-op since `__context__` is already `None`. Cycle-1's commit
+  `e56ea5f` added this `from None` for TRY200 lint defense. Cycle-3
+  lens's reading is correct (TRY200 doesn't fire on non-except
+  branches), so cycle-1's defensive rationale was over-applied. BUT
+  reverting now is pure churn — the `from None` is harmless in this
+  position. Per "Reverse prior-cycle fixes only with new evidence"
+  + senior-dev cost-benefit, KEEP cycle-1's commit. No reverse.
+- **Lens 13 Important borderline (Pydantic required-field tests in
+  test_ocr_base.py):** Cycle-2 KEPT them via synthesizer call as
+  equivalent to test_ocr_result_is_frozen (project-rule check, not
+  Pydantic-library tautology). Cycle-3 re-raised with sharper
+  framing. No new evidence — same code, same tests, only the
+  framing changed. KEEP per cycle-2 decision.
+- **Lens 13 Important (dual-assert in
+  test_docling_extract_against_sample slow path):** Cycle-2 KEPT
+  citing 3x slow-OCR cost vs convention-strict split. Cycle-3
+  re-raised. Same cost argument applies. KEEP per cycle-2.
+
+**Deferred — waiting on later phase (4a; re-flagged from cycles 1+2,
+NO new evidence):**
+
+- Lens 10 Important: `modelscope.snapshot_download(repo_id=
+  "RapidAI/RapidOCR")` still has no `revision=` pin. In-code TODO
+  intact and now scrubbed of branch-specific attribution but the
+  Phase 6 hardening anchor remains.
+- Lens 15 Important: no `--junitxml` artifact upload. Phase 6
+  hardening unblocks alongside `scripts/validate_ocr.py`.
+
+**Deferred — other reasons (4b):**
+
+- Lens 02 Minor (`52f066c` `docs+ci` compound type + `7e860eb`
+  missing scope): historical-immutable on a shared/pushed branch
+  per "prefer new commits over amend" rule. Both are minor style
+  drift on already-pushed commits.
+- Lens 07 Minor (`_ENGINE_NAME` inline-vs-constant): same as cycles
+  1+2 — synthesizer retains as Phase 3+ Literal-broadening guardrail.
+- Lens 13 Minor (compound exception-code assertions): lens itself
+  said "a senior dev would not split these."
+
+**Filter-dropped (ceremonial):**
+
+- Lens 06 Minor (`_success_status` rename): naming subjectivity,
+  lens self-rated as "purely subjective."
+- Lens 08 Minor (`_ = pdf_bytes` → `_pdf_bytes` rename): would break
+  `typing.Protocol` structural conformance (Protocol checks param
+  names for keyword-or-positional positions); lens suggestion was
+  technically incorrect for the Protocol-implementer case.
+- Lens 08 Minor (`from __future__ import annotations` consistency
+  across files where it's not functionally needed): no ruff signal,
+  same skip rationale as cycles 1+2.
+- Lens 18 Minor (`ruff-check` hook's missing `--fix` comment):
+  comment-inflation on unambiguous config.
+
+**Loop status:** cycle 3 applied 4 commits (plus this §17.14 audit
+entry and a cycle-tail CLAUDE.md pointer bump). The trajectory points
+toward convergence (strictly-clean lens count growing each cycle:
+2 → 6 → 7; no convergent findings this cycle; cycle-1/2 fallout
+diminishing as the systemic-pattern scrubs land). Cycle 4 will fire
+fresh against the new branch HEAD per the cycle-independence rule.
