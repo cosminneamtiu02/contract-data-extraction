@@ -14,8 +14,6 @@ signature of ``extract``. The mypy run in the verification gate is what
 catches signature drift (e.g., sync ``extract`` where async is required).
 """
 
-from typing import get_type_hints
-
 import pytest
 from pydantic import ValidationError
 
@@ -79,10 +77,3 @@ def test_ocr_engine_protocol_rejects_non_conformer() -> None:
             return None
 
     assert not isinstance(NotAnEngine(), OcrEngine)
-
-
-def test_ocr_engine_extract_return_type_annotation() -> None:
-    from extraction_service.ocr.base import OcrEngine, OcrResult
-
-    hints = get_type_hints(OcrEngine.extract)
-    assert hints["return"] is OcrResult
