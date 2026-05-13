@@ -18,7 +18,7 @@ You are building a single-process, localhost-HTTP service that ingests scanned G
 
 **Headline architecture commitments:**
 - OCR: Docling as orchestrator → RapidOCR backend → PP-OCRv5 ONNX models, with `force_full_page_ocr=True` and optional Tesseract `deu_frak` fallback for historical Fraktur regions.
-- LLM: Ollama with `gemma4:e2b-it-q4_K_M` (swappable to E4B), `OLLAMA_NUM_PARALLEL=2`, `num_ctx=8192`, q8_0 KV cache.
+- LLM: Ollama with `gemma4:e2b-it-q4_K_M`, `OLLAMA_NUM_PARALLEL=2`, `num_ctx=8192`, q8_0 KV cache.
 - Service: FastAPI + asyncio, two LLM worker coroutines matching `OLLAMA_NUM_PARALLEL`, in-memory result store.
 - Toolchain: uv for dependencies, ruff for lint+format, mypy strict for types, pytest + pytest-asyncio + hypothesis for tests, structlog for logs, pydantic-settings for config.
 
@@ -196,7 +196,7 @@ Build the OCR engine abstraction (Section 4.3 / Phase 2 of the plan) such that t
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │  Ollama (running externally with OLLAMA_NUM_PARALLEL=2, KV q8_0, etc.)        │
-│  Model: gemma4:e2b-it-q4_K_M (or e4b), pre-warmed at service startup          │
+│  Model: gemma4:e2b-it-q4_K_M, pre-warmed at service startup                   │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -928,7 +928,7 @@ Each phase is **its own git worktree** so phases can be reviewed/merged independ
 11. Don't add OpenTelemetry until you've observed a problem logs don't surface.
 12. Don't add SQLite persistence until restart loss becomes a real operational issue.
 13. Don't add multi-model concurrent loading until you upgrade to ≥24 GB hardware.
-14. Don't switch from Gemma 4 to another family until you have F1 numbers on Gemma E4B and confirmed they're insufficient.
+14. Don't switch from Gemma 4 E2B to another family until F1 numbers confirm Gemma 4 E2B (Q4_K_M) is insufficient.
 15. Don't add HTTPS until the service moves off localhost.
 
 ---
@@ -946,7 +946,7 @@ Each phase is **its own git worktree** so phases can be reviewed/merged independ
 | Container deployment (Dockerfile) | You stop running on the M4 Mini | 1 day |
 | Cross-family model swaps (Qwen, Llama) | Gemma 4 quality insufficient | 2–3 days (re-validation) |
 | Subprocess isolation for Docling | Docling memory spikes crash service | 1 day |
-| MTP speculative decoding | Throughput inadequate on E2B/E4B | 1 day exploration, may regress |
+| MTP speculative decoding | Throughput inadequate on E2B | 1 day exploration, may regress |
 | Fine-tuned PaddleOCR for German legal | Watermark/logo recall on real samples insufficient | 1–2 weeks; needs annotated data |
 | Multi-pass OCR (PP-OCRv5 + Tesseract `deu_frak`) | Fraktur regions consistently missed | 1 day |
 | Vision-direct OCR via Gemma 4 (no Docling) | Ollama #15626 fixed AND OCR-first proven inadequate | 2 days |

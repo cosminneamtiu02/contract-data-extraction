@@ -127,7 +127,7 @@ class OllamaLlmClient:
         ``_ChatClientProtocol``). Injected so tests can pass ``FakeOllamaClient``
         without a running Ollama process.
     model:
-        Ollama model tag to use (e.g. ``"gemma3:4b"``). Stored as an
+        Ollama model tag to use (e.g. ``"gemma4:e2b-it-q4_K_M"``). Stored as an
         instance attribute so a future context-overflow fallback path can
         override it per-call without mutating the shared client.
     mode:
