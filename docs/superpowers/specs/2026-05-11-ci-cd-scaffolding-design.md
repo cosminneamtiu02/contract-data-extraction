@@ -2607,3 +2607,66 @@ L02 explicitly confirmed in its report that the §17.40 record is "accurate and 
 3. **Prior-cycle audit-comment factual drift** — Fired again but at a lower rate: L08's E501-missing-rationale was the dominant audit-comment-completeness gap this cycle (1 actionable item); L11's branch-protection / fetch-metadata rationale gaps are workflow-rationale-precision (separate sub-class). The §17.38-proposed Rule #4 pre-audit grep checklist remains pending in CLAUDE.md.
 
 **Per-cycle status line (compact):** `Cycle 3 closed. Commits applied: 6 (5 Layer A0 small + this Layer B audit). Fixes by severity (post-filter): 0 Critical / 3 Important / 1 Minor + 1 substantive-cosmetic (E501 rationale) = 5 actionable. L02's 3 Crit repeats filtered to zero-action (already resolved via §17.40 forward-pointer index). Convergence: 1 multi-lens (plan §6.3 task 1.1 ContractJob sync, L01+L03). Ship-ready (pre-fix): 15/20 Yes, 5/20 With fixes, 0 No. Clean lenses (0 findings any severity): 1/20 (L19 — first cycle with a fully-clean lens; convergence-quality bellwether). Filtered out: ~95 findings. Deferred new this cycle: 0. Prior-cycle deferrals reversed: 0. New HEAD: this §17.41 audit commit. Continuing → Cycle 4 (per user "four more times" cap, 2 cycles remain).`
+
+### 17.42. Cycle 4 of auto-converge loop on `chore/panel-review-fixes-2026-05-13-pass3` (opus)
+
+**HEAD at cycle start:** `38b7d6d` (terminal commit of §17.41).
+
+**HEAD/BASE rule:** BASE_SHA = HEAD_SHA = `38b7d6d` (standalone-audit posture per user clarification).
+
+**Dispatch:** 20 lenses, `model: opus`, `run_in_background: true`, clean prompts (no §17 awareness, no "cycle 4" framing). Each lens carried the EXHAUSTIVE PASS RULE verbatim.
+
+**Lens verdicts (pre-fix):** 15/20 Yes ship-ready. 5/20 With fixes: L02 (Critical x3 repeats from §17.39 race — already-resolved; no new action), L13 (~10 Minor cluster — "one assertion target per test" violations), L15 (2 Important — PYTHONHASHSEED + darwin-checks asymmetry, defense-in-depth), L17 (4 Minor — substantive doc-precision items), L20 (1 Minor — workflow comment line-number drift). 0 No. **L03 fully clean** (0 Crit / 0 Imp / 0 Min) — first time L03 has been clean in the loop's history; joins L19 (cycle 3) as a clean-lens marker.
+
+**Pre-filter findings:** **3 Critical** (all L02 repeats — zero action), **7 Important**, **~127 Minor**. Total ~137 raw (~30 above cycle 3's ~107, but ~6 of the increase is L13's one-assertion-target cluster enumerated more granularly this cycle, ~5 is L01's §17.3 audit-completion items that prior cycles missed).
+
+**Senior-dev filter pass:** ~127 of ~137 raw findings dropped. Notable patterns:
+- **L02's 3 Crit + 5 Imp repeats** of the §17.39 commit-attribution race filtered to zero-action (already resolved via §17.40 forward-pointer index, immutable on branch).
+- **L13's ~10 Minor "one assertion target" violations** — real convention drift, but the 10-site test-split cluster carries risk (a wrong split is worse than the current state) and exceeds cycle-4 scope. **Routed to Deferred 4b** (cost-benefit: the cluster is real but a single batched test-refactor commit done well at cycle 5 or post-loop is the right shape). See "Deferred 4b" section below.
+- **L15's 2 Important** (PYTHONHASHSEED pin on CI Tests step; darwin-checks asymmetry) — defense-in-depth with no current defect/flake observed. Routed to Deferred 4a (Phase 4 wiring will introduce real LLM-integration tests; revisit hash-randomization concerns there).
+- **L08's ~12 Minor** preemptive ruff-rule additions (ISC, SLOT, YTT, PERF, D, etc.) — same filter outcome as cycle 2/3: zero current violations, no plausible-future concrete need; drop.
+- **L19's 2 Minor** (forward-looking Makefile/sh editorconfig stanzas) — preemption; drop.
+- **L11's 9 Minor** all explicitly routed to filter-drop by the lens itself ("comment inflation," "ceremony"); drop.
+- **L02's commit-message historical issues** (5 Important) — immutable on `main`-eligible branch; the forward-pointer index in §17.40 IS the audit remediation. Drop.
+- **L17's queue-internal Gemma description item + the existing 4 queue items** — routed via apply (this cycle's commit `a2a50e6` appends the new Gemma description-level queue entry).
+
+**Convergent findings promoted:** None this cycle. No multi-lens convergence (cycle 3 had 1; cycle 4 has 0 — the apply-able items are all single-lens but substantive).
+
+**L02 zero-action treatment:**
+The cycle-4 L02 report explicitly confirmed "the §17.40 record is accurate and complete" — no new audit-trail action needed. Same disposition as cycle 2 and cycle 3. The 3 Crit + 5 Imp severity tier is faithful enumeration of still-broken commit attribution; resolution is the §17.40 forward-pointer index, not retroactive rewrites. **Steady-state behavior across 3 cycles confirms the §17.40 index is the correct terminal remediation.**
+
+**Applied fixes (cycle 4, 5 fix-commits + this audit = 6 total commits):**
+
+1. `c16ee72` — `docs(spec): fix Phase 3 §17.6 test count (9 → 10) — workflow-gap rule #3` (L01 Minor). Self-correcting drift: Phase 3 §17.6 (added in cycle 3, commit `3642447`) claimed `test_llm_retry.py: 9` — actual count is 10 (`grep -c "^(async )?def test_" tests/unit/test_llm_retry.py = 10`). Total claimed `~40` is actually 41. The note appended to §17.6 documents the cycle-4 correction so a future reader sees the audit trail rather than just a now-correct count.
+
+2. `6355184` — `docs(workflows): replace line-number anchors with semantic anchors` (L20 Minor — workflow-gap rule #3). The IDE NOTE comment in `dependabot-lockfile-sync.yml` said "reference (lines 75, 91)" but the actual `secrets.DEPENDABOT_LOCKFILE_SYNC_PAT` references are now on lines 76 and 92 — a one-line shift caused by a prior comment-block edit. Replaced the brittle line-number anchor with a stable semantic anchor (the `PAT:` env var block + the `actions/checkout` `token:` arg). The companion stale-line-number reference in `2026-05-11-ci-cd-scaffolding-design.md §17.7` (line 528: "(lines 60, 76)") is INTENTIONALLY left untouched per the "do NOT retroactively rewrite earlier subsections" rule; this audit entry documents the historical text is stale-but-immutable.
+
+3. `eb532bd` — `docs(claude): enumerate Phase 3 spec + Gemma migration plan in rosters` (L17 Minor x2). CLAUDE.md "Project state notes" / "Spec deviations" bullet missed Phase 3 spec file from the enumeration; "Where things live" missed the second plan file `2026-05-13-gemma-4-e2b-only-migration.md`. Both rosters now complete.
+
+4. `d423995` — `docs(plan): complete §17.3 Gemma-family-residue scrub in §9 + rule #14` (L01 Minor cluster). The Phase 3 spec §17.3 audit (which codified Gemma 4 E2B as the sole sanctioned variant project-wide) had previously scrubbed four explicit Gemma-tag references but left hypothetical "Gemma family" residue in `docs/plan.md` rule #14 (line 931), §9 stretch row "Cross-family model swaps" (line 947), and §9 stretch row "MTP speculative decoding" (line 949). All three now require a §17 deviation reversing §17.3 BEFORE any variant swap — F1 numbers alone do NOT authorize a swap.
+
+5. `a2a50e6` — `docs(readme-queue): caveat queue entry 2 + add Gemma description entry` (L17 Minor x2). Queue entry 2 (golden-tests wording fix) carried a side-drift where the proposed replacement text named non-existent `tests/pipeline/` and `tests/http/` subdirectories; added a caveat noting two acceptable alternative wordings the user can pick from when landing the queue. New queue entry appended for the Gemma 4 E2B description-level mention (separate from queue entry 3's Quick start prerequisite).
+
+6. This `§17.42` entry + CLAUDE.md pointer bump (Layer B, sequential, last).
+
+**Deferred 4a (waiting on later phase):**
+- **L15 Important** PYTHONHASHSEED pin + darwin-checks pytest scope expansion. Defense-in-depth posture matches the project's BLE/ANN/G/DTZ/A/FBT/LOG additions, but no current flake has been observed in the project's 3-cycle loop or in prior pass2. Phase 4 will introduce real LLM-integration tests (where hash-randomization and platform-specific issues become observable); revisit at that point. Cost of premature application: zero now, may bake in a constant that Phase-4 tests later need to vary.
+
+**Deferred 4b (cost-benefit):**
+- **L13's ~10 "one assertion target" Minor cluster** — real convention drift across `test_settings.py`, `test_log_config.py`, `test_domain_record.py`, `test_domain_stage.py`, `test_docling_engine.py`. Per CLAUDE.md "cosmetic-fixes-apply" + "one assertion target per test" project conventions, these ARE applicable. Two reasons for deferral to a separate batched commit (post-loop or cycle 5):
+  - **Risk:** A 10-site test refactor done wrong (e.g., a split test losing an assertion target) is worse than the current state. The refactor should be a deliberate single-purpose commit with the test-suite gate green at each step, not folded into a 5-fix Layer-A batch.
+  - **Scope budget:** Cycle 4 already has 5 fix-commits + this audit + the loop is approaching its 5-cycle MAX-CAP. Cycle 5 will have a smaller fix budget; adding the test-refactor cluster there risks pushing legitimate cycle-5 findings into a post-loop branch.
+- **Recommended disposition:** Cycle 5 will inherit the L13 cluster naturally if it re-surfaces (which it will, given the cycle-independence rule). If cycle 5's L13 escalates the convention violations to a higher severity tier OR adds new sibling violations, address as a single batched commit ("test: split multi-assertion-target tests across 10 sites per L13 cumulative finding"). Otherwise, post-loop user-decision item.
+
+**Workflow-gap audit (per §17.23 MAX-CAP diagnosis):**
+1. **Test split + missed plan sync** — N/A this cycle (no test changes landed; L13 cluster is deferred).
+2. **CLAUDE.md terminology/pointer leaks** — Fired (L17 caught Phase 3 spec missing from "Spec deviations" bullet AND the Gemma migration plan missing from "Where things live"). Resolved by `eb532bd`. Pre-audit-write checklist for future cycles should grep the on-disk file roster against CLAUDE.md's enumerations.
+3. **Prior-cycle audit-comment factual drift** — Fired AGAIN this cycle: L01 (`§17.6 test count off-by-one`) + L20 (`dependabot-lockfile-sync.yml line-number anchors stale`) + L01 (`§17.3 Gemma scrub incomplete in plan.md §9 + rule #14`). The pattern is now persistently the dominant Minor class across THREE consecutive cycles (cycle 2 §17.40, cycle 3 §17.41, cycle 4 §17.42). The §17.38-proposed Workflow-Gap Rule #4 (pre-audit grep checklist) remains pending in CLAUDE.md and was again not actioned this cycle. **Recommendation for cycle 5 or post-loop:** add Rule #4 explicitly to CLAUDE.md's "Known workflow gaps" section, with a concrete grep checklist (file-roster vs CLAUDE.md, count claims vs `grep -c "^def test_"`, line-number anchors → semantic anchors).
+
+**Cumulative loop pattern observations (cycles 1–4):**
+- Raw finding volume: cycle 1 ~127 → cycle 2 ~132 → cycle 3 ~107 → cycle 4 ~137. Volume is not monotonically decreasing — cycle 4 ticked up because L01 enumerated the §17.3 audit-completion items as separate Minors and L13 enumerated each test-split site separately. Substantive convergence is happening (clean lenses growing: 0 → 0 → 1 → 1 with L03 joining; actionable post-filter findings dropping: 13 → 9 → 5 → 5).
+- Multi-lens convergence: cycle 1 had 1 (SIDE_CHANNEL_KEYS); cycle 2 had 1 (pointer staleness); cycle 3 had 1 (task 1.1 sync); cycle 4 has 0. The remaining substantive findings are single-lens-but-real.
+- Workflow-gap rule #3 (audit-comment factual drift) fired in every cycle 2-4. Rule #4 (pre-audit grep checklist) remains the proposed mitigation; not yet actioned.
+- The §17.39 commit-attribution race is at steady-state: L02 surfaces the 3 Crit each cycle, the synthesizer routes them to zero-action via the §17.40 forward-pointer index, no degradation observed.
+
+**Per-cycle status line (compact):** `Cycle 4 closed. Commits applied: 6 (5 Layer A0 small + this Layer B audit). Fixes by severity (post-filter): 0 Critical / 0 Important / 5 Minor (4 substantive cosmetic + 1 workflow-gap-rule-#3 mitigation) = 5 actionable. L02's 3 Crit + 5 Imp repeats filtered to zero-action (same as cycles 2/3 — steady state). Convergence: 0 multi-lens this cycle (single-lens findings dominate). Ship-ready (pre-fix): 15/20 Yes, 5/20 With fixes, 0 No. Clean lenses (0 findings any severity): 1/20 (L03 — first time clean; cumulative across all 4 cycles: L19 once, L03 once). Filtered out: ~127 findings. Deferred new this cycle: 2 (L15 Important PYTHONHASHSEED + darwin scope → 4a; L13 ~10 Minor one-assertion-target cluster → 4b). Prior-cycle deferrals reversed: 0. New HEAD: this §17.42 audit commit. Continuing → Cycle 5 (per user "four more times" cap, TERMINAL CYCLE).`
