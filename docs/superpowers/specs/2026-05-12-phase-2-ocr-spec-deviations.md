@@ -568,3 +568,130 @@ origin/main discipline blocked the same pattern from recurring.
 **Loop status:** cycle 2 applied 9 commits (plus this §17.11 audit entry).
 NOT converged — cycle 3 will fire fresh against the new branch HEAD per
 the cycle-independence rule.
+
+### 17.12 — cycle-1 of fresh review loop on `chore/phase-2-ocr-review-fixes-2026-05-13`
+
+**Branch:** `chore/phase-2-ocr-review-fixes-2026-05-13` (derived from
+`phase-2-ocr` HEAD `7677c04`, which was the post-merge state after the
+standalone review loop on `chore/panel-review-fixes-2026-05-13` landed
+its terminal cycle-5 MAX-CAP fixes — recorded in
+`2026-05-11-ci-cd-scaffolding-design.md` §17.24–§17.28 — and merged into
+`phase-2-ocr`).
+
+**Inter-loop gap closed by this entry:** the Phase 2 OCR review loop
+ended at §17.11 with "NOT converged — cycle 3 will fire fresh." Between
+then and now, the standalone review loop on
+`chore/panel-review-fixes-2026-05-13` ran cycles 3/4/5 against
+`origin/main` rather than against `phase-2-ocr`, then merged its fixes
+into `phase-2-ocr` via `7677c04`. The Phase 2 OCR spec carried no entry
+recording that the post-§17.11 audit trail had been satisfied via that
+merge (Lens 01 Important of this cycle flagged the gap). This §17.12 is
+the missing terminal entry for the OCR loop's pre-merge state AND the
+opening entry of a new loop running on a separate derived branch.
+
+**Why a separate derived branch (not `phase-2-ocr` directly):** at the
+user's request, review fixes for this cycle land on a dedicated
+`chore/phase-2-ocr-review-fixes-2026-05-13` branch that will merge into
+`phase-2-ocr` later as a clean delta. This preserves the option of
+wholesale-reverting review fixes if a cycle produces something undesired,
+without interleaved commits on the PR branch.
+
+**HEAD/BASE:** BASE_SHA = `e160593` (origin/main as of 2026-05-13);
+HEAD_SHA = `7677c04` at cycle 1 dispatch (the branch HEAD on creation,
+identical to `phase-2-ocr` HEAD).
+
+**Cycle-1 findings tally (pre-filter):**
+
+- 20/20 lens reports returned.
+- Verdicts: 10 lenses **Yes** (02, 03, 04, 07, 08, 09, 11, 12, 18, 20),
+  10 lenses **With fixes** (01, 05, 06, 10, 13, 14, 15, 16, 17, 19).
+- Strictly-clean (zero issues): Lens 03 (scope creep), Lens 04 (type
+  safety). 2/20.
+- Raw severity: 0 Critical / ~12 Important / ~20 Minor.
+
+**Convergent findings (auto-applied):**
+
+- **Lens 06 Minor + Lens 14 Minor** on `word_recall` living in
+  `tests/ocr/conftest.py` instead of a helpers module. Promoted; moved
+  to `tests/ocr/_metrics.py` (commit `d1c931d`).
+- **Lens 01 Important + Lens 17 Minor** on unqualified `§17.9`
+  references after the CI/CD-vs-Phase-2 namespace collision. Lens 01
+  flagged `src/extraction_service/ocr/base.py:40`; Lens 17 flagged
+  `docs/plan.md:729`. Same root issue, two call sites. Both qualified
+  (commits `a77e35b` for base.py, `8e78044` for plan.md).
+
+**Fixes applied this cycle (11 atomic per-concern commits):**
+
+| Commit | Subject | Lens(es) | Severity |
+|---|---|---|---|
+| `e4ed74c` | chore(ruff): add A (flake8-builtins) rule family + complete fastapi rollup comment | 08, 12 | Minor + Minor |
+| `6997de3` | chore(hygiene): ignore modelscope snapshot + cache dirs | 19 | Important |
+| `3c941af` | chore(editorconfig): pin *.ipynb to 2-space JSON indent | 19 | Minor |
+| `3fb4b9e` | docs(hooks): tighten detect-secrets baseline-exclude rationale | 18 | Minor |
+| `a77e35b` | feat(ocr): declare public __all__ at ocr package + qualify §17.9 ref | 06, 09, 01, 17 | Important + Minor |
+| `e56ea5f` | fix(ocr): tighten docling_engine error handling + supply-chain TODO | 05, 10 | Important + Minor |
+| `cf05559` | test(ocr): drop tautological FakeOcrEngine return-type test | 13 | Important |
+| `f581452` | fix(ocr-tests): empty samples-dir is documented skip, not collection error | 14 | Important |
+| `d1c931d` | refactor(ocr-tests): move word_recall metric out of conftest into _metrics | 06, 14 (convergent) | Minor (promoted) |
+| `d16d1cf` | refactor(ocr-tests): private prefix on _SAMPLES_DIR_ENV_VAR + use ordinal id in failure msg | 06, 16 | Minor + Minor |
+| `8e78044` | docs(plan): sync §6.4 Task 2.1 RED-test names + qualify §17.9 + Validation-gate deferral | 01, 17 | Important + Minor |
+
+**Deferred — waiting on later phase (4a):**
+
+- Lens 10 Important: `modelscope.snapshot_download(repo_id="RapidAI/RapidOCR")`
+  has no `revision=` pin and fetches the floating `main` HEAD of the
+  upstream modelscope repo. Pinning requires selecting a known-good
+  commit SHA from the modelscope hub — that decision belongs with the
+  Phase 6 hardening pass that also implements `scripts/validate_ocr.py`
+  (§17.8 above). In-code TODO added at the call site in commit
+  `e56ea5f` so the gap stays visible.
+- Lens 15 Important×2: no `--cov-report=xml` and no `--junitxml` in
+  CI's pytest invocation. The coverage gate works (gate enforcement
+  lives in `[tool.coverage.report].fail_under`), but no machine-readable
+  artifacts are uploaded. Lens 15 itself framed this as "Deferral is
+  defensible (the gate itself works); standard next step once --cov is
+  live." Phase 6 hardening will add the artifact uploads alongside the
+  validate_ocr script + JUnit-rendering CI polish.
+
+**Deferred — other reasons (4b):**
+
+- Lens 02 Minor×2: two commit-message-coverage gaps on already-merged
+  commits (`5d1c780` subject vs body partiality, `0b660b3` body's stale
+  `loop.run_in_executor` after `asyncio.to_thread` superseded it). Both
+  historical-immutable on a shared branch per the "prefer new commits
+  over amend" rule. The squash subject at user merge time supersedes
+  individual subjects. Cost-benefit: rewriting shared history would
+  invalidate every contributor's local branch state; the messages are
+  audit-trail records of what the implementer knew at commit time,
+  which is itself useful for forensics.
+- Lens 07 Minor (`_ENGINE_NAME` constant could be inlined): synthesizer
+  retains as a documentation anchor + future-proof guardrail when Phase
+  3+ broadens `OcrConfig.engine` from a 1-arm to a 2+-arm `Literal`.
+  Cost-benefit: inline-vs-named-constant for a single-call site is
+  stylistic; lens itself rated as "no current defect."
+- Lens 11 Minor (Tests-step comment length): lens explicitly noted "no
+  fix required."
+- Lens 13 Minor borderline×1 (three configurable-field FakeOcrEngine
+  tests): lens self-defended retention as forward-looking for Phase
+  4/5 (`FakeOcrEngine(page_count=5)` is load-bearing for the upcoming
+  pagination tests). Synthesizer agrees.
+- Lens 13 Minor (`test_docling_engine_construct` thin contract test):
+  lens self-rated as "Acceptable" — the assertion guards against a
+  constructor regression that silently leaves `_converter` as None.
+- Lens 20 Minor (header comment self-documenting required check names):
+  lens explicitly noted "No fix required."
+
+**Filter-dropped (ceremonial / not actionable):**
+
+- Lens 07 inline-vs-constant suggestion — see deferred above.
+- Lens 09 docstring rationale wording (separately fixed by the same
+  commit that added `__all__` to ocr/__init__.py).
+
+**Hallucination / drift safety:** cycle-1 lens prompts carried no
+carryover context per the cycle-independence rule. Each lens read the
+diff fresh against `origin/main..HEAD`. No "previous cycle missed X"
+framing was injected.
+
+**Loop status:** cycle 1 applied 11 commits (plus this §17.12 audit
+entry). NOT converged — cycle 2 will fire fresh against the new branch
+HEAD per the cycle-independence rule.
