@@ -46,7 +46,9 @@ jobs:
       vars.DEPENDABOT_AUTOMERGE_ENABLED == 'true'
     steps:
       - name: Enable auto-merge
-        run: gh pr merge --auto --squash "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh pr merge --auto --squash "$PR_URL"

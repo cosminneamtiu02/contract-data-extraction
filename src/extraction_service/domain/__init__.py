@@ -1,12 +1,12 @@
 """Domain layer — value objects, the state machine, and the exception hierarchy.
 
-Concrete types (``ContractJob``, ``StageRecord``, ``StageError``,
+Concrete *model* types (``ContractJob``, ``StageRecord``, ``StageError``,
 ``ContractRecord``, and the exception classes) are defined in their submodules
 and accessed via deep import only (e.g.
-``from extraction_service.domain.stage import StageError``). They are NOT
-re-exported at this package boundary. Only the Literal aliases ``OverallStatus``
-and ``StageName`` appear in ``__all__`` and are re-exported here for Phase 5's
-HTTP response models; see record.py for the re-export rationale.
+``from extraction_service.domain.stage import StageError``); they are NOT
+re-exported at this package boundary. The Literal aliases ``OverallStatus``
+and ``StageName`` ARE re-exported (and listed in ``__all__``) for Phase 5's
+HTTP response models — see record.py for the re-export rationale.
 
 ``ContractRecord`` is the one intentionally-mutable container; workers reassign
 per stage under the asyncio.Lock of docs/plan.md §3.5. All other types here are

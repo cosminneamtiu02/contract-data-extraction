@@ -10,8 +10,15 @@ license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.13"
 dependencies = [
-    "fastapi>=0.115",
-    "uvicorn[standard]>=0.32",
+    # Floor tracks the locked minor (fastapi 0.x is pre-1.0 where each
+    # minor routinely breaks router signatures, lifespan API, and
+    # response-model behavior). Same tracks-the-locked-minor convention
+    # applied to ollama / ruff / docling / uvicorn / modelscope.
+    "fastapi>=0.136",
+    # Floor tracks the locked minor (uvicorn 0.x is pre-1.0; an older floor
+    # would permit a fresh resolve to a uvicorn that no longer ships the
+    # ASGI lifespan shape FastAPI 0.136 expects).
+    "uvicorn[standard]>=0.46",
     "pydantic>=2.10",
     "pydantic-settings>=2.6",
     "structlog>=25.0",
@@ -19,12 +26,19 @@ dependencies = [
     # minor is breaking (0.4→0.5: async streaming overhaul; 0.5→0.6: response
     # model type changes). Phase 3 LLM worker targets the 0.6.x async API.
     "ollama>=0.6",
-    "docling>=2.20",
+    # Floor tracks the locked minor (2.93.x); docling 2.x cadences fast and
+    # has cross-minor API churn (e.g., py.typed was added at 2.93). An older
+    # floor like 2.20 is functionally a different library.
+    "docling>=2.93",
     "rapidocr-onnxruntime>=1.4",
-    "modelscope>=1.20",
+    # Floor tracks the locked minor (1.36.x); modelscope 1.x follows
+    # pre-1.0-style minor-breaking cadence.
+    "modelscope>=1.36",
     "jsonschema>=4.23",
     "pyyaml>=6.0",
-    "httpx>=0.27",
+    # Floor tracks the locked minor (0.28.x); httpx is pre-1.0 and the
+    # 0.27→0.28 boundary changed the default transport behavior.
+    "httpx>=0.28",
 ]
 
 [project.scripts]
@@ -96,7 +110,19 @@ target-version = "py313"
 # ANN added 2026-05-12 per cycle-2 review (Lens 04): flake8-annotations catches
 # annotation gaps at lint time, complementing mypy's strict pass with faster
 # developer feedback. Zero current violations. Defense-in-depth for later phases.
-select = ["E", "F", "I", "B", "UP", "ASYNC", "PIE", "SIM", "RET", "ARG", "PTH", "TID", "T20", "RUF", "C4", "FURB", "PT", "EM", "TRY", "TCH", "N", "S", "BLE", "PL", "ANN"]
+# G added 2026-05-13 (Lens 08): flake8-logging-format catches f-string log calls
+# (`logger.info(f"...")`) and %-style logger usage that bypass lazy evaluation.
+# log_config.py wires `logging` into structlog's stdlib bridge; Phase 2-4
+# workers will emit log lines and the structlog bridge is exactly where G004
+# anti-patterns would land silently. Zero current violations — same proactive
+# pattern as BLE, ANN, PL.
+# DTZ added 2026-05-13 (Lens 08): flake8-datetimez catches `datetime.now()`
+# without `tz=` and `datetime.utcnow()` (deprecated in 3.12, naive in semantics).
+# Active datetime use sites: domain/stage.py and domain/record.py both call
+# `datetime.now(UTC)` correctly today. Phase 2-4 workers will add stage-timing
+# code that is exactly where DTZ violations would land silently. Zero current
+# violations — same proactive pattern as G/BLE/ANN/PL.
+select = ["E", "F", "I", "B", "UP", "ASYNC", "PIE", "SIM", "RET", "ARG", "PTH", "TID", "T20", "RUF", "C4", "FURB", "PT", "EM", "TRY", "TCH", "N", "S", "BLE", "PL", "ANN", "G", "DTZ"]
 ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
@@ -135,10 +161,10 @@ plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
 # rapidocr and modelscope are genuinely stub-less (no py.typed marker);
-# docling ships py.typed at its locked version so mypy resolves it natively
-# — not listed here. (Avoid pinning a specific docling version in this
-# comment; the version moves with Dependabot bumps and the override list
-# itself is the authoritative source of what is/isn't stub-less.)
+# docling ships py.typed (verified at the locked version) so mypy resolves
+# it natively — not listed here. Avoid pinning a specific docling version
+# in this comment; the version moves with Dependabot bumps and the override
+# list itself is the authoritative source of what is/isn't stub-less.
 module = ["rapidocr.*", "modelscope.*"]
 ignore_missing_imports = true
 

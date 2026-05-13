@@ -31,10 +31,12 @@ dist/
 Thumbs.db
 .idea/
 .vscode/*
-# Carve-outs (not yet created — these will be committed once added): the team
-# will standardise on the same VS Code extension set and a workspace-pinned
-# Python interpreter (.venv/bin/python) so first-run dev matches CI. Until
-# then the !-rules are forward-looking stubs with no current file behind them.
+# Carve-outs for files that, once created and committed, must be tracked:
+# the team will standardise on the same VS Code extension set and a
+# workspace-pinned Python interpreter (.venv/bin/python) so first-run dev
+# matches CI. The !-rules are inert until the files exist; a contributor
+# who adds them must `git add` explicitly the first time (the negation
+# only un-ignores; it does not auto-track).
 !.vscode/extensions.json
 !.vscode/settings.json
 *.swp
@@ -53,6 +55,11 @@ Thumbs.db
 
 # Additional tooling caches (preempt phase 2+)
 .import_linter_cache/
+# Jupyter creates this in-tree on first notebook open. .gitattributes already
+# forward-declares *.ipynb LF-pinning for Phase 2+ OCR prototyping notebooks;
+# this ignore-rule prevents the auto-created checkpoint sidecar from showing
+# up in `git status` once a contributor first opens one.
+.ipynb_checkpoints/
 
 # Model / data artifacts (preempt phase 2+ — Ollama weights are under ~/.ollama
 # and outside the tree, but intermediate model files dropped into the working
