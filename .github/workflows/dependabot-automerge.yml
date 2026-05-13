@@ -36,9 +36,19 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
-      # Job-level scopes minted only when the if: evaluates true. gh pr
-      # merge --auto calls the enablePullRequestAutoMerge GraphQL mutation
-      # which requires BOTH contents:write AND pull-requests:write.
+      # Job-level scopes minted only when the if: evaluates true. The
+      # scopes here serve TWO consumers in this job:
+      #   1. `dependabot/fetch-metadata` (step `meta` below) reads PR-level
+      #      metadata to populate `steps.meta.outputs.update-type`. This
+      #      only requires `pull-requests: read` per upstream docs.
+      #   2. `gh pr merge --auto` (step "Enable auto-merge") calls the
+      #      `enablePullRequestAutoMerge` GraphQL mutation which requires
+      #      BOTH `contents: write` AND `pull-requests: write`.
+      # The `pull-requests: write` scope is a superset of the read-only
+      # need of (1), so a future contributor MUST NOT narrow these scopes
+      # to "read" thinking only fetch-metadata uses them — that would
+      # break the gh-pr-merge mutation. The write scopes belong to
+      # consumer (2); fetch-metadata's read need is satisfied incidentally.
       contents: write
       pull-requests: write
     # Check the PR author from the event payload (stays dependabot[bot]
