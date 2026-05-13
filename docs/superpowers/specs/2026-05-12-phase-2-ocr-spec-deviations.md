@@ -456,3 +456,115 @@ before applying any change.
 **Loop status:** cycle 1 applied 5 fixes (plus this §17.9/§17.10 audit
 entry). Cycle 2 will fire fresh against the new branch HEAD per the
 cycle-independence rule.
+
+---
+
+## §17.11 — Cycle-2 of post-merge panel-loop review
+
+**Pass type:** Loop mode, cycle 2 (HEAD=bd3879c at dispatch time → e86ae43
+after fixes, BASE=origin/main=e160593 — same as cycle 1 per the
+cumulative-diff rule). Triggered automatically per CLAUDE.md loop-mode
+"continue while cycle produces commits". 20 lenses dispatched in parallel
+with clean prompts (no carryover from cycle 1 — cycle independence). 20 of
+20 returned proper reports this cycle (Lens 02 re-dispatch from cycle 1
+succeeded, so cycle 2 dispatched a fresh Lens 02 alongside the other 19;
+all 20 returned cleanly with no bails).
+
+**Verdicts (cycle 2):** 10 Yes; 10 With fixes; 0 No. Marked improvement
+over cycle 1's 8/12 split.
+
+**Convergent findings (≥2 lenses agree — load-bearing per CLAUDE.md):**
+
+- **Lens 11 Important + Lens 20 Minor** on `--cov-fail-under=80` redundant
+  CLI flag creating dual source of truth with pyproject.toml's
+  `[tool.coverage.report].fail_under`. Promoted; fixed via single source
+  of truth on pyproject.
+- **Lens 15 Important + Lens 20 Minor** on the stale "Inert until --cov
+  is added" comment in pyproject.toml `[tool.coverage.report]` —
+  factually false since cycle-1's c6550c8 activated `--cov`. Promoted;
+  comment rewritten with an active-gate note + warning against future
+  CLI/config drift.
+- **Lens 01 Important + Lens 17 Minor** on factory.py's unqualified
+  `§17.9` reference becoming ambiguous after Phase 2 created its own §17
+  namespace (this very file's §17.9 covers asyncio.to_thread; the
+  factory was referencing CI/CD spec §17.9 about closed-Literal
+  exhaustiveness). Promoted; qualified the cross-file reference.
+- **Lens 02 Minor + Lens 17 Minor** on the dangling `(§17.9)`
+  parenthetical in `ocr/__init__.py`'s docstring — points at no
+  authoritative §17.9 in either spec file (neither CI/CD's §17.9 about
+  `assert_never` nor Phase 2's §17.9 about asyncio.to_thread covers
+  `__all__` omission policy). Promoted; dropped the parenthetical.
+
+**Fixes applied this cycle (9 atomic per-concern commits):**
+
+| Commit | Subject | Lens(es) | Severity |
+|---|---|---|---|
+| `bf6e018` | fix(coverage): drop CLI --cov-fail-under + sync coverage config audit comments | 11+20, 15+20 (both convergent), 15 Minor | Important×2 + Minor |
+| `c1fb090` | fix(types): correct docling_engine.py audit comments on stub coverage | 04 | Minor (substantive cosmetic — Known Workflow Gap #3) |
+| `b2a1c26` | docs(spec): disambiguate cross-file §17 references in ocr/ docstrings | 01+17, 02+17 (both convergent) | Important + Minor |
+| `7d2ce86` | docs(plan): sync §6.4 Goal blurb + add §17 parentheticals on tasks 2.7/2.8/2.9 | 17 | Important |
+| `a009fb6` | docs(ocr): sync OcrEngine Protocol docstring with asyncio.to_thread | 09 | Minor (substantive cosmetic) |
+| `1f8b16d` | test(ocr): named skip on env-unset + document collection-time env invariant | 14, 16 | Important×2 |
+| `20f5856` | test(ocr): drop 3 tautological Pydantic-accessor tests on OcrResult | 13 (re-surfaced from cycle 1 Minor → cycle 2 Important) | Important |
+| `566f21a` | chore(hygiene): add *.onnx to ignored model-weights + reference Phase 2 spec in CLAUDE.md | 10 Minor, 17 Minor | Minor×2 (substantive cosmetic) |
+| `e86ae43` | docs(readme-queue): route "golden tests" wording drift to README queue | 17 Minor | Routing (README user-restricted) |
+
+(Note: bf6e018 also folded in the Lens 12 Minor fix on pyproject.toml's
+mypy override comment — dropping the version-specific "docling 2.93.0"
+anchor in favour of a version-neutral phrasing. The commit's primary
+subject is coverage config; the mypy-override edit hitchhiked because
+both touch pyproject.toml. The commit body could have named it
+explicitly — minor commit-message-coverage gap recorded here for the
+audit trail.)
+
+**Hallucinations re-tested (the cycle-1 false-positive pattern):** Cycle
+2's lens prompts carried explicit "VERIFICATION HINT" callouts on
+Lenses 08, 11, 12, 15, 18, 20 directing each agent to `git show
+origin/main:<file>` before flagging any "main has X" drift. Cycle 2
+produced ZERO false-positive drift findings — the verification hints
+worked. The other branch in the user's local checkout
+(`chore/panel-review-fixes-2026-05-13`) is the likely contamination
+source for cycle-1's hallucinations; cycle 2's explicit verify-against-
+origin/main discipline blocked the same pattern from recurring.
+
+**Deferred items (4a — waiting on later phase or upstream decision):**
+
+- Lens 10 Important: `modelscope.snapshot_download(repo_id="RapidAI/RapidOCR")`
+  has no `revision=` pin. Pinning requires picking a specific upstream
+  commit SHA from the modelscope hub for the RapidAI/RapidOCR repo —
+  that decision belongs with the user or the Phase 6 hardening pass that
+  also covers `scripts/validate_ocr.py`. Re-trigger naturally when Phase
+  6 starts; the same pass should pick a model revision and pin it.
+
+**Deferred items (4b — other reasons):**
+
+- Lens 02 chore(tests) commit-message body's "CI sweep picks them up"
+  inaccuracy on commit 9c7b35b — historical-immutable on a shared branch
+  per the "prefer new commits over amend" rule. The squash subject at
+  user merge time supersedes individual subjects.
+- Lens 06 Minors (WORD_RECALL_THRESHOLD placement / build_ocr_engine
+  re-export hint / monkeypatch seam comment) — style observations.
+- Lens 07 Minor (`_ENGINE_NAME` borderline keep) — synthesizer retains
+  the named constant as a documentation anchor + Phase 3+ Literal-
+  broadening guardrail.
+- Lens 09 Minor (`word_recall` in conftest vs metrics module) — style
+  observation; the function works correctly via explicit import and the
+  conftest placement is internally consistent.
+- Lens 10 Minor (`.secrets.baseline` `generated_at` timestamp stale) —
+  cosmetic; the CI hook performs a LIVE scan against current git
+  ls-files, so a stale timestamp does not affect coverage. A future
+  pre-commit-update PR can regenerate.
+- Lens 13 Minor (`test_fake_ocr_engine_returns_ocr_result` partial
+  redundancy) — lens itself said "not worth fixing urgently"; the
+  Protocol-conformance test is the load-bearing one.
+- Lens 13 Minor (smoke path two-assertions-per-test in slow OCR test) —
+  lens self-rated as "defensible" for a parametrised integration test;
+  splitting would 3x the fixture cost without diagnostic gain.
+- Lens 16 Minor (threading.Event pattern fragility comment) — code is
+  correct as written; comment would be ceremony.
+- Lens 19 Minor (.gitignore vscode carve-out comment regression) — style
+  observation on a Phase 0.5-era comment, not Phase 2 scope.
+
+**Loop status:** cycle 2 applied 9 commits (plus this §17.11 audit entry).
+NOT converged — cycle 3 will fire fresh against the new branch HEAD per
+the cycle-independence rule.
