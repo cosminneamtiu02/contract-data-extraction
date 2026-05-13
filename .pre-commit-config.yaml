@@ -14,7 +14,6 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
-        files: ^(pyproject\.toml|uv\.lock)$
         # Mirrors ci.yml "Lockfile freshness check" step. A developer editing
         # pyproject.toml (e.g. bumping a dep floor) without re-running `uv lock`
         # would otherwise pass local hooks but fail in CI. Surfaced by Lens 18
