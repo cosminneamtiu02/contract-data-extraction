@@ -42,6 +42,13 @@ class FakeOcrEngine:
         page_count: int = 1,
         engine_name: str = "fake",
     ) -> None:
+        """Configure the OcrResult fields this fake will return from ``extract``.
+
+        All three parameters have defaults so the no-argument form
+        ``FakeOcrEngine()`` is a valid test seam; callers override only the
+        dimension they want to drive (e.g., ``FakeOcrEngine(page_count=5)``
+        to exercise pagination handling in Phase 4 worker tests).
+        """
         self.text = text
         self.page_count = page_count
         self.engine_name = engine_name

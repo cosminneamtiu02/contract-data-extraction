@@ -85,8 +85,14 @@ jobs:
         # is the single source of truth in pyproject.toml's
         # [tool.coverage.report] — do not pass --cov-fail-under here, or the
         # CLI value silently overrides the config and the pyproject value
-        # becomes a lie next time someone bumps it there.
-        run: uv run pytest -q --tb=short -m "not slow" --cov
+        # becomes a lie next time someone bumps it there. `--cov-report=
+        # term-missing` is explicit because `show_missing = true` in
+        # [tool.coverage.report] only applies when coverage.py is invoked
+        # directly (`coverage report`), not when pytest-cov selects the
+        # report type; without the explicit flag the missing-line output
+        # is fragile across pytest-cov versions (Lens 15 Minor of cycle-2
+        # review on chore/phase-2-ocr-review-fixes-2026-05-13).
+        run: uv run pytest -q --tb=short -m "not slow" --cov --cov-report=term-missing
 
       - name: Dependency CVE scan
         # Default pip-audit behavior fails CI on any CVE found in the
