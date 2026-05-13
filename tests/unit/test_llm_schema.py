@@ -104,6 +104,45 @@ def test_schema_error_chain_preserves_original_exception() -> None:
     assert isinstance(exc_info.value.__cause__, jsonschema.ValidationError)
 
 
+def test_validate_extracted_data_nested_array_index_field_path() -> None:
+    """``_format_path`` handles the common string-then-integer branch.
+
+    The private helper's main branch produces ``"parties[0].name"``-style
+    paths: a string key followed by an integer index appended via
+    ``parts[-1] = f"{parts[-1]}[{item}]"``. The companion test
+    ``test_validate_extracted_data_root_array_field_path`` covers the
+    leading-integer branch (root-level array); this test covers the
+    paired branch by validating an object containing an array of records
+    against a schema requiring each record's ``name`` field, with the
+    second record missing ``name``. The resulting error message must
+    contain ``"parties[1]"`` — both the string key AND the bracketed
+    index in the documented combined form.
+    """
+    from extraction_service.domain.errors import SchemaInvalidError
+    from extraction_service.llm.schema import validate_extracted_data
+
+    schema = {
+        "type": "object",
+        "properties": {
+            "parties": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {"name": {"type": "string"}},
+                    "required": ["name"],
+                },
+            },
+        },
+        "required": ["parties"],
+    }
+    data = {"parties": [{"name": "ok"}, {}]}
+
+    with pytest.raises(SchemaInvalidError) as exc_info:
+        validate_extracted_data(data, schema)
+
+    assert "parties[1]" in str(exc_info.value)
+
+
 def test_validate_extracted_data_root_array_field_path() -> None:
     """``_format_path`` handles root-level array indices (leading integer).
 

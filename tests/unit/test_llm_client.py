@@ -268,8 +268,12 @@ async def test_llm_timeout_raises_llm_failed() -> None:
     from tests.fakes.fake_ollama import FakeOllamaClient
 
     # Fake sleeps 10ms; wrapper's timeout is 1ms — guaranteed timeout.
-    fake = FakeOllamaClient(content='{"k": "v"}', sleep_seconds=0.010)
-    client = OllamaLlmClient(client=fake, model="gemma3:4b", timeout_seconds=0.001)
+    # 100ms fake sleep vs 10ms wrapper timeout — same 10x margin as a tight
+    # 10ms/1ms pair, but in an absolute range where asyncio event-loop
+    # scheduler jitter on a loaded CI runner (typically <5ms) is far below
+    # the gap, so the test cannot flip into a false-pass under load.
+    fake = FakeOllamaClient(content='{"k": "v"}', sleep_seconds=0.100)
+    client = OllamaLlmClient(client=fake, model="gemma3:4b", timeout_seconds=0.010)
 
     with pytest.raises(LlmError):
         await client.extract(prompt="x", schema={})
@@ -306,8 +310,12 @@ async def test_llm_timeout_chains_from_timeout_error() -> None:
     from extraction_service.llm.client import OllamaLlmClient
     from tests.fakes.fake_ollama import FakeOllamaClient
 
-    fake = FakeOllamaClient(content='{"k": "v"}', sleep_seconds=0.010)
-    client = OllamaLlmClient(client=fake, model="gemma3:4b", timeout_seconds=0.001)
+    # 100ms fake sleep vs 10ms wrapper timeout — same 10x margin as a tight
+    # 10ms/1ms pair, but in an absolute range where asyncio event-loop
+    # scheduler jitter on a loaded CI runner (typically <5ms) is far below
+    # the gap, so the test cannot flip into a false-pass under load.
+    fake = FakeOllamaClient(content='{"k": "v"}', sleep_seconds=0.100)
+    client = OllamaLlmClient(client=fake, model="gemma3:4b", timeout_seconds=0.010)
 
     with pytest.raises(LlmError) as excinfo:
         await client.extract(prompt="x", schema={})
