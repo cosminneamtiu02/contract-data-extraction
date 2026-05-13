@@ -127,6 +127,32 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
         return
 
     pdfs = _enumerate_pdfs(resolved)
+    if not pdfs:
+        # Env var set + dir exists + zero PDFs is the third documented "skip"
+        # path (see module docstring behavior matrix). Without an explicit
+        # branch here, `metafunc.parametrize([], ids=[])` raises a
+        # collection-time error under --strict-config — contradicting the
+        # documented contract. Reuses the named-skip pattern from the
+        # env-unset branch above so test output stays consistent.
+        # Per Lens 14 of cycle-1 review on chore/phase-2-ocr-review-fixes-2026-05-13.
+        metafunc.parametrize(
+            "ocr_sample_pdf",
+            [
+                pytest.param(
+                    None,
+                    marks=pytest.mark.skip(
+                        reason=(
+                            f"${SAMPLES_DIR_ENV_VAR} points at {resolved}, "
+                            f"which exists but contains zero *.pdf files; see "
+                            f"docs/superpowers/specs/"
+                            f"2026-05-12-phase-2-ocr-spec-deviations.md §17.3"
+                        ),
+                    ),
+                ),
+            ],
+            ids=["dir_empty"],
+        )
+        return
     ids = [f"sample_#{i}" for i in range(len(pdfs))]
     metafunc.parametrize("ocr_sample_pdf", pdfs, ids=ids)
 
