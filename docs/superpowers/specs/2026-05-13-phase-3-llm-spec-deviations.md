@@ -93,3 +93,73 @@ NOT material — they appear here only as a stable record of the
 
 **How to apply:** None of these need to change in Phase 3. The PII
 re-evaluation is a Phase 5 design decision; no Phase 4 work is gated.
+
+---
+
+## §17.3 — Single-variant commitment to Gemma 4 E2B (q4_K_M)
+
+**Plan text (post-rewrite):** [docs/plan.md §1 line 21](../../plan.md):
+"LLM: Ollama with `gemma4:e2b-it-q4_K_M`, `OLLAMA_NUM_PARALLEL=2`,
+`num_ctx=8192`, q8_0 KV cache."
+
+**Deviation (architectural):** The project commits to a single sanctioned
+Gemma variant — `gemma4:e2b-it-q4_K_M` — and retires the previously
+documented swap-up path to a larger Gemma 4 variant. Four such
+references in `docs/plan.md` (the swap-up parenthetical at §1 line 21,
+the larger-variant annotation in the §3.1 ASCII diagram at line 199,
+rule #14 at line 931 referencing F1 numbers on the larger variant, and
+the Stretch Items "MTP speculative decoding" trigger at line 949) were
+scrubbed in this pass.
+
+**Why:** User-imposed architectural commitment recorded 2026-05-13:
+Gemma 4 E2B is the sole sanctioned variant — no larger Gemma 4
+variants and no other Gemma families are permitted. The strict-variant
+decision is taken as given; this entry records the consequence, not
+the negotiation.
+
+**Test-suite drift remediation (mechanical):** The pre-existing test
+fixtures and one docstring example carried two predecessor-Gemma model
+literals (one small-size, one large-size) despite the production
+default having always been `gemma4:e2b-it-q4_K_M`. The drift never
+produced a red gate because `OllamaLlmClient.extract` treats the
+`model` kwarg as an opaque pass-through string. Remediation: 33
+mechanical literal renames across
+[`src/extraction_service/llm/client.py:130`](../../../src/extraction_service/llm/client.py)
+(1 docstring example),
+[`tests/unit/test_llm_client.py`](../../../tests/unit/test_llm_client.py)
+(19 fixture occurrences), and
+[`tests/fakes/test_fake_ollama.py`](../../../tests/fakes/test_fake_ollama.py)
+(13 fixture occurrences) — all replaced with the production-default tag.
+
+**Test restructure (one):** `test_fake_ollama_client_last_call_updated_on_repeated_calls`
+originally relied on two distinct predecessor-Gemma model strings to
+demonstrate that `last_call` reflects the most-recent call. With the
+strict single-variant rule, two distinct *model* strings are not
+available; the test now varies the `messages` payload between calls
+and asserts on `last_call["messages"]`. The "second call overwrites
+first" property is preserved verbatim — the variance vehicle changed
+from `model` to `messages`, nothing else.
+
+**What this deviation does NOT change:**
+
+1. Two-lane LLM-inference design (`OLLAMA_NUM_PARALLEL=2`,
+   `num_parallel: PositiveInt = 2`, two FastAPI worker coroutines).
+2. 8K context window (`num_ctx=8192`).
+3. q8_0 KV-cache configuration.
+4. 16-GB Mac Mini M4 hardware target / 20-job intake queue / 4-job
+   inter-stage queue sizes.
+5. Phase 3 LLM-client behaviour: retry policy, timeout mapping,
+   context-overflow → `ContextOverflowError` heuristic, dev-mode
+   `_debug` block, format-arg propagation. All unchanged.
+6. No exit criteria moved. No library swapped. No public API changed.
+
+**How to apply:** Future contributions MUST use `gemma4:e2b-it-q4_K_M`
+as the sole Gemma model identifier anywhere in shipped source. Test
+fixtures requiring two-distinct-value semantics MUST vary a non-model
+field (messages, options, format, etc.) rather than smuggle a second
+Gemma variant. If a future engineering need genuinely requires a larger
+variant, the path is to reverse this commitment with a new §17.N
+subsection (NOT to retroactively rewrite §17.3).
+
+**Planning artifact:** Full migration scope captured in
+[docs/superpowers/plans/2026-05-13-gemma-4-e2b-only-migration.md](../plans/2026-05-13-gemma-4-e2b-only-migration.md).
