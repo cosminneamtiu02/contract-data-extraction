@@ -1,4 +1,4 @@
-"""Thin async wrapper around ``ollama.AsyncClient`` (plan §6.5 tasks 3.1 + 3.5).
+"""Thin async wrapper around ``ollama.AsyncClient`` (plan §6.5 tasks 3.1, 3.5, 3.6).
 
 ``OllamaLlmClient`` is the single entry point for LLM inference in this
 service. It exposes one method — ``extract`` — and is intentionally thin:
@@ -20,18 +20,24 @@ Design constraints preserved for later tasks:
 
 Task 3.5 adds context-overflow detection: HTTP 400 from Ollama whose error
 message indicates context-window exhaustion is mapped to the domain-layer
-``ContextOverflowError``. Tasks 3.6 (dev-mode debug capture) and 3.7
-(asyncio.wait_for timeout) extend this file in later commits.
+``ContextOverflowError``. Task 3.6 adds dev-mode debug capture: when the
+wrapper is constructed with ``mode='development'``, a ``_debug`` top-level
+key with the raw request and response payloads is attached to the returned
+dict (the underscore prefix marks it as side-channel metadata so downstream
+schema validation can strip it before delegating to ``jsonschema``). Task
+3.7 (asyncio.wait_for timeout) extends this file in a later commit.
 """
 
 from __future__ import annotations
 
 import json
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Literal, Protocol, runtime_checkable
 
 from ollama import ResponseError
 
 from extraction_service.domain.errors import ContextOverflowError
+
+ClientMode = Literal["development", "production"]
 
 
 class _ChatResponse(Protocol):
@@ -90,13 +96,26 @@ class OllamaLlmClient:
         without a running Ollama process.
     model:
         Ollama model tag to use (e.g. ``"gemma3:4b"``). Stored as an
-        instance attribute so task-3.5 context-overflow handling can
+        instance attribute so a future context-overflow fallback path can
         override it per-call without mutating the shared client.
+    mode:
+        ``"development"`` attaches a ``_debug`` block (raw request +
+        raw response content) to every successful ``extract`` result;
+        ``"production"`` (default) returns the parsed JSON dict only.
+        Mirrors the ``Settings.mode`` literal in
+        ``extraction_service.settings`` so the Phase 4 pipeline can
+        forward the process-level mode verbatim.
     """
 
-    def __init__(self, client: _ChatClientProtocol, model: str) -> None:
+    def __init__(
+        self,
+        client: _ChatClientProtocol,
+        model: str,
+        mode: ClientMode = "production",
+    ) -> None:
         self._client = client
         self._model = model
+        self._mode = mode
 
     async def extract(
         self,
@@ -154,6 +173,15 @@ class OllamaLlmClient:
         # Access via attribute, NOT dict key — this changed in ollama 0.4→0.5.
         content: str = response.message.content
         result: dict[str, Any] = json.loads(content)
+        if self._mode == "development":
+            result["_debug"] = {
+                "request": {
+                    "model": self._model,
+                    "prompt": prompt,
+                    "schema": schema,
+                },
+                "response_content": content,
+            }
         return result
 
 

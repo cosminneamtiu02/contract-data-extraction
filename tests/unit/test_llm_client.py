@@ -1,4 +1,4 @@
-"""Tests for the Ollama LLM client wrapper (plan §6.5 tasks 3.1 and 3.5).
+"""Tests for the Ollama LLM client wrapper (plan §6.5 tasks 3.1, 3.5, 3.6).
 
 Behavioural coverage:
 - Client calls the configured model name (task 3.1).
@@ -10,6 +10,9 @@ Behavioural coverage:
 - Client maps ollama context-overflow errors to ``ContextOverflowError``
   (task 3.5).
 - Client re-raises non-overflow ``ollama.ResponseError`` instances (task 3.5).
+- Client attaches a ``_debug`` top-level key with raw request + response
+  payloads when constructed with ``mode="development"`` (task 3.6).
+- Client omits the ``_debug`` key in default/production mode (task 3.6).
 
 All tests use ``FakeOllamaClient`` so no real Ollama process is required.
 ``asyncio_mode = "auto"`` in ``pyproject.toml`` covers async without decorators.
@@ -131,3 +134,95 @@ async def test_non_overflow_response_error_re_raises_unchanged() -> None:
 
     with pytest.raises(ResponseError):
         await client.extract(prompt="x", schema={})
+
+
+async def test_dev_mode_captures_raw_request_and_response() -> None:
+    """In ``mode='development'``, the result includes a ``_debug`` block.
+
+    Spec-named RED test for task 3.6: the wrapper attaches a top-level
+    ``_debug`` key containing the raw request payload (model, prompt,
+    schema) and the raw response content. The block is keyed under
+    ``_debug`` (leading underscore) to mark it as side-channel
+    metadata, not part of the LLM's structured output.
+    """
+    from extraction_service.llm.client import OllamaLlmClient
+    from tests.fakes.fake_ollama import FakeOllamaClient
+
+    payload = {"k": "v"}
+    raw_content = json.dumps(payload)
+    fake = FakeOllamaClient(content=raw_content)
+    client = OllamaLlmClient(client=fake, model="gemma3:4b", mode="development")
+
+    result = await client.extract(prompt="hello", schema={"type": "object"})
+
+    assert "_debug" in result
+
+
+async def test_production_mode_omits_debug_block() -> None:
+    """Default and ``mode='production'`` results contain no ``_debug`` key.
+
+    Companion to the dev-mode capture test: in production mode the
+    result is the parsed JSON dict only — no metadata side-channel,
+    so downstream schema validation does not need a strip step.
+    """
+    from extraction_service.llm.client import OllamaLlmClient
+    from tests.fakes.fake_ollama import FakeOllamaClient
+
+    payload = {"k": "v"}
+    fake = FakeOllamaClient(content=json.dumps(payload))
+    client = OllamaLlmClient(client=fake, model="gemma3:4b", mode="production")
+
+    result = await client.extract(prompt="hello", schema={})
+
+    assert "_debug" not in result
+
+
+async def test_dev_mode_default_is_production() -> None:
+    """Omitting ``mode`` defaults to production (no ``_debug`` key).
+
+    Belt-and-braces against an accidental flip of the default flag —
+    development mode must be explicit, never inherited from omission.
+    """
+    from extraction_service.llm.client import OllamaLlmClient
+    from tests.fakes.fake_ollama import FakeOllamaClient
+
+    payload = {"k": "v"}
+    fake = FakeOllamaClient(content=json.dumps(payload))
+    client = OllamaLlmClient(client=fake, model="gemma3:4b")
+
+    result = await client.extract(prompt="hello", schema={})
+
+    assert "_debug" not in result
+
+
+async def test_dev_mode_debug_request_contains_model_prompt_schema() -> None:
+    """The ``_debug.request`` sub-block carries model, prompt, and schema."""
+    from extraction_service.llm.client import OllamaLlmClient
+    from tests.fakes.fake_ollama import FakeOllamaClient
+
+    payload = {"k": "v"}
+    fake = FakeOllamaClient(content=json.dumps(payload))
+    client = OllamaLlmClient(client=fake, model="gemma3:4b", mode="development")
+    schema = {"type": "object", "properties": {"k": {"type": "string"}}}
+
+    result = await client.extract(prompt="probe", schema=schema)
+
+    assert result["_debug"]["request"] == {
+        "model": "gemma3:4b",
+        "prompt": "probe",
+        "schema": schema,
+    }
+
+
+async def test_dev_mode_debug_response_content_is_raw_string() -> None:
+    """The ``_debug.response_content`` field carries the unparsed raw string."""
+    from extraction_service.llm.client import OllamaLlmClient
+    from tests.fakes.fake_ollama import FakeOllamaClient
+
+    raw_content = '{"k": "v"}'
+    fake = FakeOllamaClient(content=raw_content)
+    client = OllamaLlmClient(client=fake, model="gemma3:4b", mode="development")
+
+    result = await client.extract(prompt="x", schema={})
+
+    assert result["_debug"]["response_content"] == raw_content
