@@ -107,7 +107,11 @@ jobs:
           name: backend-test-reports
           path: reports/
           retention-days: 30
-          if-no-files-found: ignore
+          # Surface absence as a log annotation (warn) rather than silently ignoring it.
+          # The step exists to upload diagnostic artifacts on failure (if: always());
+          # if pytest fails before generating reports/* (import error, collection failure),
+          # `ignore` would silence the very signal the step is designed to capture.
+          if-no-files-found: warn
 
       - name: Dependency CVE scan
         # Default pip-audit behavior fails CI on any CVE found in the
