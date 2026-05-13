@@ -4,7 +4,7 @@ Operating manual for Claude Code on `contract-data-extraction`. Loads at session
 
 ## Project context
 
-Local single-process HTTP service: scanned German legal contracts → OCR → Gemma 4 E2B (Ollama) → structured JSON. Python 3.13, `uv`-managed, ruff + mypy strict, FastAPI + asyncio. Target: Mac Mini M4, 16 GB. Phases 0, 0.5, 1, 2 complete. See [docs/plan.md](docs/plan.md) for architecture and [docs/superpowers/specs/](docs/superpowers/specs/) for spec deviation log.
+Local single-process HTTP service: scanned German legal contracts → OCR → Gemma 4 E2B (Ollama) → structured JSON. Python 3.13, `uv`-managed, ruff + mypy strict, FastAPI + asyncio. Target: Mac Mini M4, 16 GB. Phases 0, 0.5, 1, 2, 3 complete. See [docs/plan.md](docs/plan.md) for architecture and [docs/superpowers/specs/](docs/superpowers/specs/) for spec deviation log.
 
 ## Phase development — Superpowers flow (Phase 3+)
 
@@ -49,7 +49,7 @@ After each layer, before the gate: if any agent reported a deviation affecting a
 
 ### When NOT to use the Superpowers flow
 
-Phases whose ENTIRE task list has only 1–2 independent tasks across ALL layers (per-WHOLE-PHASE threshold, not per-layer — parallel overhead exceeds coordination cost; fall back to serial TDD in main convo inside worktree); one-off fixes outside a phase (direct branch, no worktree, no TDD ceremony for trivial doc/config); panel-review-fix branches for standalone "review against main" (follow [§ Code review](#code-review-methodology) standalone exception); Phases 0/0.5/1/2 (already complete).
+Phases whose ENTIRE task list has only 1–2 independent tasks across ALL layers (per-WHOLE-PHASE threshold, not per-layer — parallel overhead exceeds coordination cost; fall back to serial TDD in main convo inside worktree); one-off fixes outside a phase (direct branch, no worktree, no TDD ceremony for trivial doc/config); panel-review-fix branches for standalone "review against main" (follow [§ Code review](#code-review-methodology) standalone exception); Phases 0/0.5/1/2/3 (already complete).
 
 ## Code review methodology
 
@@ -312,7 +312,7 @@ rm -rf dist/
 - Architecture + phase plan: [docs/plan.md](docs/plan.md)
 - Phase 0.5 CI/CD design + accepted deviations log: [docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md](docs/superpowers/specs/2026-05-11-ci-cd-scaffolding-design.md) (§17 latest: §17.38 — cycle-3 TERMINAL of fresh 3-cycle standalone review on `chore/panel-review-fixes-2026-05-13-pass2` (sonnet); loop total 19 fix-commits + 3 audit commits = 22 across 3 cycles; cycle severity-by-finding tallies: C1 → 0 Crit / 3 Imp / 5 Min, C2 → 1 Crit / 3 Imp / 5 Min, C3 → 0 Crit / 3 Imp / 3 Min; USER-CAP termination (not convergence — fix-commit count flat C2/C3 with audit-comment factual-drift the dominant signal)) — see §17.38 for proposed Workflow-Gap Rule #4 (pre-audit grep checklist).
 - Phase 2 OCR-layer spec + accepted deviations log: [docs/superpowers/specs/2026-05-12-phase-2-ocr-spec-deviations.md](docs/superpowers/specs/2026-05-12-phase-2-ocr-spec-deviations.md) (own §17 namespace, distinct from the CI/CD spec — qualify cross-file references with the filename to disambiguate; latest: §17.17 — det model swap (post-loop hardening))
-- Phase 3 LLM-layer spec + accepted deviations log: [docs/superpowers/specs/2026-05-13-phase-3-llm-spec-deviations.md](docs/superpowers/specs/2026-05-13-phase-3-llm-spec-deviations.md) (own §17 namespace, distinct from the CI/CD and Phase 2 specs — qualify cross-file references with the filename to disambiguate; latest: §17.4 — panel review cycle 1 closing on `chore/docs-gemma-4-migration`, applied 6 fixes (5 doc-accuracy + 1 PR-title), dropped 4 ceremonial findings per senior-dev filter, deferred 1 pre-existing fragility)
+- Phase 3 LLM-layer spec + accepted deviations log: [docs/superpowers/specs/2026-05-13-phase-3-llm-spec-deviations.md](docs/superpowers/specs/2026-05-13-phase-3-llm-spec-deviations.md) (own §17 namespace, distinct from the CI/CD and Phase 2 specs — qualify cross-file references with the filename to disambiguate; latest: §17.4 — panel review cycle 1 closing on `chore/docs-gemma-4-migration`, applied 5 fix commits + 1 PR-title update (`gh pr edit`, non-commit), dropped 4 ceremonial findings per senior-dev filter, deferred 1 pre-existing fragility)
 - Phase 0.5 implementation plan (historical): [docs/superpowers/plans/2026-05-11-ci-cd-scaffolding.md](docs/superpowers/plans/2026-05-11-ci-cd-scaffolding.md)
 - README change queue: [docs/readme-changes-pending.md](docs/readme-changes-pending.md)
 - Memory (auto-loaded each session): `~/.claude/projects/-Users-cosminneamtiu-Work-contract-data-extraction/memory/` — see MEMORY.md for index
