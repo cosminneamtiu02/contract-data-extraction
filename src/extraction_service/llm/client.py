@@ -1,4 +1,4 @@
-"""Thin async wrapper around ``ollama.AsyncClient`` (plan §6.5 task 3.1).
+"""Thin async wrapper around ``ollama.AsyncClient`` (plan §6.5 tasks 3.1 + 3.5).
 
 ``OllamaLlmClient`` is the single entry point for LLM inference in this
 service. It exposes one method — ``extract`` — and is intentionally thin:
@@ -10,15 +10,17 @@ Constructor injection is the test seam (mirrors the OCR pattern):
   - Tests: ``OllamaLlmClient(client=FakeOllamaClient(...), model=...)``
 
 Design constraints preserved for later tasks:
-  - ``model`` is a constructor argument so task-3.5 (context overflow with
-    fallback model) can reconfigure without touching ``extract``.
+  - ``model`` is a constructor argument so future context-overflow
+    fallback paths can reconfigure without touching ``extract``.
   - ``extract`` returns ``dict[str, Any]`` — the IO-boundary type — so
     task-3.3 (jsonschema validation) can wrap or augment without a signature
     change.
   - No ``system`` role message: Gemma does not support the system role;
     the prompt is passed as a single user-role message only.
 
-Tasks 3.5 (context overflow), 3.6 (dev-mode debug capture), and 3.7
+Task 3.5 adds context-overflow detection: HTTP 400 from Ollama whose error
+message indicates context-window exhaustion is mapped to the domain-layer
+``ContextOverflowError``. Tasks 3.6 (dev-mode debug capture) and 3.7
 (asyncio.wait_for timeout) extend this file in later commits.
 """
 
@@ -26,6 +28,10 @@ from __future__ import annotations
 
 import json
 from typing import Any, Protocol, runtime_checkable
+
+from ollama import ResponseError
+
+from extraction_service.domain.errors import ContextOverflowError
 
 
 class _ChatResponse(Protocol):
@@ -118,17 +124,58 @@ class OllamaLlmClient:
 
         Raises
         ------
+        ContextOverflowError:
+            If Ollama signals that the rendered prompt exceeded the model's
+            context window (HTTP 400 + an error message that mentions
+            "context" plus one of "length", "window", "exceed"). Mapping to
+            the domain-layer exception lets upstream code distinguish
+            overflow from generic LLM failure modes.
+        ollama.ResponseError:
+            Any other Ollama-side error (e.g. malformed request, server
+            error) re-raised unchanged. Tasks 3.6/3.7 may add further
+            mapping; for now non-overflow ``ResponseError`` is intentionally
+            transparent.
         json.JSONDecodeError:
             If Ollama returns content that is not valid JSON despite
             ``format`` enforcement (e.g. model truncation mid-token).
         """
-        response = await self._client.chat(
-            model=self._model,
-            messages=[{"role": "user", "content": prompt}],
-            format=schema,
-            options={"temperature": 0},
-        )
+        try:
+            response = await self._client.chat(
+                model=self._model,
+                messages=[{"role": "user", "content": prompt}],
+                format=schema,
+                options={"temperature": 0},
+            )
+        except ResponseError as e:
+            if e.status_code == _HTTP_BAD_REQUEST and _is_context_overflow_error(e.error):
+                msg = f"Ollama context overflow: {e.error}"
+                raise ContextOverflowError(msg) from e
+            raise
         # Access via attribute, NOT dict key — this changed in ollama 0.4→0.5.
         content: str = response.message.content
         result: dict[str, Any] = json.loads(content)
         return result
+
+
+_HTTP_BAD_REQUEST = 400
+_OVERFLOW_KEYWORDS = ("length", "window", "exceed")
+
+
+def _is_context_overflow_error(error_message: str) -> bool:
+    """Heuristic check for Ollama context-overflow error messages.
+
+    Ollama signals context overflow with HTTP 400 and an error message
+    containing the word "context" together with one of the standard
+    overflow indicators ("length", "window", "exceed"). Observed in the
+    wild:
+
+      - "model context length 2048 exceeded by 500 tokens"
+      - "input exceeds context window"
+      - "context length exceeded"
+
+    Not all 400s are context overflow (e.g. malformed JSON requests or
+    invalid model names), so we require both signals before mapping to
+    ``ContextOverflowError``.
+    """
+    lower = error_message.lower()
+    return "context" in lower and any(keyword in lower for keyword in _OVERFLOW_KEYWORDS)

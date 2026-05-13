@@ -62,8 +62,8 @@ class FakeOllamaClient:
     to exercise specific JSON parsing / schema validation paths.
     """
 
-    def __init__(self, content: str = "{}") -> None:
-        """Configure the response content this fake returns from ``.chat()``.
+    def __init__(self, content: str = "{}", raise_exc: Exception | None = None) -> None:
+        """Configure what this fake returns (or raises) from ``.chat()``.
 
         Parameters
         ----------
@@ -71,8 +71,14 @@ class FakeOllamaClient:
             Raw string that will be placed in ``response.message.content``.
             Must be valid JSON if the caller intends ``OllamaLlmClient.extract``
             to succeed (it runs ``json.loads`` on this value).
+        raise_exc:
+            If non-``None``, ``.chat()`` records the call arguments and then
+            raises this exception instead of returning a response. Lets tests
+            drive error-path branches (e.g. ``ollama.ResponseError`` with
+            ``status_code=400`` for task-3.5 context-overflow detection).
         """
         self._content = content
+        self._raise_exc = raise_exc
         self.last_call: dict[str, Any] = {}
 
     async def chat(
@@ -82,15 +88,17 @@ class FakeOllamaClient:
         messages: list[dict[str, str]] | None = None,
         format: dict[str, Any] | None = None,  # noqa: A002  -- mirrors ollama SDK param name
         options: dict[str, Any] | None = None,
-        **_extras: object,  # forward-compat: tasks 3.5-3.7 add keep_alive, stream, etc.
+        **_extras: object,  # forward-compat: tasks 3.6/3.7 add keep_alive, stream, etc.
     ) -> FakeChatResponse:
-        """Record the call arguments and return a pre-configured FakeChatResponse.
+        """Record the call arguments and return (or raise) per configuration.
 
         Known parameters (model, messages, format, options) are captured into
-        ``last_call`` for test assertions. Extra keyword arguments are silently
-        dropped via ``**_extras: object`` so the fake remains stable as
-        ``OllamaLlmClient`` adds new options in tasks 3.5-3.7 without
-        requiring fake updates each time.
+        ``last_call`` for test assertions BEFORE the optional raise, so tests
+        can verify the wrapper still attempted the call when an exception is
+        configured. Extra keyword arguments are silently dropped via
+        ``**_extras: object`` so the fake remains stable as ``OllamaLlmClient``
+        adds new options in tasks 3.6/3.7 without requiring fake updates each
+        time.
         """
         self.last_call = {
             "model": model,
@@ -98,4 +106,6 @@ class FakeOllamaClient:
             "format": format if format is not None else {},
             "options": options if options is not None else {},
         }
+        if self._raise_exc is not None:
+            raise self._raise_exc
         return FakeChatResponse(message=FakeChatMessage(content=self._content))
