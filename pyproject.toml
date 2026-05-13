@@ -173,6 +173,14 @@ target-version = "py313"
 # that conflict with reserved LogRecord attrs. Phase 3+ workers will emit
 # through structlog's stdlib bridge. Zero current violations.
 select = ["E", "F", "I", "B", "UP", "ASYNC", "PIE", "SIM", "RET", "ARG", "PTH", "TID", "T20", "RUF", "C4", "FURB", "PT", "EM", "TRY", "TC", "N", "S", "BLE", "PL", "ANN", "G", "DTZ", "A", "FBT", "LOG"]
+# E501 (line-too-long) silenced because `ruff format` is the project's
+# line-wrapping authority (line-length = 100, set above). The formatter
+# rewraps overlong code lines automatically; the remaining E501 offenders
+# are unavoidable long string literals in error messages, docstrings, and
+# the URL examples in module docstrings — locking those at 100 chars would
+# either force unreadable concatenation seams or hide the load-bearing
+# example URL across two lines. Same single-ignore-with-rationale posture
+# the rest of this file establishes for per-rule decisions.
 ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
