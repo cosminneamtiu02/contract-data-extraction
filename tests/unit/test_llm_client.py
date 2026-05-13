@@ -104,6 +104,8 @@ async def test_context_overflow_raises_loudly() -> None:
     an error message indicating the prompt exceeded the model's context
     window, ``OllamaLlmClient.extract`` raises the domain-layer
     ``ContextOverflowError`` instead of leaking the bare ``ResponseError``.
+    Also pins the exception chain — the original `ResponseError` is set as
+    `__cause__` via `raise ... from e`, parallel to the timeout test.
     """
     from extraction_service.domain.errors import ContextOverflowError
     from extraction_service.llm.client import OllamaLlmClient
@@ -116,8 +118,10 @@ async def test_context_overflow_raises_loudly() -> None:
     fake = FakeOllamaClient(raise_exc=overflow_err)
     client = OllamaLlmClient(client=fake, model="gemma3:4b")
 
-    with pytest.raises(ContextOverflowError):
+    with pytest.raises(ContextOverflowError) as excinfo:
         await client.extract(prompt="huge prompt", schema={"type": "object"})
+
+    assert isinstance(excinfo.value.__cause__, ResponseError)
 
 
 async def test_non_overflow_5xx_response_error_re_raises_unchanged() -> None:

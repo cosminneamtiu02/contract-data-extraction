@@ -102,3 +102,43 @@ def test_schema_error_chain_preserves_original_exception() -> None:
         validate_extracted_data({"x": "wrong"}, schema)
     # The __cause__ must be a jsonschema.ValidationError (raise ... from e).
     assert isinstance(exc_info.value.__cause__, jsonschema.ValidationError)
+
+
+def test_validate_extracted_data_root_array_field_path() -> None:
+    """``_format_path`` handles root-level array indices (leading integer).
+
+    The private helper has two branches: ``str``-then-``[int]`` (the common
+    case, e.g. ``contract.parties[0].name``) and ``[int]`` at the very start
+    (root-level array, no preceding string key). Phase-3 domain schemas
+    happen to be all-object-rooted, so the leading-integer branch was never
+    exercised. This test fires the branch by validating an array of records
+    against a root-array schema, then asserts the resulting error message
+    includes a bracketed-integer prefix (``[1]``) — confirming the
+    ``else: parts.append(f"[{item}]")`` arm reached the message string.
+
+    The ``cast`` is deliberate: ``validate_extracted_data``'s ``data``
+    parameter is typed ``dict[str, Any]`` because in Phase 3 the LLM output
+    is always a dict per ``OllamaLlmClient.extract``'s return type. The
+    underlying ``jsonschema.validate`` accepts any JSON-shaped value, and
+    this test exercises a private code-path that fires only on non-dict
+    inputs — hence the type override at the test seam.
+    """
+    from typing import Any, cast
+
+    from extraction_service.domain.errors import SchemaInvalidError
+    from extraction_service.llm.schema import validate_extracted_data
+
+    schema = {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {"name": {"type": "string"}},
+            "required": ["name"],
+        },
+    }
+    data = [{"name": "ok"}, {}]  # second element missing "name"
+
+    with pytest.raises(SchemaInvalidError) as exc_info:
+        validate_extracted_data(cast("dict[str, Any]", data), schema)
+
+    assert "[1]" in str(exc_info.value)
