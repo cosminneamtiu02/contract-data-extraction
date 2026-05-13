@@ -120,19 +120,39 @@ async def test_context_overflow_raises_loudly() -> None:
         await client.extract(prompt="huge prompt", schema={"type": "object"})
 
 
-async def test_non_overflow_response_error_re_raises_unchanged() -> None:
-    """Non-overflow ``ollama.ResponseError`` instances pass through unmapped.
+async def test_non_overflow_5xx_response_error_re_raises_unchanged() -> None:
+    """5xx ``ollama.ResponseError`` instances pass through unmapped.
 
-    A 400 without context-overflow indicators (e.g. malformed JSON request),
-    or a 5xx server error, is not mapped to ``ContextOverflowError`` — it
-    re-raises so upstream layers can distinguish overflow from other
-    failure modes.
+    Server errors are not context-overflow; the wrapper re-raises so
+    upstream layers can distinguish overflow from other failure modes.
     """
     from extraction_service.llm.client import OllamaLlmClient
     from tests.fakes.fake_ollama import FakeOllamaClient
 
     other_err = ResponseError("internal server error", status_code=500)
     fake = FakeOllamaClient(raise_exc=other_err)
+    client = OllamaLlmClient(client=fake, model="gemma3:4b")
+
+    with pytest.raises(ResponseError):
+        await client.extract(prompt="x", schema={})
+
+
+async def test_http_400_without_overflow_keywords_re_raises_unchanged() -> None:
+    """HTTP 400 without context-overflow keywords passes through unmapped.
+
+    The heuristic in ``_is_context_overflow_error`` requires BOTH
+    ``status_code == 400`` AND a "context"-plus-overflow-indicator
+    error message. A 400 with neither indicator (e.g. an invalid-model
+    request) is a non-overflow failure and must NOT map to
+    ``ContextOverflowError``. This pins the heuristic's false-positive
+    rejection — without it the 400 status alone could plausibly catch
+    all 400s if a future maintainer simplified the guard.
+    """
+    from extraction_service.llm.client import OllamaLlmClient
+    from tests.fakes.fake_ollama import FakeOllamaClient
+
+    non_overflow_400 = ResponseError("invalid model name requested", status_code=400)
+    fake = FakeOllamaClient(raise_exc=non_overflow_400)
     client = OllamaLlmClient(client=fake, model="gemma3:4b")
 
     with pytest.raises(ResponseError):
@@ -255,13 +275,15 @@ async def test_no_timeout_argument_does_not_apply_wait_for() -> None:
     """Default ``timeout_seconds=None`` skips ``asyncio.wait_for`` entirely.
 
     Companion to the timeout test: with no timeout configured the wrapper
-    awaits the chat call directly, so a slow fake completes successfully
-    without raising.
+    awaits the chat call directly. The structural assertion on the
+    returned dict proves the no-timeout code path completed; no real
+    sleep is needed (a sleep would only verify the fake's behavior,
+    not the wrapper's).
     """
     from extraction_service.llm.client import OllamaLlmClient
     from tests.fakes.fake_ollama import FakeOllamaClient
 
-    fake = FakeOllamaClient(content='{"k": "v"}', sleep_seconds=0.005)
+    fake = FakeOllamaClient(content='{"k": "v"}')
     client = OllamaLlmClient(client=fake, model="gemma3:4b")  # no timeout
 
     result = await client.extract(prompt="x", schema={})

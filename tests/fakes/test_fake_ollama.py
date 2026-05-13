@@ -123,6 +123,27 @@ async def test_fake_ollama_client_last_call_updated_on_repeated_calls() -> None:
     assert fake.last_call["model"] == "gemma3:12b"
 
 
+async def test_fake_ollama_client_records_last_call_before_raising() -> None:
+    """When ``raise_exc`` is set, ``last_call`` is still populated.
+
+    Pins the fake's error-path contract: tests that need to assert what
+    arguments the wrapper passed BEFORE the exception fired (e.g. "did
+    the wrapper still try the right model when Ollama 400'd?") can rely
+    on ``last_call`` being recorded prior to the raise. Without this
+    test the fake could silently drift to raising before recording and
+    break those assertions.
+    """
+    from tests.fakes.fake_ollama import FakeOllamaClient
+
+    boom = RuntimeError("simulated failure")
+    fake = FakeOllamaClient(raise_exc=boom)
+
+    with pytest.raises(RuntimeError):
+        await fake.chat(model="gemma3:4b", messages=[], format={}, options={})
+
+    assert fake.last_call["model"] == "gemma3:4b"
+
+
 def test_fake_chat_message_is_frozen() -> None:
     """FakeChatMessage is immutable (project convention for value objects)."""
     from tests.fakes.fake_ollama import FakeChatMessage

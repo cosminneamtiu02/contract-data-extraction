@@ -97,7 +97,9 @@ def test_prompt_handles_escaped_braces_in_template(tmp_path: Path) -> None:
     from extraction_service.llm.prompt import PromptTemplate
 
     template_path = tmp_path / "tmpl.txt"
-    # {{key}} renders as literal {key} in the output.
+    # `{{{{key}}}}` in the template (four braces around `key`) renders as
+    # `{{key}}` (two literal braces) in the output — one escape level
+    # consumed per pair, per Python's str.format syntax.
     template_path.write_text("Example: {{{{key}}}}\nOCR: {ocr_text}", encoding="utf-8")
     pt = PromptTemplate(template_path)
 
