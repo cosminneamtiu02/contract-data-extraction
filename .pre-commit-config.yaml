@@ -1,4 +1,4 @@
-# Pin minimum pre-commit version to match `pre-commit>=4.0` in
+# Pin minimum pre-commit version to match `pre-commit>=4.6` in
 # [dependency-groups.dev]. A developer running an older globally-
 # installed pre-commit on a fresh machine (before `uv sync` puts the
 # locked version on path) gets a clear version error instead of
