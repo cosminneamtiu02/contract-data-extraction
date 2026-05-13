@@ -12,6 +12,8 @@ to prevent the coroutine from blocking test cleanup.
 """
 
 import asyncio
+import contextlib
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -681,3 +683,72 @@ async def test_llm_worker_calls_task_done_after_failed_job(
         await task
 
     assert state.interstage_queue._unfinished_tasks == 0  # type: ignore[attr-defined]  # CPython internal attr; no public equivalent in asyncio.Queue
+
+
+# ---------------------------------------------------------------------------
+# Task 4.7: two-lane concurrency proof
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_two_lanes_concurrent(tmp_path: Path, prompt_template: PromptTemplate) -> None:
+    """Two run_llm_worker tasks process 4 jobs in ~half the wall-clock time
+    of a single-worker run (plan §6.6 task 4.7)."""
+    settings = Settings(run_config=tmp_path / "run.yaml")
+    # FakeOllamaClient sleeps 100ms per chat(). With 4 jobs and 2 workers,
+    # optimal wall time is 2 * 100ms = 200ms; serial would be 4 * 100ms = 400ms.
+    per_call_seconds = 0.1
+    fake = FakeOllamaClient(content='{"field": "v"}', sleep_seconds=per_call_seconds)
+    client = OllamaLlmClient(client=fake, model="test-model")
+    retry_config = RetryConfig()
+
+    state = PipelineState.from_settings(settings)
+    contract_ids = [uuid4() for _ in range(4)]
+    for cid in contract_ids:
+        await _seed_record_for(state, cid)
+        await state.interstage_queue.put(OcrCompleted(contract_id=cid, ocr_text="x"))
+
+    # Start TWO workers concurrently.
+    start = time.perf_counter()
+    worker_1 = asyncio.create_task(
+        run_llm_worker(
+            state=state,
+            client=client,
+            prompt_template=prompt_template,
+            domain_schema=_SIMPLE_SCHEMA,
+            retry_config=retry_config,
+        )
+    )
+    worker_2 = asyncio.create_task(
+        run_llm_worker(
+            state=state,
+            client=client,
+            prompt_template=prompt_template,
+            domain_schema=_SIMPLE_SCHEMA,
+            retry_config=retry_config,
+        )
+    )
+
+    # Wait for all 4 records to reach DONE.
+    async with asyncio.timeout(2.0):
+        for cid in contract_ids:
+            while True:
+                record = await state.result_store.get(cid)
+                if record is not None and record.data_parsing.state == StageState.DONE:
+                    break
+                await asyncio.sleep(0.005)
+
+    elapsed = time.perf_counter() - start
+
+    for t in (worker_1, worker_2):
+        t.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await t
+
+    # Two-lane parallelism: optimal ~2*per_call = 200ms; serial would be
+    # ~4*per_call = 400ms. Assert wall-time < 350ms — leaves headroom for
+    # event-loop scheduling jitter on macOS CI while still failing if a
+    # regression serializes the workers.
+    serial_lower_bound = 4 * per_call_seconds  # 0.4
+    parallel_upper_bound = serial_lower_bound * 0.875  # 0.35
+    assert elapsed < parallel_upper_bound
