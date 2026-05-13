@@ -235,7 +235,7 @@ class DoclingOcrEngine:
             else:
                 errors_detail = repr(raw_errors)
             msg = f"docling reported conversion status {result.status!r}: {errors_detail}"
-            raise OcrError(msg) from None
+            raise OcrError(msg)
 
         document = result.document
         text = document.export_to_markdown()
